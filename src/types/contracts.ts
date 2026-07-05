@@ -63,11 +63,12 @@ export interface ContractAutoWorkerData {
 export interface ContractAutoCompanyData {
   company_name: string
   logo_url: string
+  tagline: string
   ico: string
   dic: string
   address: string
-  city?: string
-  postal_code?: string
+  city: string
+  postal_code: string
   phone: string
   email: string
   website: string
@@ -167,11 +168,12 @@ function companyFromSettings(company: CompanySettings): ContractAutoCompanyData 
   return {
     company_name: company.company_name,
     logo_url: company.logo_url,
+    tagline: company.tagline ?? '',
     ico: company.ico,
     dic: company.dic,
     address: company.address,
-    city: company.city,
-    postal_code: company.postal_code,
+    city: company.city ?? '',
+    postal_code: company.postal_code ?? '',
     phone: company.phone,
     email: company.email,
     website: company.website,
