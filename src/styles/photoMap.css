@@ -1,0 +1,32 @@
+.photo-map-view {
+  height: min(72vh, 640px);
+  min-height: 280px;
+  z-index: 0;
+}
+
+@media (max-width: 640px) {
+  .photo-map-view {
+    height: min(58vh, 520px);
+    min-height: 240px;
+    border-radius: 1rem;
+  }
+}
+
+.photo-map-view .leaflet-control-zoom a {
+  min-width: 44px;
+  min-height: 44px;
+  line-height: 44px;
+  font-size: 20px;
+}
+
+.photo-map-view .leaflet-container {
+  font-family: inherit;
+  background: #1a2332;
+  touch-action: pan-x pan-y;
+}
+
+.photo-map-view .leaflet-tooltip {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
