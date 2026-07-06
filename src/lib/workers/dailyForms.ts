@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { approveDailyReport, returnDailyReport } from '@/lib/workers/module5'
 import type { WorkerDailyForm, WorkerFormStatus } from '@/types/workers'
 
 export interface DailyFormListRecord extends WorkerDailyForm {
@@ -52,4 +53,45 @@ export async function fetchAllDailyForms(filters: DailyFormFilters = {}): Promis
     const order = (r.order_name ?? '').toLowerCase()
     return worker.includes(q) || order.includes(q)
   })
+}
+
+async function findReportIdForForm(formId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('worker_reports')
+    .select('id')
+    .eq('form_id', formId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data?.id ? String(data.id) : null
+}
+
+export async function approveDailyForm(formId: string, approvedBy: string): Promise<void> {
+  const reportId = await findReportIdForForm(formId)
+  if (reportId) {
+    await approveDailyReport(reportId, approvedBy)
+    return
+  }
+
+  const { error } = await supabase
+    .from('worker_daily_forms')
+    .update({ status: 'schvaleny' as WorkerFormStatus, approved_by: approvedBy })
+    .eq('id', formId)
+
+  if (error) throw new Error(error.message)
+}
+
+export async function returnDailyForm(formId: string, performedBy: string): Promise<void> {
+  const reportId = await findReportIdForForm(formId)
+  if (reportId) {
+    await returnDailyReport(reportId, performedBy)
+    return
+  }
+
+  const { error } = await supabase
+    .from('worker_daily_forms')
+    .update({ status: 'k_oprave' as WorkerFormStatus })
+    .eq('id', formId)
+
+  if (error) throw new Error(error.message)
 }

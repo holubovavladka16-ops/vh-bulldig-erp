@@ -40,10 +40,12 @@ export function ConnectionDetailModal({ connectionId, onClose }: ConnectionDetai
           </button>
         </div>
 
-        {loading || !detail ? (
+        {loading ? (
           <div className="flex justify-center py-16">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
           </div>
+        ) : !detail ? (
+          <p className="py-16 text-center text-theme-secondary">Přípojka nenalezena nebo byla smazána.</p>
         ) : (
           <div className="space-y-6">
             <Card className="grid gap-3 sm:grid-cols-2">

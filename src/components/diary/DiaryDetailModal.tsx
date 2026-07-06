@@ -76,14 +76,12 @@ export function DiaryDetailModal({ entryId, onClose }: DiaryDetailModalProps) {
 
 
 
-        {loading || !detail ? (
-
+        {loading ? (
           <div className="flex justify-center py-16">
-
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
-
           </div>
-
+        ) : !detail ? (
+          <p className="py-16 text-center text-theme-secondary">Zápis stavebního deníku nenalezen.</p>
         ) : (
 
           <div className="space-y-6">

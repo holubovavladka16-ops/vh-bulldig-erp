@@ -10,8 +10,8 @@ import { Select } from '@/components/ui/Select'
 import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTable'
 import { StatusBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/context/AuthContext'
-import { fetchWorkers, approveForm, returnFormForCorrection } from '@/lib/workers/api'
-import { fetchAllDailyForms, type DailyFormFilters, type DailyFormListRecord } from '@/lib/workers/dailyForms'
+import { fetchWorkers } from '@/lib/workers/api'
+import { fetchAllDailyForms, approveDailyForm, returnDailyForm, type DailyFormFilters, type DailyFormListRecord } from '@/lib/workers/dailyForms'
 import { fetchJobOrders } from '@/lib/orders/api'
 import {
   WORK_TYPE_LABELS,
@@ -75,14 +75,22 @@ export function DailyFormsModulePage() {
 
   async function handleApprove(form: DailyFormListRecord) {
     if (!user) return
-    await approveForm(form.id, form.worker_id, user.id)
-    await load()
+    try {
+      await approveDailyForm(form.id, user.id)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Schválení formuláře se nezdařilo')
+    }
   }
 
   async function handleReturn(form: DailyFormListRecord) {
     if (!user) return
-    await returnFormForCorrection(form.id, form.worker_id, user.id)
-    await load()
+    try {
+      await returnDailyForm(form.id, user.id)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vrácení formuláře se nezdařilo')
+    }
   }
 
   return (

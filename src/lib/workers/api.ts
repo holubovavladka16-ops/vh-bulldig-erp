@@ -425,6 +425,7 @@ export interface PortalFormInput {
   advance: number
   material: string
   note: string
+  work_description: string
   gps_lat: number | null
   gps_lng: number | null
   gps_accuracy: number | null
@@ -445,6 +446,7 @@ export async function portalSaveForm(token: string, form: PortalFormInput): Prom
     p_advance: form.advance,
     p_material: form.material,
     p_note: form.note,
+    p_work_description: form.work_description ?? '',
     p_gps_lat: form.gps_lat,
     p_gps_lng: form.gps_lng,
     p_gps_accuracy: form.gps_accuracy,

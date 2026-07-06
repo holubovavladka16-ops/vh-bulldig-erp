@@ -83,10 +83,12 @@ export function PhotoMapDetailPanel({ photoId, onClose, onUpdated, variant }: Ph
         </div>
 
         <div className="scrollbar-premium flex-1 overflow-y-auto p-3 sm:p-4">
-          {loading || !detail ? (
+          {loading ? (
             <div className="flex justify-center py-12">
               <div className="h-9 w-9 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
             </div>
+          ) : !detail ? (
+            <p className="py-12 text-center text-sm text-theme-secondary">Fotodoklad nenalezen.</p>
           ) : (
             <PhotoDocumentView
               photo={detail}

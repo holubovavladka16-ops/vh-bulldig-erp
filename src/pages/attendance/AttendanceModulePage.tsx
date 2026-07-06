@@ -14,7 +14,7 @@ import { fetchAllAttendance, fetchDistinctOrders, type AttendanceListRecord, typ
 import { fetchWorkers } from '@/lib/workers/api'
 import { fetchActiveJobOrders } from '@/lib/orders/api'
 import { supabase } from '@/lib/supabase'
-import { attendanceSourceLabel } from '@/constants/attendance'
+import { attendanceSourceLabel, canDeleteAttendanceRecord } from '@/constants/attendance'
 import { formatCurrency, formatDate } from '@/constants/workers'
 import { formatTimeForInput } from '@/lib/workers/attendance'
 import type { AttendanceUpsertInput } from '@/types/workers'
@@ -167,7 +167,7 @@ export function AttendanceModulePage() {
               <DataTableCell>{r.earnings != null ? formatCurrency(r.earnings) : '—'}</DataTableCell>
               <DataTableCell>{formatCurrency(r.daily_advance ?? 0)}</DataTableCell>
               <DataTableCell className="max-w-[180px] truncate">{r.note || '—'}</DataTableCell>
-              <DataTableCell>{attendanceSourceLabel(r.form_id)}</DataTableCell>
+              <DataTableCell>{attendanceSourceLabel(r.form_id, r.form_signature)}</DataTableCell>
               <DataTableCell>
                 <div className="flex gap-1">
                   <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(r)} aria-label="Upravit">
@@ -178,7 +178,7 @@ export function AttendanceModulePage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(r)}
-                    disabled={Boolean(r.form_id)}
+                    disabled={!canDeleteAttendanceRecord(r.form_id, r.form_signature)}
                     aria-label="Smazat"
                   >
                     <Trash2 className="h-4 w-4" />

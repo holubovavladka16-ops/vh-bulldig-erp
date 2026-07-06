@@ -99,9 +99,16 @@ export function PayrollSlipDetailModal({ workerId, period, onClose }: PayrollSli
           </button>
         </div>
 
-        {loading || !detail ? (
+        {loading ? (
           <div className="flex justify-center py-16">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
+          </div>
+        ) : !detail ? (
+          <div className="py-16 text-center">
+            <p className="text-theme-primary">Žádné schválené výkazy v tomto období.</p>
+            <p className="mt-2 text-sm text-theme-secondary">
+              Nejdříve schvalte denní formuláře ve Výkazech nebo Denních formulářích.
+            </p>
           </div>
         ) : (
           <div className="space-y-6">

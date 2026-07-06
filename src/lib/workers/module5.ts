@@ -23,6 +23,7 @@ export interface ModuleListFilters {
 export interface AttendanceListRecord extends WorkerAttendanceRecord {
   worker_first_name: string
   worker_last_name: string
+  form_signature?: string | null
   earnings?: number
   meters?: number
   pieces?: number
@@ -94,7 +95,7 @@ export async function fetchAllAttendance(filters: ModuleListFilters = {}): Promi
     .select(`
       *,
       workers:worker_id ( first_name, last_name ),
-      worker_daily_forms:form_id ( earnings, meters, pieces, advance )
+      worker_daily_forms:form_id ( earnings, meters, pieces, advance, signature_data )
     `)
 
   if (filters.workerId) query = query.eq('worker_id', filters.workerId)
@@ -108,7 +109,13 @@ export async function fetchAllAttendance(filters: ModuleListFilters = {}): Promi
   const rows: AttendanceListRecord[] = ((data ?? []) as Array<
     Record<string, unknown> & {
       workers?: { first_name: string; last_name: string } | null
-      worker_daily_forms?: { earnings: number; meters: number; pieces: number; advance: number } | null
+      worker_daily_forms?: {
+        earnings: number
+        meters: number
+        pieces: number
+        advance: number
+        signature_data: string | null
+      } | null
     }
   >).map((row) => {
     const worker = row.workers ?? null
@@ -121,6 +128,7 @@ export async function fetchAllAttendance(filters: ModuleListFilters = {}): Promi
       ...record,
       worker_first_name: worker?.first_name ?? '',
       worker_last_name: worker?.last_name ?? '',
+      form_signature: form?.signature_data ?? null,
       earnings: form?.earnings != null ? Number(form.earnings) : undefined,
       meters: form?.meters != null ? Number(form.meters) : undefined,
       pieces: form?.pieces != null ? Number(form.pieces) : undefined,

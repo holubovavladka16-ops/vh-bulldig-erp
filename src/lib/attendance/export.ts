@@ -20,7 +20,7 @@ export function exportAttendanceExcel(records: AttendanceListRecord[], filename 
       r.earnings != null ? formatCurrency(r.earnings) : '',
       formatCurrency(r.daily_advance ?? 0),
       r.note || '',
-      attendanceSourceLabel(r.form_id),
+      attendanceSourceLabel(r.form_id, r.form_signature),
     ])
   )
 }
@@ -38,7 +38,7 @@ export function exportAttendancePdf(records: AttendanceListRecord[], company: Co
         <td class="num">${escHtml(r.earnings != null ? formatCurrency(r.earnings) : '—')}</td>
         <td class="num">${escHtml(formatCurrency(r.daily_advance ?? 0))}</td>
         <td>${escHtml(r.note || '—')}</td>
-        <td>${escHtml(attendanceSourceLabel(r.form_id))}</td>
+        <td>${escHtml(attendanceSourceLabel(r.form_id, r.form_signature))}</td>
       </tr>`
     )
     .join('')

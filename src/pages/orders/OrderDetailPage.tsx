@@ -31,12 +31,17 @@ export function OrderDetailPage() {
   const isAdmin = profile ? isAdministrator(profile.role) : false
   const [detail, setDetail] = useState<JobOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   async function load() {
     if (!id) return
     setLoading(true)
+    setLoadError('')
     try {
       setDetail(await fetchJobOrderDetail(id))
+    } catch (err) {
+      setDetail(null)
+      setLoadError(err instanceof Error ? err.message : 'Zakázka nenalezena')
     } finally {
       setLoading(false)
     }
@@ -65,11 +70,26 @@ export function OrderDetailPage() {
     await openOrderDocument(filePath)
   }
 
-  if (loading || !detail) {
+  if (loading) {
     return (
       <AppLayout>
         <div className="flex justify-center py-20">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (!detail) {
+    return (
+      <AppLayout>
+        <Button variant="ghost" className="mb-4" onClick={() => navigate('/zakazky')}>
+          <ArrowLeft className="h-4 w-4" />
+          Zpět na zakázky
+        </Button>
+        <div className="glass-panel rounded-2xl p-8 text-center">
+          <p className="text-lg font-semibold text-theme-primary">Zakázka nenalezena</p>
+          <p className="mt-2 text-sm text-theme-secondary">{loadError || 'Požadovaná zakázka neexistuje nebo byla smazána.'}</p>
         </div>
       </AppLayout>
     )

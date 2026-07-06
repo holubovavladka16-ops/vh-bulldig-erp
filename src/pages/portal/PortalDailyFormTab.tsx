@@ -33,6 +33,7 @@ import type {
   TaskLineInput,
 } from '@/types/workers'
 import { WORKER_FORM_STATUS_LABELS, formatCurrency, formatDate } from '@/constants/workers'
+import { AiPolishTextButton } from '@/components/ai/AiPolishTextButton'
 import { APP_INFO } from '@/constants/modules'
 
 interface PortalDailyFormProps {
@@ -48,6 +49,7 @@ interface PortalFormState {
   advance: string
   material: string
   note: string
+  workDescription: string
   taskLines: TaskLineInput[]
   gpsLat: number | null
   gpsLng: number | null
@@ -65,6 +67,7 @@ function createEmptyState(): PortalFormState {
     advance: '0',
     material: '',
     note: '',
+    workDescription: '',
     taskLines: [],
     gpsLat: null,
     gpsLng: null,
@@ -86,6 +89,7 @@ function stateFromForm(
     advance: String(form.advance),
     material: form.material ?? '',
     note: form.note ?? '',
+    workDescription: form.work_description ?? '',
     taskLines,
     gpsLat: form.gps_lat,
     gpsLng: form.gps_lng,
@@ -113,6 +117,7 @@ function toSaveInput(formId: string | null, state: PortalFormState, priceItems: 
     advance: parseFloat(state.advance) || 0,
     material: state.material,
     note: state.note,
+    work_description: state.workDescription,
     gps_lat: state.gpsLat,
     gps_lng: state.gpsLng,
     gps_accuracy: state.gpsAccuracy,
@@ -408,6 +413,29 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
             disabled={!isEditable}
             workerMode
           />
+        </Card>
+
+        <Card className="space-y-4">
+          <h2 className="text-lg font-semibold text-theme-primary">Popis práce</h2>
+          <Textarea
+            label="Popis vykonané práce"
+            value={state.workDescription}
+            onChange={(e) => updateState({ workDescription: e.target.value })}
+            disabled={!isEditable}
+            placeholder="Napište vlastními slovy, co jste na stavbě dělali…"
+          />
+          {isEditable && (
+            <AiPolishTextButton
+              sourceText={state.workDescription}
+              context="daily_form"
+              portalToken={token}
+              onPolished={(text) => {
+                updateState({ workDescription: text })
+                setError('')
+              }}
+              onError={setError}
+            />
+          )}
         </Card>
 
         <Card className="space-y-4">

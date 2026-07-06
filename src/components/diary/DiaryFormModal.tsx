@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ImagePlus, Loader2, MapPin, Sparkles, X } from 'lucide-react'
+import { ImagePlus, Loader2, MapPin, X } from 'lucide-react'
+import { AiPolishTextButton } from '@/components/ai/AiPolishTextButton'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -11,7 +12,6 @@ import { DiaryPhotoPickerModal } from '@/components/diary/DiaryPhotoPickerModal'
 import { DiaryPhotoCard } from '@/components/diary/DiaryPhotoCard'
 import { DiaryPhotosMap } from '@/components/diary/DiaryPhotosMap'
 import { fetchDiaryDetail } from '@/lib/diary/api'
-import { polishDiaryWorkDescription } from '@/lib/diary/aiAssistant'
 import { fetchDiaryPrefill } from '@/lib/diary/prefill'
 import { todayIsoDate } from '@/lib/dates'
 import {
@@ -69,7 +69,6 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
   const [selectedPhotos, setSelectedPhotos] = useState<GpsPhoto[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [prefillLoading, setPrefillLoading] = useState(false)
-  const [aiLoading, setAiLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -216,26 +215,6 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
       setError(err instanceof Error ? err.message : 'Uložení se nezdařilo')
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function handleAiPolish() {
-    setError('')
-    if (!roughWorkDescription.trim()) {
-      setError('Nejdříve napište hrubý popis práce.')
-      return
-    }
-
-    setAiLoading(true)
-    try {
-      const result = await polishDiaryWorkDescription(roughWorkDescription)
-      setAiWorkDescription(result.polished_text)
-      setWorkDescription(result.polished_text)
-      setAiAssisted(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Úprava pomocí AI se nezdařila')
-    } finally {
-      setAiLoading(false)
     }
   }
 
@@ -416,17 +395,17 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
                   placeholder="Např.: Kopali jsme rýhu 70 cm, položili dvě HDPE trubky, udělali tři průrazy do domu…"
                   rows={4}
                 />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                  loading={aiLoading}
-                  disabled={roughWorkDescription.trim().length < 8 || aiLoading}
-                  onClick={() => void handleAiPolish()}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Upravit pomocí AI (Gemini)
-                </Button>
+                <AiPolishTextButton
+                  sourceText={roughWorkDescription}
+                  context="diary"
+                  onPolished={(text) => {
+                    setAiWorkDescription(text)
+                    setWorkDescription(text)
+                    setAiAssisted(true)
+                    setError('')
+                  }}
+                  onError={setError}
+                />
                 <Textarea
                   label="Denní popis práce *"
                   value={workDescription}

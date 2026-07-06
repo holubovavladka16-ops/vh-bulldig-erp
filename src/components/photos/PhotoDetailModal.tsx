@@ -77,10 +77,12 @@ export function PhotoDetailModal({ photoId, onClose, onUpdated }: PhotoDetailMod
         </div>
 
         <div className="p-4">
-          {loading || !detail ? (
+          {loading ? (
             <div className="flex justify-center py-16">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
             </div>
+          ) : !detail ? (
+            <p className="py-16 text-center text-theme-secondary">Fotodoklad nenalezen nebo byl smazán.</p>
           ) : (
             <PhotoDocumentView
               photo={detail}

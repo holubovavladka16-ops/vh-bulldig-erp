@@ -15,6 +15,25 @@ export const ATTENDANCE_STATUS_OPTIONS = (Object.keys(ATTENDANCE_STATUS_LABELS) 
   })
 )
 
-export function attendanceSourceLabel(formId: string | null | undefined): string {
-  return formId ? 'Formulář' : 'Ruční'
+export const ADMIN_MANUAL_SIGNATURE = 'admin-manual'
+
+export function isPortalAttendanceForm(formSignature: string | null | undefined): boolean {
+  return Boolean(formSignature) && formSignature !== ADMIN_MANUAL_SIGNATURE
+}
+
+export function canDeleteAttendanceRecord(
+  formId: string | null | undefined,
+  formSignature?: string | null
+): boolean {
+  if (!formId) return true
+  return formSignature === ADMIN_MANUAL_SIGNATURE
+}
+
+export function attendanceSourceLabel(
+  formId: string | null | undefined,
+  formSignature?: string | null
+): string {
+  if (!formId) return 'Ruční'
+  if (formSignature === ADMIN_MANUAL_SIGNATURE) return 'Ruční (správce)'
+  return 'Formulář'
 }

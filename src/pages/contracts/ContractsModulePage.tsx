@@ -33,6 +33,7 @@ import {
 import { EMPLOYMENT_TYPE_LABELS, formatDate } from '@/constants/workers'
 import type { Worker } from '@/types/workers'
 import type { JobOrder } from '@/types/orders'
+import { DEFAULT_COMPANY_SETTINGS } from '@/types'
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
@@ -45,7 +46,8 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 
 export function ContractsModulePage() {
   const { user } = useAuth()
-  const { settings: company } = useCompanySettings()
+  const { settings: companySettings, loading: companyLoading } = useCompanySettings()
+  const company = companySettings ?? { ...DEFAULT_COMPANY_SETTINGS, id: '', updated_at: '', updated_by: null }
   const [workers, setWorkers] = useState<Worker[]>([])
   const [orders, setOrders] = useState<JobOrder[]>([])
   const [documentType, setDocumentType] = useState<DocumentType>('HPP')
@@ -169,7 +171,7 @@ export function ContractsModulePage() {
         description="Generování pracovních smluv, obchodních dokumentů a dodatků s exportem do PDF (A4)."
       />
 
-      {loading || !company ? (
+      {loading || companyLoading ? (
         <div className="flex justify-center py-20">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
         </div>

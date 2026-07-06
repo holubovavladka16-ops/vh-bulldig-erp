@@ -1,6 +1,7 @@
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
+import { AiPolishTextButton } from '@/components/ai/AiPolishTextButton'
 import { WorkTypeSelector } from '@/components/workers/WorkTypeSelector'
 import { TaskLinesEditor } from '@/components/workers/TaskLinesEditor'
 import type { WorkerPriceItem, WorkType, TaskLineInput } from '@/types/workers'
@@ -36,6 +37,8 @@ interface DailyFormFieldsProps {
   disabled?: boolean
   showEarnings?: boolean
   isAdmin?: boolean
+  portalToken?: string
+  onAiError?: (message: string) => void
 }
 
 export function DailyFormFields({
@@ -46,6 +49,8 @@ export function DailyFormFields({
   disabled,
   showEarnings = true,
   isAdmin = false,
+  portalToken,
+  onAiError,
 }: DailyFormFieldsProps) {
   const hourlyItem = getHourlyRateItem(priceItems)
   const previewEarnings = calculateFormEarnings(
@@ -155,13 +160,24 @@ export function DailyFormFields({
       )}
 
       {showWorkDescription && (
-        <Textarea
-          label="Popis práce"
-          value={state.workDescription}
-          onChange={(e) => onChange({ workDescription: e.target.value })}
-          disabled={disabled}
-          placeholder="Popište vykonanou práci…"
-        />
+        <div className="space-y-3">
+          <Textarea
+            label="Popis práce"
+            value={state.workDescription}
+            onChange={(e) => onChange({ workDescription: e.target.value })}
+            disabled={disabled}
+            placeholder="Popište vykonanou práci…"
+          />
+          {!disabled && (
+            <AiPolishTextButton
+              sourceText={state.workDescription}
+              context="daily_form"
+              portalToken={portalToken}
+              onPolished={(text) => onChange({ workDescription: text })}
+              onError={onAiError}
+            />
+          )}
+        </div>
       )}
 
       {showTaskLines && (

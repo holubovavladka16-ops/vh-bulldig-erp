@@ -12,14 +12,32 @@ export function ResetPasswordPage() {
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [ready, setReady] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data: { session } }) => {
-      setReady(Boolean(session))
+    let mounted = true
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return
+      if (event === 'PASSWORD_RECOVERY' || session) {
+        setReady(Boolean(session))
+        setChecking(false)
+      }
     })
+
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return
+      setReady(Boolean(session))
+      setChecking(false)
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function handleSubmit(e: FormEvent) {
@@ -65,7 +83,11 @@ export function ResetPasswordPage() {
           </div>
         </div>
 
-        {!ready ? (
+        {checking ? (
+          <div className="flex justify-center py-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
+          </div>
+        ) : !ready ? (
           <>
             <h1 className="text-xl font-bold text-theme-primary">Neplatný nebo expirovaný odkaz</h1>
             <p className="mt-2 text-sm text-theme-secondary">

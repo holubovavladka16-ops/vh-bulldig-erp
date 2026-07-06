@@ -5,7 +5,7 @@ export const APP_INFO = {
   companyName: 'VH Bulldig s.r.o.',
   shortName: 'VH Bulldig',
   tagline: 'Stavební a zemní práce',
-  version: '1.0.0',
+  version: '1.7.0',
   moduleLabel: 'VH Bulldig ERP – produkční verze',
 }
 
