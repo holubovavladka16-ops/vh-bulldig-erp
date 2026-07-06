@@ -17,6 +17,8 @@ interface PortalPerformanceEditorProps {
   lines: TaskLineInput[]
   onChange: (lines: TaskLineInput[]) => void
   disabled?: boolean
+  /** Režim dělníka – skryje ceny, zobrazí jen činnost a množství */
+  workerMode?: boolean
 }
 
 function newLineKey(): string {
@@ -77,6 +79,7 @@ export function PortalPerformanceEditor({
   lines,
   onChange,
   disabled,
+  workerMode = false,
 }: PortalPerformanceEditorProps) {
   const items = getTaskPriceItems(priceItems)
   const options = items.map((p) => ({
@@ -148,15 +151,19 @@ export function PortalPerformanceEditor({
                     </p>
                   </div>
                 </div>
-                <div className="grid gap-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <p className="text-theme-muted">Jednotková cena</p>
-                    <p className="font-medium text-theme-primary">{formatCurrency(unitPrice)}</p>
-                  </div>
-                  <div>
-                    <p className="text-theme-muted">Celková cena</p>
-                    <p className="font-semibold text-accent">{formatCurrency(lineTotal)}</p>
-                  </div>
+                <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                  {!workerMode && (
+                    <>
+                      <div>
+                        <p className="text-theme-muted">Jednotková cena</p>
+                        <p className="font-medium text-theme-primary">{formatCurrency(unitPrice)}</p>
+                      </div>
+                      <div>
+                        <p className="text-theme-muted">Celková cena</p>
+                        <p className="font-semibold text-accent">{formatCurrency(lineTotal)}</p>
+                      </div>
+                    </>
+                  )}
                 </div>
                 {!disabled && lines.length > 1 && (
                   <Button type="button" variant="danger" size="sm" onClick={() => removeLine(index)}>

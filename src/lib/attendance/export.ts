@@ -1,5 +1,5 @@
-import { downloadCsv, printHtml } from '@/lib/export'
-import { buildCompanyHeaderHtml, escHtml } from '@/lib/print/printDocument'
+import { downloadCsv, printProfessionalReport } from '@/lib/export'
+import { escHtml } from '@/lib/print/printDocument'
 import { attendanceSourceLabel } from '@/constants/attendance'
 import { formatCurrency, formatDate } from '@/constants/workers'
 import { formatTimeForInput } from '@/lib/workers/attendance'
@@ -26,7 +26,6 @@ export function exportAttendanceExcel(records: AttendanceListRecord[], filename 
 }
 
 export function exportAttendancePdf(records: AttendanceListRecord[], company: CompanySettings | null): void {
-  const header = buildCompanyHeaderHtml(company, 'Docházka zaměstnanců')
   const rows = records
     .map(
       (r) => `<tr>
@@ -45,26 +44,29 @@ export function exportAttendancePdf(records: AttendanceListRecord[], company: Co
     .join('')
 
   const body = `
-    ${header}
-    <p class="subtitle">Export: ${escHtml(formatDate(new Date().toISOString().slice(0, 10)))} · ${records.length} záznamů</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Datum</th>
-          <th>Zaměstnanec</th>
-          <th>Zakázka</th>
-          <th>Začátek</th>
-          <th>Konec</th>
-          <th>Hodiny</th>
-          <th>Mzda</th>
-          <th>Záloha</th>
-          <th>Poznámka</th>
-          <th>Zdroj</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
+    <section class="doc-section">
+      <p class="doc-subtitle">Období exportu: ${escHtml(formatDate(new Date().toISOString().slice(0, 10)))} · Počet záznamů: ${records.length}</p>
+      <table class="doc-table doc-table-compact">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Zaměstnanec</th>
+            <th>Zakázka</th>
+            <th>Začátek</th>
+            <th>Konec</th>
+            <th>Hodiny</th>
+            <th>Mzda</th>
+            <th>Záloha</th>
+            <th>Poznámka</th>
+            <th>Zdroj</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>
   `
 
-  printHtml('Docházka zaměstnanců', body)
+  printProfessionalReport('Docházka zaměstnanců', body, company, {
+    documentNumber: `DOCH-${formatDate(new Date().toISOString().slice(0, 10)).replace(/\./g, '')}`,
+  })
 }

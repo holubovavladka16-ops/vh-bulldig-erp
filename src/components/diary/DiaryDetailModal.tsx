@@ -1,154 +1,264 @@
 import { useEffect, useState } from 'react'
-import { X, Printer, FileDown, Mail, MessageCircle, Send } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { X } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
-import { useCompanySettings } from '@/context/CompanySettingsContext'
 import { fetchDiaryDetail } from '@/lib/diary/api'
-import { downloadDiaryReportHtml, printDiaryReport, buildDiaryReportTitle } from '@/lib/diary/diaryReport'
-import {
-  buildDiaryShareText,
-  getEmailShareUrl,
-  getMessengerShareUrl,
-  getWhatsAppShareUrl,
-} from '@/lib/diary/share'
-import { getGpsPhotoUrl } from '@/lib/photos/api'
+
+import { DiaryExportPanel } from '@/components/diary/DiaryExportPanel'
+
+import { DiaryPhotoCard } from '@/components/diary/DiaryPhotoCard'
+
+import { DiaryPhotosMap } from '@/components/diary/DiaryPhotosMap'
+
 import type { ConstructionDiaryDetail } from '@/types/diary'
-import { formatDate, formatTime } from '@/constants/workers'
+
+import { formatDate } from '@/constants/workers'
+
+import { formatDiaryWeather } from '@/constants/diary'
+
+
 
 interface DiaryDetailModalProps {
+
   entryId: string | null
+
   onClose: () => void
+
 }
 
+
+
 export function DiaryDetailModal({ entryId, onClose }: DiaryDetailModalProps) {
-  const { settings: company } = useCompanySettings()
   const [detail, setDetail] = useState<ConstructionDiaryDetail | null>(null)
+
   const [loading, setLoading] = useState(false)
 
+
+
   useEffect(() => {
+
     if (!entryId) return
+
     setLoading(true)
+
     fetchDiaryDetail(entryId)
+
       .then(setDetail)
+
       .finally(() => setLoading(false))
+
   }, [entryId])
+
+
 
   if (!entryId) return null
 
-  function exportPdf() {
-    if (!detail) return
-    printDiaryReport(detail, company)
-  }
 
-  function savePdf() {
-    if (!detail) return
-    downloadDiaryReportHtml(detail, company)
-  }
-
-  function share(channel: 'whatsapp' | 'messenger' | 'email') {
-    if (!detail) return
-    printDiaryReport(detail, company)
-    const text = buildDiaryShareText(detail)
-    const subject = buildDiaryReportTitle(detail)
-
-    if (channel === 'whatsapp') {
-      window.open(getWhatsAppShareUrl(text), '_blank')
-    } else if (channel === 'messenger') {
-      window.open(getMessengerShareUrl(text), '_blank')
-    } else {
-      window.location.href = getEmailShareUrl(text, subject)
-    }
-  }
 
   return (
+
     <div className="modal-overlay">
+
       <div className="modal-backdrop" onClick={onClose} aria-hidden="true" />
+
       <div className="modal-panel modal-panel-xl glass-panel neon-border scrollbar-premium">
+
         <div className="mb-4 flex items-center justify-between">
+
           <h2 className="text-xl font-bold text-theme-primary">Zápis stavebního deníku</h2>
+
           <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-white/5" aria-label="Zavřít">
+
             <X className="h-5 w-5" />
+
           </button>
+
         </div>
 
+
+
         {loading || !detail ? (
+
           <div className="flex justify-center py-16">
+
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
+
           </div>
+
         ) : (
+
           <div className="space-y-6">
+
             <Card className="grid gap-3 sm:grid-cols-2">
+
+              <Info label="Číslo zápisu" value={detail.entry_number != null ? `č. ${detail.entry_number}` : '—'} />
+
               <Info label="Datum" value={formatDate(detail.entry_date)} />
-              <Info label="Zakázka" value={detail.order_name ?? '—'} />
-              <Info label="Počasí" value={detail.weather} />
+
+              <Info label="Zakázka" value={[detail.order_number, detail.order_name].filter(Boolean).join(' – ') || '—'} />
+
+              <Info label="Místo stavby" value={detail.site_location || '—'} />
+
+              <Info
+
+                label="Počasí"
+
+                value={detail.weather || formatDiaryWeather(detail.weather_type, detail.temperature_celsius) || '—'}
+
+              />
+
+              <Info
+
+                label="Teplota"
+
+                value={
+
+                  detail.temperature_celsius != null ? `${detail.temperature_celsius} °C` : '—'
+
+                }
+
+              />
+
               <Info label="Počet dělníků" value={String(detail.worker_count)} />
-              <Info label="Zaměstnanci" value={detail.worker_names} className="sm:col-span-2" />
-              <Info label="Technika" value={detail.equipment} className="sm:col-span-2" />
+
+              <Info label="Přítomní dělníci" value={detail.worker_names} className="sm:col-span-2" />
+
+              <Info label="Technika" value={detail.equipment || '—'} className="sm:col-span-2" />
+
+              <Info label="Materiál" value={detail.material || '—'} className="sm:col-span-2" />
+
             </Card>
 
+
+
+            {detail.performances_summary && (
+
+              <Card>
+
+                <h3 className="mb-2 font-semibold text-theme-primary">Výkony z docházky</h3>
+
+                <p className="whitespace-pre-wrap text-sm text-theme-secondary">{detail.performances_summary}</p>
+
+              </Card>
+
+            )}
+
+
+
             <Card>
-              <h3 className="mb-2 font-semibold text-theme-primary">Popis provedených prací</h3>
+
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+
+                <h3 className="font-semibold text-theme-primary">Popis provedených prací</h3>
+
+                {detail.ai_assisted && (
+
+                  <span className="rounded-full border border-[var(--accent-primary)]/40 bg-[var(--accent-primary)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--accent-primary)]">
+
+                    Upraveno AI (Gemini)
+
+                  </span>
+
+                )}
+
+              </div>
+
               <p className="whitespace-pre-wrap text-sm text-theme-secondary">{detail.work_description}</p>
-            </Card>
 
-            <Card>
-              <h3 className="mb-3 font-semibold text-theme-primary">Fotodokumentace</h3>
-              {detail.photos.length === 0 ? (
-                <p className="text-sm text-theme-muted">Bez fotografií.</p>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {detail.photos.map((photo) => (
-                    <div key={photo.id} className="neon-border rounded-xl p-2">
-                      <img src={getGpsPhotoUrl(photo.file_path)} alt="" className="max-h-40 w-full rounded-lg object-cover" />
-                      <p className="mt-2 text-xs text-theme-primary">
-                        {formatDate(photo.captured_date)} · {formatTime(photo.captured_time)}
-                      </p>
-                      <p className="text-xs text-theme-muted">{photo.address_full}</p>
-                    </div>
-                  ))}
+              {detail.ai_assisted && detail.rough_work_description && (
+
+                <div className="mt-4 rounded-xl border border-[var(--border-glass)] bg-white/5 px-3 py-2">
+
+                  <p className="text-xs font-medium text-theme-muted">Původní hrubý popis</p>
+
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-theme-secondary">{detail.rough_work_description}</p>
+
                 </div>
+
               )}
+
             </Card>
 
-            <Card>
-              <h3 className="mb-3 font-semibold text-theme-primary">PDF a sdílení</h3>
-              <div className="mb-4 flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={exportPdf}>
-                  <Printer className="h-4 w-4" />
-                  Export PDF (tisk)
-                </Button>
-                <Button variant="secondary" size="sm" onClick={savePdf}>
-                  <FileDown className="h-4 w-4" />
-                  Uložit PDF report
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={() => share('whatsapp')}>
-                  <MessageCircle className="h-4 w-4" />
-                  WhatsApp
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => share('messenger')}>
-                  <Send className="h-4 w-4" />
-                  Messenger
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => share('email')}>
-                  <Mail className="h-4 w-4" />
-                  E-mail
-                </Button>
-              </div>
+
+
+            {(detail.note || detail.extraordinary_events) && (
+
+              <Card className="grid gap-3 sm:grid-cols-2">
+
+                {detail.note && <Info label="Poznámka" value={detail.note} className="sm:col-span-2" />}
+
+                {detail.extraordinary_events && (
+
+                  <Info label="Mimořádné události" value={detail.extraordinary_events} className="sm:col-span-2" />
+
+                )}
+
+              </Card>
+
+            )}
+
+
+
+            <Card className="space-y-4">
+
+              <h3 className="font-semibold text-theme-primary">Fotodokumentace</h3>
+
+              {detail.photos.length === 0 ? (
+
+                <p className="text-sm text-theme-muted">Bez fotografií z modulu Fotodokumentace.</p>
+
+              ) : (
+
+                <>
+
+                  <div className="space-y-3">
+
+                    {detail.photos.map((photo) => (
+
+                      <DiaryPhotoCard key={photo.id} photo={photo} />
+
+                    ))}
+
+                  </div>
+
+                  <DiaryPhotosMap photos={detail.photos} />
+
+                </>
+
+              )}
+
             </Card>
+
+
+
+            <DiaryExportPanel singleEntryId={detail.id} orderOptions={[]} />
+
           </div>
+
         )}
+
       </div>
+
     </div>
+
   )
+
 }
+
+
 
 function Info({ label, value, className = '' }: { label: string; value: string; className?: string }) {
+
   return (
+
     <div className={className}>
+
       <p className="text-xs text-theme-muted">{label}</p>
+
       <p className="font-medium text-theme-primary">{value}</p>
+
     </div>
+
   )
+
 }
+

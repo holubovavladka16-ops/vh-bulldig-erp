@@ -25,7 +25,8 @@ export function PortalWorkerContext({ worker, priceItems, advances }: PortalWork
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-medium text-theme-secondary">Osobní ceník</h3>
+        <h3 className="mb-2 text-sm font-medium text-theme-secondary">Dostupné činnosti</h3>
+        <p className="mb-2 text-xs text-theme-muted">Ceny stanovuje administrátor — zde vidíte pouze názvy a jednotky.</p>
         {activeItems.length === 0 ? (
           <p className="text-sm text-theme-muted">Ceník není nastaven.</p>
         ) : (
@@ -34,7 +35,7 @@ export function PortalWorkerContext({ worker, priceItems, advances }: PortalWork
               <li key={item.id} className="flex justify-between gap-2 text-theme-primary">
                 <span>{item.name}</span>
                 <span className="shrink-0 text-theme-secondary">
-                  {formatCurrency(item.price)} / {PRICE_UNIT_LABELS[item.unit_type].replace('Kč/', '')}
+                  {PRICE_UNIT_LABELS[item.unit_type].replace('Kč/', '')}
                 </span>
               </li>
             ))}

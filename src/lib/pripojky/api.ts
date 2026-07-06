@@ -50,10 +50,20 @@ function buildDiaryInput(connection: UtilityConnection, workerName: string): Con
     entry_date: connection.connection_date,
     order_id: connection.order_id,
     weather: 'Neuvedeno',
+    weather_type: null,
+    temperature_celsius: null,
+    site_location: '',
     worker_count: 1,
     worker_names: workerName,
     equipment: `Přípojka – ${connection.length_meters} m, ${connection.penetration_count} průrazů`,
+    material: '',
+    performances_summary: '',
+    rough_work_description: '',
     work_description: buildDiaryDescription(connection),
+    ai_work_description: '',
+    ai_assisted: false,
+    note: '',
+    extraordinary_events: '',
   }
 }
 
@@ -79,7 +89,7 @@ async function syncToDiary(connection: UtilityConnection, createdBy: string): Pr
   const diaryInput = buildDiaryInput(connection, workerName)
 
   if (connection.diary_entry_id) {
-    await updateDiaryEntry(connection.diary_entry_id, diaryInput, createdBy)
+    await updateDiaryEntry(connection.diary_entry_id, diaryInput)
     await linkPhotosToDiary(connection.id, connection.diary_entry_id)
     return connection.diary_entry_id
   }

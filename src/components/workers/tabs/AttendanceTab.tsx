@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTable'
 import { Button } from '@/components/ui/Button'
 import { AttendanceFormModal } from '@/components/attendance/AttendanceFormModal'
 import { useAuth } from '@/context/AuthContext'
-import { upsertAttendanceRecord } from '@/lib/attendance/api'
-import { fetchAttendance } from '@/lib/workers/api'
+import { upsertAttendanceRecord, deleteAttendanceRecord } from '@/lib/attendance/api'
+import { fetchAllAttendance, type AttendanceListRecord } from '@/lib/workers/module5'
 import { fetchActiveJobOrders } from '@/lib/orders/api'
+import { supabase } from '@/lib/supabase'
 import { attendanceSourceLabel } from '@/constants/attendance'
-import type { WorkerAttendanceRecord, AttendanceUpsertInput } from '@/types/workers'
+import type { AttendanceUpsertInput } from '@/types/workers'
 import { formatCurrency, formatDate } from '@/constants/workers'
 import { formatTimeForInput } from '@/lib/workers/attendance'
 
@@ -20,15 +21,17 @@ interface AttendanceTabProps {
 
 export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: AttendanceTabProps) {
   const { user } = useAuth()
-  const [records, setRecords] = useState<WorkerAttendanceRecord[]>([])
+  const [records, setRecords] = useState<AttendanceListRecord[]>([])
   const [orders, setOrders] = useState<{ id: string; label: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<AttendanceListRecord | null>(null)
+  const [actionError, setActionError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setRecords(await fetchAttendance(workerId))
+      setRecords(await fetchAllAttendance({ workerId, sortBy: 'date', sortDir: 'desc' }))
     } finally {
       setLoading(false)
     }
@@ -44,10 +47,49 @@ export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: Attend
     load()
   }, [load])
 
-  async function handleSave(data: AttendanceUpsertInput) {
+  useEffect(() => {
+    const channel = supabase
+      .channel(`worker-attendance-${workerId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'worker_attendance_records', filter: `worker_id=eq.${workerId}` },
+        () => load()
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [workerId, load])
+
+  function openCreate() {
+    setEditing(null)
+    setActionError('')
+    setModalOpen(true)
+  }
+
+  function openEdit(record: AttendanceListRecord) {
+    setEditing(record)
+    setActionError('')
+    setModalOpen(true)
+  }
+
+  async function handleSave(data: AttendanceUpsertInput, id?: string | null) {
     if (!user) throw new Error('Nejste přihlášeni')
-    await upsertAttendanceRecord({ ...data, worker_id: workerId }, user.id)
+    await upsertAttendanceRecord({ ...data, worker_id: workerId }, user.id, id)
     await load()
+  }
+
+  async function handleDelete(record: AttendanceListRecord) {
+    if (!user) return
+    if (!window.confirm(`Smazat docházku ${formatDate(record.attendance_date)}?`)) return
+    setActionError('')
+    try {
+      await deleteAttendanceRecord(record.id, user.id)
+      await load()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Smazání se nezdařilo')
+    }
   }
 
   if (loading) {
@@ -62,12 +104,14 @@ export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: Attend
     <div>
       {isAdmin && (
         <div className="mb-4 flex justify-end">
-          <Button type="button" size="sm" onClick={() => setModalOpen(true)}>
+          <Button type="button" size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Nový zápis
           </Button>
         </div>
       )}
+
+      {actionError && <p className="mb-3 text-sm text-red-400">{actionError}</p>}
 
       <DataTable
         columns={[
@@ -75,9 +119,11 @@ export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: Attend
           { key: 'order', label: 'Zakázka' },
           { key: 'time', label: 'Prac. doba' },
           { key: 'hours', label: 'Hodiny' },
+          { key: 'earnings', label: 'Výdělek' },
           { key: 'advance', label: 'Záloha' },
           { key: 'note', label: 'Poznámka' },
           { key: 'source', label: 'Zdroj' },
+          ...(isAdmin ? [{ key: 'actions', label: '' }] : []),
         ]}
         isEmpty={records.length === 0}
         emptyMessage="Žádné záznamy docházky."
@@ -92,9 +138,29 @@ export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: Attend
                 : '—'}
             </DataTableCell>
             <DataTableCell>{r.hours} h</DataTableCell>
+            <DataTableCell>{r.earnings != null ? formatCurrency(r.earnings) : '—'}</DataTableCell>
             <DataTableCell>{formatCurrency(r.daily_advance ?? 0)}</DataTableCell>
             <DataTableCell className="max-w-[200px] truncate">{r.note || '—'}</DataTableCell>
             <DataTableCell>{attendanceSourceLabel(r.form_id)}</DataTableCell>
+            {isAdmin && (
+              <DataTableCell>
+                <div className="flex gap-1">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(r)} aria-label="Upravit">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(r)}
+                    disabled={Boolean(r.form_id)}
+                    aria-label="Smazat"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </DataTableCell>
+            )}
           </DataTableRow>
         ))}
       </DataTable>
@@ -102,6 +168,7 @@ export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: Attend
       {isAdmin && (
         <AttendanceFormModal
           open={modalOpen}
+          initial={editing}
           workers={[{ id: workerId, label: workerLabel }]}
           orders={orders}
           onClose={() => setModalOpen(false)}

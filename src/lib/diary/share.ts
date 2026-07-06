@@ -1,25 +1,37 @@
 import { formatDate } from '@/constants/workers'
 import type { ConstructionDiaryDetail } from '@/types/diary'
 import { buildDiaryReportTitle } from '@/lib/diary/diaryReport'
+import { formatDiaryWeather } from '@/constants/diary'
 
 export function buildDiaryShareText(entry: ConstructionDiaryDetail): string {
+  const weather =
+    entry.weather ||
+    formatDiaryWeather(entry.weather_type, entry.temperature_celsius)
+
   return [
     buildDiaryReportTitle(entry),
     '',
+    entry.entry_number != null ? `Číslo zápisu: ${entry.entry_number}` : '',
     `Datum: ${formatDate(entry.entry_date)}`,
     `Zakázka: ${entry.order_name ?? '—'}`,
-    `Počasí: ${entry.weather}`,
+    `Místo: ${entry.site_location || '—'}`,
+    `Počasí: ${weather || '—'}`,
     `Počet dělníků: ${entry.worker_count}`,
     `Zaměstnanci: ${entry.worker_names}`,
-    `Technika: ${entry.equipment}`,
+    `Technika: ${entry.equipment || '—'}`,
+    `Materiál: ${entry.material || '—'}`,
     '',
     'Popis prací:',
     entry.work_description,
+    entry.note ? `\nPoznámka: ${entry.note}` : '',
+    entry.extraordinary_events ? `\nMimořádné události: ${entry.extraordinary_events}` : '',
     '',
     `Fotografií: ${entry.photos.length}`,
     '',
     'PDF report stavebního deníku exportujte v ERP (tlačítko PDF) a přiložte ke sdílení.',
-  ].join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 export function getWhatsAppShareUrl(text: string): string {

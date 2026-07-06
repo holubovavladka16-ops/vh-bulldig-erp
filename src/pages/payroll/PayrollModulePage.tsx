@@ -48,7 +48,7 @@ export function PayrollModulePage() {
     <AppLayout>
       <PageHeader
         title="Výplatní pásky"
-        description="Automaticky generované z schválených denních výkazů zaměstnanců. Data se zadávají jednou ve formuláři a propisují se sem."
+        description="Automaticky generované z výkazů zaměstnanců. Schválené výkazy tvoří výplatní pásku; čekající výkazy jsou viditelné ihned po odeslání formuláře."
       />
 
       <PayrollFiltersPanel filters={filters} onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))} workers={workers} />
@@ -61,7 +61,8 @@ export function PayrollModulePage() {
         <DataTable
           columns={[
             { key: 'worker', label: 'Zaměstnanec' },
-            { key: 'reports', label: 'Výkazů' },
+            { key: 'reports', label: 'Schváleno' },
+            { key: 'pending', label: 'Čeká' },
             { key: 'earnings', label: 'Celkový výdělek', className: 'text-right' },
             { key: 'advances', label: 'Zálohy', className: 'text-right' },
             { key: 'net', label: 'K výplatě', className: 'text-right' },
@@ -76,6 +77,13 @@ export function PayrollModulePage() {
                 {row.worker_last_name} {row.worker_first_name}
               </DataTableCell>
               <DataTableCell>{row.report_count}</DataTableCell>
+              <DataTableCell>
+                {(row.pending_count ?? 0) > 0 ? (
+                  <span className="text-amber-400">{row.pending_count}</span>
+                ) : (
+                  '—'
+                )}
+              </DataTableCell>
               <DataTableCell className="text-right">{formatCurrency(row.total_earnings)}</DataTableCell>
               <DataTableCell className="text-right">{formatCurrency(row.total_advances)}</DataTableCell>
               <DataTableCell className="text-right font-semibold text-[var(--accent-primary)]">

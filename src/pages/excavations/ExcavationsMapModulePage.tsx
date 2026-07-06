@@ -49,11 +49,11 @@ import {
   getRouteMapUrl,
 } from '@/lib/excavations/geometry'
 import {
-  buildExcavationReportHtml,
+  buildExcavationReportDocument,
   downloadExcavationReport,
   printExcavationReport,
 } from '@/lib/excavations/excavationReport'
-import { buildPrintDocument, downloadHtmlDocument } from '@/lib/print/printDocument'
+import { downloadHtmlDocument } from '@/lib/print/printDocument'
 import { fetchJobOrders } from '@/lib/orders/api'
 import type { ExcavationPoint, ExcavationRoute, MeasurementMode } from '@/types/excavations'
 import { MEASUREMENT_MODE_LABELS, pickRouteColor } from '@/types/excavations'
@@ -254,10 +254,7 @@ export function ExcavationsMapModulePage() {
       draftRoute.note = `Režim: ${modeLabel}`
     }
     downloadHtmlDocument(
-      buildPrintDocument(
-        `Výkop ${draftRoute.name}`,
-        buildExcavationReportHtml(draftRoute, company)
-      ),
+      buildExcavationReportDocument(draftRoute, company),
       `vykop_navrh_${draftRoute.name.replace(/\s+/g, '_')}.html`
     )
   }

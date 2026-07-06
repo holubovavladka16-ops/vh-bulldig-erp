@@ -1,4 +1,3 @@
-import { formatDate, formatTime } from '@/constants/workers'
 import { getGoogleMapsUrl, getStaticMapImageUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
 import { getGpsPhotoUrl } from '@/lib/photos/api'
 import {
@@ -10,8 +9,7 @@ import {
   getOrderDisplayName,
 } from '@/lib/photos/photoDisplay'
 import {
-  buildCompanyHeaderHtml,
-  buildPrintDocument,
+  buildProfessionalReportDocument,
   downloadHtmlDocument,
   escHtml,
   openPrintDocument,
@@ -19,7 +17,7 @@ import {
 } from '@/lib/print/printDocument'
 import type { GpsPhoto } from '@/types/photos'
 
-export function buildPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | null): string {
+export function buildPhotoReportHtml(photo: GpsPhoto): string {
   const photoUrl = getGpsPhotoUrl(photo.file_path)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const mapImageUrl = getStaticMapImageUrl(photo.gps_lat, photo.gps_lng, 640, 180)
@@ -32,18 +30,19 @@ export function buildPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | 
   const timeLabel = formatCaptureTime(photo.captured_time)
 
   return `
-    <div class="report">
-      ${buildCompanyHeaderHtml(company, 'GPS fotodoklad – stavební dokumentace')}
-
-      <div class="photo-wrap" style="position:relative">
+    <section class="doc-section">
+      <div class="doc-photo-wrap" style="position:relative">
         <img src="${escHtml(photoUrl)}" alt="Fotografie" style="max-height:420px;width:100%;object-fit:contain" />
         <div style="position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,0.75);color:#fff;padding:8px 12px;border-radius:8px;border:1px solid #a3e635">
           <div style="color:#fcd34d;font-weight:bold;font-size:11px;text-transform:uppercase">${escHtml(orderName)}</div>
           <div style="font-family:monospace;font-size:11px;margin-top:4px">📍 ${escHtml(coords)}</div>
         </div>
       </div>
+    </section>
 
-      <table style="margin-top:16px">
+    <section class="doc-section">
+      <h2>Údaje o fotografii</h2>
+      <table class="doc-table">
         <tr><th>Den</th><td>${escHtml(weekday)}</td></tr>
         <tr><th>Datum pořízení</th><td>${escHtml(dateLabel)}</td></tr>
         <tr><th>Čas pořízení</th><td>${escHtml(timeLabel)}</td></tr>
@@ -54,9 +53,11 @@ export function buildPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | 
         <tr><th>Zakázka</th><td>${escHtml(orderName)}</td></tr>
         <tr><th>Pořídil</th><td>${escHtml(capturedBy)}</td></tr>
       </table>
+    </section>
 
+    <section class="doc-section">
       <h2>Mapa místa pořízení</h2>
-      <div class="photo-wrap">
+      <div class="doc-photo-wrap">
         <a href="${escHtml(mapUrl)}">
           <img src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" style="max-height:180px;object-fit:cover;width:100%" />
         </a>
@@ -65,16 +66,18 @@ export function buildPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | 
         <a href="${escHtml(mapUrl)}">Google Maps</a> ·
         <a href="${escHtml(getStreetViewUrl(photo.gps_lat, photo.gps_lng))}">Street View</a>
       </p>
-
-      <p class="footer">Vygenerováno z ERP VH Bulldig · ${escHtml(formatDate(new Date().toISOString().slice(0, 10)))} ${escHtml(formatTime(new Date()))}</p>
-    </div>
+    </section>
   `
 }
 
 export function buildPhotoReportDocument(photo: GpsPhoto, company?: CompanyHeader | null): string {
-  return buildPrintDocument(
-    `GPS fotodoklad ${formatDate(photo.captured_date)}`,
-    buildPhotoReportHtml(photo, company)
+  return buildProfessionalReportDocument(
+    {
+      title: 'GPS fotodoklad – stavební dokumentace',
+      documentNumber: `FOTO-${photo.id.slice(0, 8).toUpperCase()}`,
+    },
+    buildPhotoReportHtml(photo),
+    company
   )
 }
 

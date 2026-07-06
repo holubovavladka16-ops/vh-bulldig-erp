@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X, Check, RotateCcw, Trash2, Printer, FileSpreadsheet, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { ReportDetailView, buildReportPrintHtml } from '@/components/module5/ReportDetailView'
+import { ReportDetailView, buildReportPrintDocument } from '@/components/module5/ReportDetailView'
 import {
   DailyFormFields,
   formStateFromWorkerForm,
@@ -20,7 +20,8 @@ import {
   adminSaveForm,
   fetchPriceItems,
 } from '@/lib/workers/api'
-import { downloadCsv, printHtml } from '@/lib/export'
+import { downloadCsv } from '@/lib/export'
+import { openPrintDocument } from '@/lib/print/printDocument'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { ReportDetail, WorkerPriceItem } from '@/types/workers'
 import { WORKER_REPORT_STATUS_LABELS, formatCurrency, formatDate, PRICE_UNIT_LABELS } from '@/constants/workers'
@@ -136,7 +137,7 @@ export function ReportDetailModal({
 
   function handlePrint() {
     if (!detail) return
-    printHtml(`Výkaz ${formatDate(detail.report.report_date)}`, buildReportPrintHtml(detail, company))
+    openPrintDocument(buildReportPrintDocument(detail, company))
   }
 
   function handleExportExcel() {

@@ -66,7 +66,7 @@ function resolveDocumentMeta(data: ContractData) {
 export function buildContractPrintHtml(data: ContractData): string {
   const { company } = data
   const meta = resolveDocumentMeta(data)
-  return `${buildProfessionalDocumentHeader(company, meta)}${buildContractBody(data)}${buildProfessionalDocumentFooter(company)}`
+  return `${buildProfessionalDocumentHeader(company, meta)}${buildContractBody(data)}${buildProfessionalDocumentFooter(company, meta.createdAt)}`
 }
 
 export function buildContractDocumentTitle(data: ContractData): string {
@@ -83,8 +83,8 @@ export function buildContractDocumentTitle(data: ContractData): string {
 export function buildContractHtmlDocument(data: ContractData): string {
   const { company } = data
   const meta = resolveDocumentMeta(data)
-  const content = `${buildProfessionalDocumentHeader(company, meta)}${buildContractBody(data)}${buildProfessionalDocumentFooter(company)}`
-  return buildProfessionalPrintDocument(buildContractDocumentTitle(data), content)
+  const content = `${buildProfessionalDocumentHeader(company, meta)}${buildContractBody(data)}${buildProfessionalDocumentFooter(company, meta.createdAt)}`
+  return buildProfessionalPrintDocument(buildContractDocumentTitle(data), content, { company })
 }
 
 export function getDocumentTitle(type: DocumentType): string {

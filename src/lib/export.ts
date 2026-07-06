@@ -1,4 +1,11 @@
-import { buildPrintDocument, escHtml, openPrintDocument } from '@/lib/print/printDocument'
+import {
+  buildProfessionalReportDocument,
+  escHtml,
+  openPrintDocument,
+  type CompanyHeader,
+  type ProfessionalReportOptions,
+} from '@/lib/print/printDocument'
+import type { CompanySettings } from '@/types'
 
 /** Export CSV kompatibilní s Excel (ČR) */
 export function downloadCsv(filename: string, headers: string[], rows: string[][]): void {
@@ -13,13 +20,28 @@ export function downloadCsv(filename: string, headers: string[], rows: string[][
   URL.revokeObjectURL(url)
 }
 
-export function printHtml(title: string, bodyHtml: string): void {
-  const html = buildPrintDocument(title, `<div class="report">${bodyHtml}</div>`)
+export function printProfessionalReport(
+  title: string,
+  bodyHtml: string,
+  company?: CompanyHeader | CompanySettings | null,
+  options?: Partial<ProfessionalReportOptions>
+): void {
+  const html = buildProfessionalReportDocument({ title, ...options }, bodyHtml, company)
   openPrintDocument(html)
 }
 
-export function buildPrintBodyHtml(title: string, bodyHtml: string): string {
-  return buildPrintDocument(title, `<div class="report">${bodyHtml}</div>`)
+/** @deprecated Používejte printProfessionalReport */
+export function printHtml(title: string, bodyHtml: string, company?: CompanyHeader | null): void {
+  printProfessionalReport(title, bodyHtml, company)
+}
+
+export function buildPrintBodyHtml(
+  title: string,
+  bodyHtml: string,
+  company?: CompanyHeader | CompanySettings | null,
+  options?: Partial<ProfessionalReportOptions>
+): string {
+  return buildProfessionalReportDocument({ title, ...options }, bodyHtml, company)
 }
 
 export { escHtml as escPrintHtml }

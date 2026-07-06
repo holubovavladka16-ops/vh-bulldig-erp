@@ -124,6 +124,7 @@ export function employmentTermsSection(data: ContractData): string {
       <h2>Článek IV. – Pracovní doba a doba odpočinku</h2>
       ${kv('Týdenní pracovní doba', weeklyHours)}
       ${contractType === 'HPP' ? kv('Zkušební doba', trialPeriod) : kv('Doba trvání', trialPeriod)}
+      ${contractType === 'HPP' ? '<p>Zkušební doba se řídí § 35 zákoníku práce a nesmí být sjednána na dobu delší než polovina sjednané doby trvání pracovního poměru, nejdéle však po dobu čtyř měsíců, není-li mezi stranami dohodnuto jinak v souladu se zákonem.</p>' : ''}
       ${dppLimit}
       ${dpcLimit}
       <p>Rozvržení pracovní doby, přestávky v práci na jídlo a oddech a doba čerpání dovolené se řídí zákoníkem práce a vnitřními předpisy zaměstnavatele.</p>
@@ -136,7 +137,7 @@ export function employmentTermsSection(data: ContractData): string {
     </section>
     <section class="doc-section">
       <h2>Článek VI. – Dovolená a ukončení pracovního poměru</h2>
-      <p>Nárok na dovolenou se řídí zákoníkem práce. Pracovní poměr lze ukončit dohodou, výpovědí nebo okamžitým zrušením za podmínek stanovených zákoníkem práce.</p>
+      <p>Nárok na dovolenou se řídí § 213 a násl. zákoníku práce. Pracovní poměr lze ukončit dohodou (§ 49), výpovědí (§ 52 a násl.) nebo okamžitým zrušením (§ 55 a násl.) za podmínek stanovených zákoníkem práce.</p>
     </section>
   `
 }
@@ -229,7 +230,7 @@ export function closingSection(): string {
     <section class="doc-section">
       <h2>Závěrečná ustanovení</h2>
       <p>Smlouva se uzavírá ve dvou stejnopisech, z nichž obdrží každá smluvní strana po jednom. Smlouva nabývá platnosti a účinnosti dnem podpisu oběma smluvními stranami, není-li výslovně sjednáno jinak.</p>
-      <p>Smluvní strany prohlašují, že si smlouvu před podpisem přečetly, že byla uzavřena z jejich svobodné vůle, že její obsahu rozumí a na důkaz toho připojují své podpisy.</p>
+      <p>Smluvní strany prohlašují, že si smlouvu před podpisem přečetly, že byla uzavřena z jejich svobodné vůle, že její obsahu rozumí a na důkaz toho připojují své podpisy. Dokument je připraven pro archivaci, tisk a elektronické podepisování.</p>
       <p>Ve věcech v této smlouvě neupravených se smluvní strany řídí příslušnými ustanoveními zákoníku práce nebo občanského zákoníku a souvisejícími právními předpisy České republiky.</p>
     </section>
   `

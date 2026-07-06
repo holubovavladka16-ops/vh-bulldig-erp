@@ -2,7 +2,7 @@ import type { ReportDetail } from '@/types/workers'
 import { PRICE_UNIT_LABELS, WORKER_REPORT_STATUS_LABELS, formatCurrency, formatDate } from '@/constants/workers'
 import { formatTimeForInput } from '@/lib/workers/attendance'
 import { getFormPhotoUrl } from '@/lib/workers/module5'
-import { buildCompanyHeaderHtml, escHtml, type CompanyHeader } from '@/lib/print/printDocument'
+import { buildProfessionalReportDocument, escHtml, type CompanyHeader } from '@/lib/print/printDocument'
 import { StatusBadge } from '@/components/ui/Badge'
 
 interface ReportDetailViewProps {
@@ -134,9 +134,8 @@ function metaRow(label: string, value: string | number | null | undefined): stri
   return `<div><span class="label">${escHtml(label)}:</span> ${escHtml(value)}</div>`
 }
 
-export function buildReportPrintHtml(detail: ReportDetail, company?: CompanyHeader | null): string {
+export function buildReportPrintHtml(detail: ReportDetail): string {
   const { report, form, worker, task_items, photos } = detail
-  const workerName = `${worker.first_name} ${worker.last_name}`
 
   const rows = task_items
     .map(
@@ -148,14 +147,14 @@ export function buildReportPrintHtml(detail: ReportDetail, company?: CompanyHead
   const photoHtml = photos
     .map(
       (p) =>
-        `<div class="photo-block"><img src="${escHtml(getFormPhotoUrl(p.file_path))}" alt="${escHtml(p.file_name)}" /></div>`
+        `<div class="doc-photo-block"><img src="${escHtml(getFormPhotoUrl(p.file_path))}" alt="${escHtml(p.file_name)}" /></div>`
     )
     .join('')
 
   const attendanceHtml = form
     ? `
       <h2>Docházka</h2>
-      <div class="meta">
+      <div class="doc-meta-grid">
         ${metaRow('Začátek práce', form.work_start ? formatTimeForInput(form.work_start) : null)}
         ${metaRow('Konec práce', form.work_end ? formatTimeForInput(form.work_end) : null)}
         ${metaRow('Přestávka', form.break_minutes ? `${form.break_minutes} min` : null)}
@@ -172,32 +171,48 @@ export function buildReportPrintHtml(detail: ReportDetail, company?: CompanyHead
       : ''
 
   return `
-    ${buildCompanyHeaderHtml(company, `Denní výkaz – ${workerName}`)}
+    <section class="doc-section">
+      <div class="doc-meta-grid">
+        ${metaRow('Pozice', worker.position)}
+        ${metaRow('Datum', formatDate(report.report_date))}
+        ${metaRow('Zakázka', report.order_name)}
+        ${metaRow('Odpracované hodiny', `${report.hours} h`)}
+        ${metaRow('Celkový výdělek', formatCurrency(report.earnings))}
+        ${metaRow('Denní záloha', formatCurrency(report.advance ?? 0))}
+        ${metaRow('Stav', WORKER_REPORT_STATUS_LABELS[report.status])}
+        ${metaRow('Materiál', report.material)}
+        ${metaRow('Poznámka', report.note)}
+        ${gpsHtml}
+      </div>
+    </section>
 
-    <div class="meta">
-      ${metaRow('Pozice', worker.position)}
-      ${metaRow('Datum', formatDate(report.report_date))}
-      ${metaRow('Zakázka', report.order_name)}
-      ${metaRow('Odpracované hodiny', `${report.hours} h`)}
-      ${metaRow('Celkový výdělek', formatCurrency(report.earnings))}
-      ${metaRow('Denní záloha', formatCurrency(report.advance ?? 0))}
-      ${metaRow('Stav', WORKER_REPORT_STATUS_LABELS[report.status])}
-      ${metaRow('Materiál', report.material)}
-      ${metaRow('Poznámka', report.note)}
-      ${gpsHtml}
-    </div>
+    ${attendanceHtml ? `<section class="doc-section">${attendanceHtml}</section>` : ''}
 
-    ${attendanceHtml}
+    <section class="doc-section">
+      <h2>Vykázané práce</h2>
+      <table class="doc-table">
+        <thead><tr><th>Název</th><th>Množství</th><th>Jednotka</th><th>Cena</th><th>Celkem</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="5">Žádné výkony</td></tr>'}</tbody>
+      </table>
+    </section>
 
-    <h2>Vykázané práce</h2>
-    <table>
-      <thead><tr><th>Název</th><th>Množství</th><th>Jednotka</th><th>Cena</th><th>Celkem</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="5">Žádné výkony</td></tr>'}</tbody>
-    </table>
+    ${form?.signature_data ? `<section class="doc-section"><h2>Podpis zaměstnance</h2><div class="doc-photo-block"><img src="${escHtml(form.signature_data)}" style="max-height:120px" alt="Podpis" /></div></section>` : ''}
+    ${photoHtml ? `<section class="doc-section"><h2>Fotografie</h2>${photoHtml}</section>` : ''}
 
-    ${form?.signature_data ? `<h2>Podpis zaměstnance</h2><div class="photo-block"><img src="${escHtml(form.signature_data)}" style="max-height:120px" alt="Podpis" /></div>` : ''}
-    ${photoHtml ? `<h2>Fotografie</h2>${photoHtml}` : ''}
-
-    <p class="footer">Docházka slouží pouze jako evidence odpracovaného času. Výdělek se počítá výhradně z výkonů a osobního ceníku.</p>
+    <section class="doc-section">
+      <p class="doc-text" style="font-size:9pt;color:#666">Docházka slouží pouze jako evidence odpracovaného času. Výdělek se počítá výhradně z výkonů a osobního ceníku.</p>
+    </section>
   `
+}
+
+export function buildReportPrintDocument(detail: ReportDetail, company?: CompanyHeader | null): string {
+  const workerName = `${detail.worker.first_name} ${detail.worker.last_name}`
+  return buildProfessionalReportDocument(
+    {
+      title: `Denní výkaz – ${workerName}`,
+      documentNumber: `VYK-${detail.report.id.slice(0, 8).toUpperCase()}`,
+    },
+    buildReportPrintHtml(detail),
+    company
+  )
 }

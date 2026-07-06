@@ -104,8 +104,8 @@ export function PriceListTab({ workerId, isAdmin }: PriceListTabProps) {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-theme-muted">
-        Osobní ceník se automaticky používá ve formulářích, výkazech, docházce, výpočtu výkonů a mzdách.
+      <p className="rounded-xl border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10 px-4 py-3 text-sm text-theme-secondary">
+        Osobní ceník se automaticky načítá do docházky, formuláře dělníka, výkazů, mezd a výplatních pásek. Změna ceny se projeví okamžitě ve všech modulech.
       </p>
 
       <DataTable

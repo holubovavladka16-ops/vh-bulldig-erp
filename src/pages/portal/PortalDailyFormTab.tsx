@@ -198,8 +198,10 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
   }
 
   function validatePerformances(): string | null {
-    if (!hasValidPerformances(state.taskLines, priceItems)) {
-      return 'Zadejte alespoň jeden výkon z ceníku s množstvím větším než 0.'
+    const hasPerformances = hasValidPerformances(state.taskLines, priceItems)
+    const hasHours = workHours > 0
+    if (!hasPerformances && !hasHours) {
+      return 'Zadejte pracovní dobu (začátek/konec) nebo alespoň jeden výkon s množstvím větším než 0.'
     }
     return null
   }
@@ -318,6 +320,16 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
 
   return (
     <div className="mx-auto max-w-lg space-y-5 pb-8">
+      <Card className="border-[var(--accent-primary)]/20 bg-[var(--accent-primary)]/5 space-y-2">
+        <h2 className="text-lg font-semibold text-theme-primary">Pracovní výkaz</h2>
+        <p className="text-sm text-theme-secondary">
+          Ve formuláři zapisujete vykonanou práci za den. Ceny stanovuje administrátor v kartě zaměstnance — zde pouze zadáváte množství.
+        </p>
+        <p className="text-xs text-theme-muted">
+          Po odeslání administrátor uvidí výkaz, docházku a mzdy okamžitě v ERP.
+        </p>
+      </Card>
+
       <PortalWorkerContext worker={worker} priceItems={priceItems} advances={advances} />
 
       {!isEditable && currentForm && (
@@ -394,6 +406,7 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
             lines={state.taskLines}
             onChange={(taskLines) => updateState({ taskLines })}
             disabled={!isEditable}
+            workerMode
           />
         </Card>
 
@@ -460,6 +473,7 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
           taskLines={state.taskLines}
           priceItems={priceItems}
           advance={parseFloat(state.advance) || 0}
+          workerMode
         />
 
         {error && (

@@ -89,6 +89,18 @@ export async function fetchGpsPhotos(filters: GpsPhotoFilters = {}): Promise<Gps
   return ((data ?? []) as GpsPhotoRow[]).map(mapPhotoRow)
 }
 
+export async function fetchGpsPhotosByIds(ids: string[]): Promise<GpsPhoto[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await supabase
+    .from('gps_photos')
+    .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
+    .in('id', ids)
+    .order('captured_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as GpsPhotoRow[]).map(mapPhotoRow)
+}
+
 export async function fetchGpsPhotoDetail(id: string): Promise<GpsPhotoDetail | null> {
   const { data, error } = await supabase
     .from('gps_photos')

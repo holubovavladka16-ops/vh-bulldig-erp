@@ -9,7 +9,7 @@ import { AutoSaveIndicator } from '@/components/ui/AutoSaveIndicator'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import { useAppSettings } from '@/context/AppSettingsContext'
 import { useAutoSave } from '@/hooks/useAutoSave'
-import { uploadCompanyLogo } from '@/lib/company/api'
+import { uploadCompanyLogo, uploadCompanyWatermark } from '@/lib/company/api'
 import type { CompanySettings } from '@/types'
 
 export function CompanySettingsPage() {
@@ -19,6 +19,9 @@ export function CompanySettingsPage() {
   const [logoError, setLogoError] = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoSuccess, setLogoSuccess] = useState(false)
+  const [watermarkError, setWatermarkError] = useState<string | null>(null)
+  const [watermarkUploading, setWatermarkUploading] = useState(false)
+  const [watermarkSuccess, setWatermarkSuccess] = useState(false)
   const [manualSaving, setManualSaving] = useState(false)
 
   useEffect(() => {
@@ -77,6 +80,26 @@ export function CompanySettingsPage() {
     }
   }
 
+  async function handleWatermarkUpload(file: File) {
+    if (!form) return
+    setWatermarkError(null)
+    setWatermarkSuccess(false)
+    setWatermarkUploading(true)
+    try {
+      const url = await uploadCompanyWatermark(form.id, file)
+      const next = { ...form, watermark_url: url }
+      setForm(next)
+      updateSettings({ watermark_url: url })
+      await saveSettings(next)
+      setWatermarkSuccess(true)
+      setTimeout(() => setWatermarkSuccess(false), 3500)
+    } catch (err) {
+      setWatermarkError(err instanceof Error ? err.message : 'Nahrání vodoznaku se nezdařilo')
+    } finally {
+      setWatermarkUploading(false)
+    }
+  }
+
   if (loading || !form) {
     return (
       <AppLayout title="Nastavení společnosti">
@@ -104,15 +127,15 @@ export function CompanySettingsPage() {
     >
       <PageHeader
         title="Nastavení společnosti"
-        description="Firemní údaje VH Bulldig s.r.o. Logo se automaticky použije ve všech dokumentech a PDF."
+        description="Firemní údaje VH Bulldig s.r.o. Logo a vodoznak nahrávejte pouze zde – automaticky se použijí ve všech PDF."
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <h3 className="mb-4 text-base font-semibold text-theme-primary">Logo společnosti</h3>
           <p className="mb-4 text-sm text-theme-muted">
-            Logo nahrávejte pouze zde. Použije se ve smlouvách, výplatních páskách, deníku, fakturaci a všech
-            ostatních dokumentech.
+            Logo nahrávejte pouze zde jako PNG s průhledným pozadím (cca 300–600 px na šířku). Použije se ve
+            smlouvách, výplatních páskách, deníku, fakturaci a všech ostatních dokumentech.
           </p>
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
             {form.logo_url ? (
@@ -138,6 +161,42 @@ export function CompanySettingsPage() {
           </div>
           {logoSuccess && <p className="mt-3 text-xs font-medium text-green-400">Logo bylo úspěšně nahráno.</p>}
           {logoError && <p className="mt-3 text-xs text-red-400">{logoError}</p>}
+        </Card>
+
+        <Card>
+          <h3 className="mb-4 text-base font-semibold text-theme-primary">Vodoznak společnosti</h3>
+          <p className="mb-4 text-sm text-theme-muted">
+            Nahrajte PNG s průhledným pozadím (ideálně 2000–3000 px na delší straně). Vodoznak se automaticky
+            zobrazí uprostřed všech PDF s jemnou průhledností 5–8 %.
+          </p>
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+            {form.watermark_url ? (
+              <img
+                src={form.watermark_url}
+                alt="Vodoznak VH Bulldig"
+                className="max-h-24 max-w-[200px] rounded-lg neon-border bg-white/5 p-2 opacity-60"
+              />
+            ) : (
+              <div className="flex h-24 w-48 items-center justify-center rounded-lg neon-border bg-white/5 text-xs text-theme-muted">
+                Vodoznak není nahrán
+              </div>
+            )}
+            <label className="cursor-pointer">
+              <span className="btn-neon inline-flex min-h-[44px] items-center gap-2 rounded-xl px-4 py-2 text-sm">
+                <Upload className="h-4 w-4" />
+                {watermarkUploading ? 'Nahrávám…' : 'Nahrát vodoznak'}
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/webp"
+                className="hidden"
+                disabled={watermarkUploading}
+                onChange={(e) => e.target.files?.[0] && handleWatermarkUpload(e.target.files[0])}
+              />
+            </label>
+          </div>
+          {watermarkSuccess && <p className="mt-3 text-xs font-medium text-green-400">Vodoznak byl úspěšně nahrán.</p>}
+          {watermarkError && <p className="mt-3 text-xs text-red-400">{watermarkError}</p>}
         </Card>
 
         <Card>

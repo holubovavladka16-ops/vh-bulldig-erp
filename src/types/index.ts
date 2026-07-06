@@ -26,6 +26,7 @@ export interface CompanySettings {
   email: string
   website: string
   logo_url: string
+  watermark_url?: string
   tagline: string
   bank_account: string
   director_name: string
@@ -108,6 +109,7 @@ export const DEFAULT_COMPANY_SETTINGS: Omit<CompanySettings, 'id' | 'updated_at'
   email: '',
   website: '',
   logo_url: '',
+  watermark_url: '',
   tagline: 'Stavební a zemní práce',
   bank_account: '',
   director_name: '',

@@ -15,6 +15,7 @@ export interface PayrollSlipSummary {
   total_earnings: number
   total_advances: number
   net_amount: number
+  pending_count?: number
 }
 
 export interface PayrollSlipDetail {
@@ -28,4 +29,6 @@ export interface PayrollFilters {
   search?: string
   year: number
   month: number
+  /** Zahrnout čekající výkazy (náhled před schválením) */
+  includePending?: boolean
 }

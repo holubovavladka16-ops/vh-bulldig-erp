@@ -32,6 +32,35 @@ export function formatPhotoAddress(
   return ADDRESS_GEOCODE_FAILED
 }
 
+/** Dvě adresy: geokódovaná (reverse geocoding) a strukturovaná (ulice, obec, PSČ). */
+export function getPhotoAddressDetails(
+  photo: Pick<GpsPhoto, 'address_full' | 'street' | 'city' | 'postal_code' | 'country' | 'gps_lat' | 'gps_lng'>
+): { geocoded: string; structured: string } {
+  const rawFull = photo.address_full?.trim() ?? ''
+  const geocoded =
+    rawFull && !isLikelyCoordinateAddress(rawFull) ? rawFull : formatPhotoAddress(photo)
+
+  const structuredParts = [
+    photo.street?.trim(),
+    [photo.postal_code?.trim(), photo.city?.trim()].filter(Boolean).join(' '),
+    photo.country?.trim() && photo.country !== 'CZ' ? photo.country.trim() : '',
+  ].filter(Boolean)
+  const structured = structuredParts.join(', ')
+
+  if (!structured || structured === geocoded) {
+    return { geocoded, structured: '' }
+  }
+  return { geocoded, structured }
+}
+
+export function formatGpsLocationLabel(lat: number, lng: number, accuracy?: number | null): string {
+  const base = formatGpsCoordinatesCompact(lat, lng)
+  if (accuracy != null && accuracy > 0) {
+    return `${base} (±${Math.round(accuracy)} m)`
+  }
+  return base
+}
+
 export function formatCaptureWeekday(dateIso: string): string {
   const parts = parseDateParts(dateIso)
   if (!parts) return ''

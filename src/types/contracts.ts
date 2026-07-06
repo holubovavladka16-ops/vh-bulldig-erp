@@ -48,6 +48,7 @@ export interface ContractAutoWorkerData {
 export interface ContractAutoCompanyData {
   company_name: string
   logo_url: string
+  watermark_url?: string
   tagline: string
   ico: string
   dic: string
@@ -153,6 +154,7 @@ function companyFromSettings(company: CompanySettings): ContractAutoCompanyData 
   return {
     company_name: company.company_name,
     logo_url: company.logo_url,
+    watermark_url: company.watermark_url ?? '',
     tagline: company.tagline ?? '',
     ico: company.ico,
     dic: company.dic,

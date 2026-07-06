@@ -30,6 +30,7 @@ export async function fetchPayrollSummaries(filters: PayrollFilters): Promise<Pa
     p_date_from: period.dateFrom,
     p_date_to: period.dateTo,
     p_worker_id: filters.workerId ?? null,
+    p_include_pending: filters.includePending ?? true,
   })
 
   if (error) throw new Error(error.message)
@@ -42,6 +43,7 @@ export async function fetchPayrollSummaries(filters: PayrollFilters): Promise<Pa
     total_earnings: Number(row.total_earnings),
     total_advances: Number(row.total_advances),
     net_amount: Number(row.net_amount),
+    pending_count: Number(row.pending_count ?? 0),
   }))
 
   return filterBySearch(rows, filters.search)

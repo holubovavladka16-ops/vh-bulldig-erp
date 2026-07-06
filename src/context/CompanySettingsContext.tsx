@@ -146,6 +146,8 @@ export function CompanySettingsProvider({ children }: { children: ReactNode }) {
 
         logo_url: data.logo_url,
 
+        watermark_url: data.watermark_url ?? '',
+
         tagline: data.tagline,
 
         bank_account: data.bank_account,

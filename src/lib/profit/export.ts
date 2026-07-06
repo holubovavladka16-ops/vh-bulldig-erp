@@ -1,5 +1,5 @@
-import { downloadCsv, printHtml } from '@/lib/export'
-import { buildCompanyHeaderHtml, escHtml } from '@/lib/print/printDocument'
+import { downloadCsv, printProfessionalReport } from '@/lib/export'
+import { escHtml } from '@/lib/print/printDocument'
 import { formatCurrency, formatDate } from '@/constants/workers'
 import type { CompanySettings } from '@/types'
 import type { OrderProfitRow } from '@/types/profit'
@@ -72,7 +72,6 @@ export function exportProfitOverviewPdf(
   company: CompanySettings | null,
   periodLabel: string
 ): void {
-  const header = buildCompanyHeaderHtml(company, 'Přehled hospodaření a zisku')
   const tableRows = rows
     .map((row) => {
       const profitClass = row.net_profit >= 0 ? 'profit' : 'loss'
@@ -99,18 +98,20 @@ export function exportProfitOverviewPdf(
     .join('')
 
   const body = `
-    ${header}
-    <p class="subtitle">Období: ${escHtml(periodLabel)} · Vygenerováno ${escHtml(new Date().toLocaleString('cs-CZ'))}</p>
-    <table>
-      <thead>
-        <tr>
-          ${EXPORT_COLUMNS.map((col) => `<th>${escHtml(col.label)}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>${tableRows}</tbody>
-    </table>
-    <p class="footer">VH Bulldig ERP – Přehled hospodaření a zisku</p>
+    <section class="doc-section">
+      <p class="doc-subtitle">Období: ${escHtml(periodLabel)} · Počet zakázek: ${rows.length}</p>
+      <table class="doc-table doc-table-compact">
+        <thead>
+          <tr>
+            ${EXPORT_COLUMNS.map((col) => `<th>${escHtml(col.label)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </section>
   `
 
-  printHtml('Přehled hospodaření a zisku', body)
+  printProfessionalReport('Přehled hospodaření a zisku', body, company, {
+    documentNumber: `HOSP-${formatDate(new Date().toISOString().slice(0, 10)).replace(/\./g, '')}`,
+  })
 }
