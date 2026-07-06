@@ -2,7 +2,7 @@
 -- VH Bulldig ERP - All Migrations
 -- Project: khhalcjgvqoyskkjlkyg
 -- Run in Supabase Dashboard -> SQL Editor -> New query
--- Generated: 2026-07-06 05:53
+-- Generated: 2026-07-06 17:47
 -- =============================================================================
 
 
@@ -3593,7 +3593,7 @@ CREATE INDEX IF NOT EXISTS idx_worker_reports_payroll
 -- Spusťte po 016_module12_vyplatni_pasky.sql
 -- Hesla se ukládají šifrovaně v auth.users (bcrypt). Nikdy neukládejte hesla do zdrojového kódu.
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- První uživatel = administrátor
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -3666,7 +3666,7 @@ CREATE OR REPLACE FUNCTION internal_create_auth_user(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = auth, public
+SET search_path = auth, public, extensions
 AS $$
 DECLARE
   v_user_id UUID := gen_random_uuid();
@@ -3692,6 +3692,10 @@ BEGIN
     email,
     encrypted_password,
     email_confirmed_at,
+    confirmation_token,
+    recovery_token,
+    email_change_token_new,
+    email_change,
     raw_app_meta_data,
     raw_user_meta_data,
     created_at,
@@ -3704,6 +3708,10 @@ BEGIN
     v_email,
     crypt(p_password, gen_salt('bf')),
     now(),
+    '',
+    '',
+    '',
+    '',
     jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
     jsonb_build_object('full_name', p_full_name, 'role', p_role::text),
     now(),
@@ -3716,7 +3724,6 @@ BEGIN
     identity_data,
     provider,
     provider_id,
-    email,
     last_sign_in_at,
     created_at,
     updated_at
@@ -3725,8 +3732,7 @@ BEGIN
     v_user_id,
     jsonb_build_object('sub', v_user_id::text, 'email', v_email),
     'email',
-    v_email,
-    v_email,
+    v_user_id::text,
     now(),
     now(),
     now()
@@ -3762,7 +3768,7 @@ CREATE OR REPLACE FUNCTION bootstrap_first_admin(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = auth, public
+SET search_path = auth, public, extensions
 AS $$
 DECLARE
   v_full_name TEXT := COALESCE(NULLIF(TRIM(p_full_name), ''), split_part(lower(trim(p_email)), '@', 1));
@@ -3786,7 +3792,7 @@ CREATE OR REPLACE FUNCTION admin_create_user(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = auth, public
+SET search_path = auth, public, extensions
 AS $$
 DECLARE
   v_full_name TEXT := COALESCE(NULLIF(TRIM(p_full_name), ''), split_part(lower(trim(p_email)), '@', 1));
@@ -3807,7 +3813,7 @@ CREATE OR REPLACE FUNCTION admin_set_user_active(p_user_id UUID, p_is_active BOO
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = auth, public
+SET search_path = auth, public, extensions
 AS $$
 DECLARE
   v_role user_role;
@@ -4679,3 +4685,825 @@ DROP POLICY IF EXISTS "Autentizovaní mažou fotografie" ON storage.objects;
 CREATE POLICY "Autentizovaní mažou fotografie"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'worker-photos');
+
+
+-- =============================================================================
+-- MIGRATION: 026_attendance_manual_crud.sql
+-- =============================================================================
+
+-- Ruční docházka: stav, poznámka, admin CRUD
+
+DO $$ BEGIN
+  CREATE TYPE attendance_status AS ENUM (
+    'pritomen',
+    'dovolena',
+    'nemoc',
+    'ocr',
+    'neplacene_volno'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE worker_attendance_records
+  ADD COLUMN IF NOT EXISTS attendance_status attendance_status NOT NULL DEFAULT 'pritomen',
+  ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';
+
+CREATE OR REPLACE FUNCTION admin_upsert_attendance(
+  p_worker_id UUID,
+  p_attendance_date DATE,
+  p_order_id UUID,
+  p_work_start TIME,
+  p_work_end TIME,
+  p_break_minutes INTEGER,
+  p_attendance_status attendance_status,
+  p_note TEXT,
+  p_id UUID DEFAULT NULL,
+  p_performed_by UUID DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_order_name TEXT := '';
+  v_hours NUMERIC(8, 2);
+  v_record_id UUID;
+  v_existing_form_id UUID;
+  v_activity TEXT;
+BEGIN
+  IF get_user_role() <> 'administrator' THEN
+    RAISE EXCEPTION 'Nedostatečná oprávnění pro správu docházky';
+  END IF;
+
+  IF p_order_id IS NOT NULL THEN
+    SELECT name INTO v_order_name FROM job_orders WHERE id = p_order_id;
+    IF v_order_name IS NULL THEN
+      RAISE EXCEPTION 'Zakázka neexistuje';
+    END IF;
+  END IF;
+
+  IF p_attendance_status = 'pritomen' THEN
+    v_hours := COALESCE(calc_work_hours(p_work_start, p_work_end, COALESCE(p_break_minutes, 0)), 0);
+  ELSE
+    v_hours := 0;
+  END IF;
+
+  v_activity := CASE p_attendance_status
+    WHEN 'pritomen' THEN 'Docházka – přítomen'
+    WHEN 'dovolena' THEN 'Dovolená'
+    WHEN 'nemoc' THEN 'Nemocenská'
+    WHEN 'ocr' THEN 'OČR'
+    ELSE 'Neplacené volno'
+  END;
+
+  IF p_id IS NOT NULL THEN
+    SELECT form_id INTO v_existing_form_id
+    FROM worker_attendance_records
+    WHERE id = p_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Záznam docházky neexistuje';
+    END IF;
+
+    UPDATE worker_attendance_records SET
+      worker_id = p_worker_id,
+      attendance_date = p_attendance_date,
+      order_id = p_order_id,
+      order_name = COALESCE(v_order_name, ''),
+      work_start = p_work_start,
+      work_end = p_work_end,
+      break_minutes = COALESCE(p_break_minutes, 0),
+      hours = v_hours,
+      attendance_status = p_attendance_status,
+      note = COALESCE(p_note, '')
+    WHERE id = p_id;
+
+    v_record_id := p_id;
+  ELSE
+    INSERT INTO worker_attendance_records (
+      worker_id,
+      form_id,
+      attendance_date,
+      order_id,
+      order_name,
+      hours,
+      work_start,
+      work_end,
+      break_minutes,
+      attendance_status,
+      note
+    )
+    VALUES (
+      p_worker_id,
+      NULL,
+      p_attendance_date,
+      p_order_id,
+      COALESCE(v_order_name, ''),
+      v_hours,
+      p_work_start,
+      p_work_end,
+      COALESCE(p_break_minutes, 0),
+      p_attendance_status,
+      COALESCE(p_note, '')
+    )
+    ON CONFLICT (worker_id, attendance_date)
+    DO UPDATE SET
+      order_id = EXCLUDED.order_id,
+      order_name = EXCLUDED.order_name,
+      hours = EXCLUDED.hours,
+      work_start = EXCLUDED.work_start,
+      work_end = EXCLUDED.work_end,
+      break_minutes = EXCLUDED.break_minutes,
+      attendance_status = EXCLUDED.attendance_status,
+      note = EXCLUDED.note,
+      form_id = COALESCE(worker_attendance_records.form_id, EXCLUDED.form_id)
+    RETURNING id INTO v_record_id;
+  END IF;
+
+  IF p_attendance_status = 'pritomen' AND p_order_id IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1 FROM worker_reports
+      WHERE worker_id = p_worker_id
+        AND report_date = p_attendance_date
+        AND form_id IS NULL
+    ) THEN
+      UPDATE worker_reports SET
+        order_id = p_order_id,
+        order_name = COALESCE(v_order_name, ''),
+        activity = v_activity,
+        hours = v_hours,
+        note = COALESCE(p_note, '')
+      WHERE worker_id = p_worker_id
+        AND report_date = p_attendance_date
+        AND form_id IS NULL;
+    ELSE
+      INSERT INTO worker_reports (
+        worker_id, form_id, report_date, order_id, order_name, activity,
+        hours, meters, pieces, earnings, material, advance, note, status
+      )
+      VALUES (
+        p_worker_id, NULL, p_attendance_date, p_order_id, COALESCE(v_order_name, ''), v_activity,
+        v_hours, 0, 0, 0, '', 0, COALESCE(p_note, ''), 'cekajici'
+      );
+    END IF;
+  END IF;
+
+  INSERT INTO worker_history (worker_id, action, details, performed_by)
+  VALUES (
+    p_worker_id,
+    CASE WHEN p_id IS NULL THEN 'Docházka vytvořena' ELSE 'Docházka upravena' END,
+    jsonb_build_object(
+      'attendance_id', v_record_id,
+      'attendance_date', p_attendance_date,
+      'attendance_status', p_attendance_status,
+      'hours', v_hours,
+      'order_id', p_order_id,
+      'source', 'manual'
+    ),
+    p_performed_by
+  );
+
+  RETURN v_record_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION admin_delete_attendance(
+  p_id UUID,
+  p_performed_by UUID DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_record worker_attendance_records%ROWTYPE;
+BEGIN
+  IF get_user_role() <> 'administrator' THEN
+    RAISE EXCEPTION 'Nedostatečná oprávnění pro správu docházky';
+  END IF;
+
+  SELECT * INTO v_record FROM worker_attendance_records WHERE id = p_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Záznam docházky neexistuje';
+  END IF;
+
+  IF v_record.form_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Záznam z formuláře zaměstnance nelze smazat zde. Upravte nebo smažte formulář.';
+  END IF;
+
+  DELETE FROM worker_reports
+  WHERE worker_id = v_record.worker_id
+    AND report_date = v_record.attendance_date
+    AND form_id IS NULL;
+
+  DELETE FROM worker_attendance_records WHERE id = p_id;
+
+  INSERT INTO worker_history (worker_id, action, details, performed_by)
+  VALUES (
+    v_record.worker_id,
+    'Docházka smazána',
+    jsonb_build_object(
+      'attendance_id', p_id,
+      'attendance_date', v_record.attendance_date,
+      'source', 'manual'
+    ),
+    p_performed_by
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION submit_worker_daily_form(p_form_id UUID)
+RETURNS VOID AS $$
+DECLARE
+  v_form worker_daily_forms%ROWTYPE;
+  v_earnings NUMERIC;
+  v_activity TEXT;
+  v_meters NUMERIC;
+  v_pieces NUMERIC;
+BEGIN
+  SELECT * INTO v_form FROM worker_daily_forms WHERE id = p_form_id FOR UPDATE;
+
+  IF v_form.status NOT IN ('koncept', 'k_oprave') THEN
+    RAISE EXCEPTION 'Formulář nelze odeslat v aktuálním stavu';
+  END IF;
+
+  IF v_form.signature_data IS NULL OR v_form.signature_data = '' THEN
+    RAISE EXCEPTION 'Formulář vyžaduje podpis zaměstnance';
+  END IF;
+
+  IF v_form.order_id IS NULL THEN
+    RAISE EXCEPTION 'Formulář vyžaduje aktivní zakázku';
+  END IF;
+
+  v_earnings := calculate_form_earnings(p_form_id);
+  v_activity := derive_form_activity(v_form.work_type, v_form.work_description, p_form_id);
+
+  SELECT t.total_meters, t.total_pieces INTO v_meters, v_pieces
+  FROM derive_form_totals(p_form_id) t;
+
+  UPDATE worker_daily_forms SET
+    earnings = v_earnings,
+    activity = v_activity,
+    meters = v_meters,
+    pieces = v_pieces,
+    status = 'odeslany',
+    submitted_at = now()
+  WHERE id = p_form_id;
+
+  IF EXISTS (SELECT 1 FROM worker_reports WHERE form_id = p_form_id) THEN
+    UPDATE worker_reports SET
+      report_date = v_form.form_date,
+      order_id = v_form.order_id,
+      order_name = v_form.order_name,
+      activity = v_activity,
+      hours = v_form.hours,
+      meters = v_meters,
+      pieces = v_pieces,
+      earnings = v_earnings,
+      material = COALESCE(v_form.material, ''),
+      advance = COALESCE(v_form.advance, 0),
+      note = v_form.note,
+      status = 'cekajici'
+    WHERE form_id = p_form_id;
+  ELSE
+    INSERT INTO worker_reports (
+      worker_id, form_id, report_date, order_id, order_name, activity,
+      hours, meters, pieces, earnings, material, advance, note, status
+    )
+    VALUES (
+      v_form.worker_id, p_form_id, v_form.form_date, v_form.order_id, v_form.order_name, v_activity,
+      v_form.hours, v_meters, v_pieces, v_earnings,
+      COALESCE(v_form.material, ''), COALESCE(v_form.advance, 0), v_form.note, 'cekajici'
+    );
+  END IF;
+
+  INSERT INTO worker_attendance_records (
+    worker_id, form_id, attendance_date, order_id, order_name, hours, work_start, work_end, break_minutes,
+    attendance_status, note
+  )
+  VALUES (
+    v_form.worker_id, p_form_id, v_form.form_date, v_form.order_id, v_form.order_name, v_form.hours,
+    v_form.work_start, v_form.work_end, COALESCE(v_form.break_minutes, 0),
+    'pritomen', COALESCE(v_form.note, '')
+  )
+  ON CONFLICT (worker_id, attendance_date)
+  DO UPDATE SET
+    hours = worker_attendance_records.hours + EXCLUDED.hours,
+    form_id = EXCLUDED.form_id,
+    order_id = COALESCE(EXCLUDED.order_id, worker_attendance_records.order_id),
+    order_name = COALESCE(NULLIF(EXCLUDED.order_name, ''), worker_attendance_records.order_name),
+    work_start = COALESCE(EXCLUDED.work_start, worker_attendance_records.work_start),
+    work_end = COALESCE(EXCLUDED.work_end, worker_attendance_records.work_end),
+    break_minutes = worker_attendance_records.break_minutes + EXCLUDED.break_minutes,
+    attendance_status = 'pritomen',
+    note = COALESCE(NULLIF(EXCLUDED.note, ''), worker_attendance_records.note);
+
+  INSERT INTO worker_statistics (worker_id, stat_date, earnings, hours, meters, orders_count, advances)
+  VALUES (v_form.worker_id, v_form.form_date, v_earnings, v_form.hours, v_meters, 1, v_form.advance)
+  ON CONFLICT (worker_id, stat_date)
+  DO UPDATE SET
+    earnings = worker_statistics.earnings + EXCLUDED.earnings,
+    hours = worker_statistics.hours + EXCLUDED.hours,
+    meters = worker_statistics.meters + EXCLUDED.meters,
+    orders_count = worker_statistics.orders_count + 1,
+    advances = worker_statistics.advances + EXCLUDED.advances;
+
+  INSERT INTO worker_history (worker_id, action, details)
+  VALUES (v_form.worker_id, 'Denní výkaz vytvořen', jsonb_build_object(
+    'form_id', p_form_id,
+    'order_id', v_form.order_id,
+    'order_name', v_form.order_name,
+    'form_date', v_form.form_date,
+    'earnings', v_earnings,
+    'advance', v_form.advance,
+    'hours', v_form.hours
+  ));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION admin_upsert_attendance(UUID, DATE, UUID, TIME, TIME, INTEGER, attendance_status, TEXT, UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_delete_attendance(UUID, UUID) TO authenticated;
+
+
+-- =============================================================================
+-- MIGRATION: 026_fix_pgcrypto_bootstrap.sql
+-- =============================================================================
+
+-- Oprava bootstrapu na Supabase Cloud – pgcrypto běží ve schématu extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
+CREATE OR REPLACE FUNCTION internal_create_auth_user(
+  p_email TEXT,
+  p_password TEXT,
+  p_full_name TEXT,
+  p_role user_role
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = auth, public, extensions
+AS $$
+DECLARE
+  v_user_id UUID := gen_random_uuid();
+  v_email TEXT := lower(trim(p_email));
+BEGIN
+  IF v_email = '' OR position('@' in v_email) = 0 THEN
+    RAISE EXCEPTION 'Neplatný e-mail';
+  END IF;
+
+  IF length(p_password) < 8 THEN
+    RAISE EXCEPTION 'Heslo musí mít alespoň 8 znaků';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM auth.users WHERE email = v_email) THEN
+    RAISE EXCEPTION 'Uživatel s tímto e-mailem již existuje';
+  END IF;
+
+  INSERT INTO auth.users (
+    instance_id,
+    id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    confirmation_token,
+    recovery_token,
+    email_change_token_new,
+    email_change,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    created_at,
+    updated_at
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    v_user_id,
+    'authenticated',
+    'authenticated',
+    v_email,
+    crypt(p_password, gen_salt('bf')),
+    now(),
+    '',
+    '',
+    '',
+    '',
+    jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
+    jsonb_build_object('full_name', p_full_name, 'role', p_role::text),
+    now(),
+    now()
+  );
+
+  INSERT INTO auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  ) VALUES (
+    v_user_id,
+    v_user_id,
+    jsonb_build_object('sub', v_user_id::text, 'email', v_email),
+    'email',
+    v_user_id::text,
+    now(),
+    now(),
+    now()
+  );
+
+  UPDATE public.profiles
+  SET role = p_role, full_name = p_full_name, email = v_email, updated_at = now()
+  WHERE id = v_user_id;
+
+  RETURN v_user_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION internal_create_auth_user(TEXT, TEXT, TEXT, user_role) FROM PUBLIC;
+
+
+-- =============================================================================
+-- MIGRATION: 027_fix_auth_user_tokens.sql
+-- =============================================================================
+
+-- Oprava GoTrue HTTP 500: token sloupce v auth.users nesmí být NULL
+UPDATE auth.users SET confirmation_token = '' WHERE confirmation_token IS NULL;
+UPDATE auth.users SET recovery_token = '' WHERE recovery_token IS NULL;
+UPDATE auth.users SET email_change_token_new = '' WHERE email_change_token_new IS NULL;
+UPDATE auth.users SET email_change = '' WHERE email_change IS NULL;
+
+UPDATE auth.identities
+SET provider_id = user_id::text
+WHERE provider = 'email'
+  AND provider_id IS DISTINCT FROM user_id::text;
+
+
+-- =============================================================================
+-- MIGRATION: 028_storage_delete_policies.sql
+-- =============================================================================
+
+-- Storage UPDATE/DELETE pro všechny ERP buckety (mazání dokumentů, fotek, upsert)
+DO $$
+DECLARE
+  bucket TEXT;
+BEGIN
+  FOREACH bucket IN ARRAY ARRAY[
+    'worker-documents',
+    'gps-photos',
+    'order-photos',
+    'order-documents',
+    'cost-photos',
+    'cost-documents'
+  ]
+  LOOP
+    EXECUTE format(
+      'DROP POLICY IF EXISTS "Auth update %1$s" ON storage.objects;
+       CREATE POLICY "Auth update %1$s" ON storage.objects FOR UPDATE TO authenticated
+         USING (bucket_id = %2$L);',
+      bucket, bucket
+    );
+    EXECUTE format(
+      'DROP POLICY IF EXISTS "Auth delete %1$s" ON storage.objects;
+       CREATE POLICY "Auth delete %1$s" ON storage.objects FOR DELETE TO authenticated
+         USING (bucket_id = %2$L);',
+      bucket, bucket
+    );
+  END LOOP;
+END $$;
+
+
+-- =============================================================================
+-- MIGRATION: 029_gps_photo_device_heading.sql
+-- =============================================================================
+
+-- Orientace telefonu při pořízení fotografie
+ALTER TABLE gps_photos
+  ADD COLUMN IF NOT EXISTS device_heading NUMERIC(5, 1);
+
+
+-- =============================================================================
+-- MIGRATION: 030_module_mapa_vykopu.sql
+-- =============================================================================
+
+-- Modul – Mapa výkopů a měření trasy
+-- Spusťte po 029_gps_photo_device_heading.sql
+
+CREATE TABLE excavation_routes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES job_orders(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  note TEXT,
+  color TEXT NOT NULL DEFAULT '#06b6d4',
+  points JSONB NOT NULL DEFAULT '[]'::jsonb,
+  total_length_m NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (total_length_m >= 0),
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT excavation_routes_points_array CHECK (jsonb_typeof(points) = 'array')
+);
+
+CREATE INDEX idx_excavation_routes_order ON excavation_routes(order_id);
+CREATE INDEX idx_excavation_routes_created ON excavation_routes(created_at DESC);
+
+CREATE TRIGGER excavation_routes_updated_at
+  BEFORE UPDATE ON excavation_routes
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE excavation_routes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ERP uživatelé čtou trasy výkopů"
+  ON excavation_routes FOR SELECT
+  USING (get_user_role() IN ('administrator', 'vedouci', 'delnik'));
+
+CREATE POLICY "Admin spravuje trasy výkopů"
+  ON excavation_routes FOR ALL
+  USING (get_user_role() = 'administrator');
+
+INSERT INTO erp_modules (id, label, path, icon, sort_order, is_implemented, module_version)
+VALUES ('mapa-vykopu', 'Mapa výkopů', '/mapa-vykopu', 'Route', 13, true, '1.0.0')
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  path = EXCLUDED.path,
+  icon = EXCLUDED.icon,
+  is_implemented = true,
+  module_version = EXCLUDED.module_version;
+
+
+-- =============================================================================
+-- MIGRATION: 031_construction_points.sql
+-- =============================================================================
+
+-- Modul: Stavební body (Fotky na mapě)
+-- Každý bod sdružuje více fotografií, poznámek a historii úprav.
+
+CREATE TABLE construction_points (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  point_number INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL DEFAULT '',
+  order_id UUID REFERENCES job_orders(id) ON DELETE SET NULL,
+  gps_lat NUMERIC(10, 7) NOT NULL,
+  gps_lng NUMERIC(10, 7) NOT NULL,
+  gps_accuracy NUMERIC(10, 2),
+  address_full TEXT NOT NULL DEFAULT '',
+  street TEXT NOT NULL DEFAULT '',
+  city TEXT NOT NULL DEFAULT '',
+  postal_code TEXT NOT NULL DEFAULT '',
+  country TEXT NOT NULL DEFAULT '',
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE construction_point_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  point_id UUID NOT NULL REFERENCES construction_points(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE construction_point_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  point_id UUID NOT NULL REFERENCES construction_points(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  details JSONB,
+  performed_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE gps_photos
+  ADD COLUMN IF NOT EXISTS construction_point_id UUID REFERENCES construction_points(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX idx_construction_points_order ON construction_points(order_id);
+CREATE INDEX idx_construction_points_created ON construction_points(created_at DESC);
+CREATE INDEX idx_construction_point_notes_point ON construction_point_notes(point_id);
+CREATE INDEX idx_construction_point_history_point ON construction_point_history(point_id);
+CREATE INDEX idx_gps_photos_construction_point ON gps_photos(construction_point_id);
+
+CREATE TRIGGER construction_points_updated_at
+  BEFORE UPDATE ON construction_points
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER construction_point_notes_updated_at
+  BEFORE UPDATE ON construction_point_notes
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+ALTER TABLE construction_points ENABLE ROW LEVEL SECURITY;
+ALTER TABLE construction_point_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE construction_point_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ERP čte stavební body"
+  ON construction_points FOR SELECT
+  USING (get_user_role() IN ('administrator', 'vedouci', 'delnik'));
+
+CREATE POLICY "ERP vytváří stavební body"
+  ON construction_points FOR INSERT
+  WITH CHECK (get_user_role() IN ('administrator', 'vedouci', 'delnik'));
+
+CREATE POLICY "ERP upravuje stavební body"
+  ON construction_points FOR UPDATE
+  USING (get_user_role() IN ('administrator', 'vedouci', 'delnik'));
+
+CREATE POLICY "Admin maže stavební body"
+  ON construction_points FOR DELETE
+  USING (get_user_role() = 'administrator');
+
+CREATE POLICY "ERP čte poznámky bodů"
+  ON construction_point_notes FOR SELECT
+  USING (get_user_role() IN ('administrator', 'vedouci', 'delnik'));
+
+CREATE POLICY "ERP spravuje poznámky bodů"
+  ON construction_point_notes FOR ALL
+  USING (get_user_role() IN ('administrator', 'vedouci', 'delnik'))
+  WITH CHECK (get_user_role() IN ('administrator', 'vedouci', 'delnik'));
+
+CREATE POLICY "ERP čte historii bodů"
+  ON construction_point_history FOR SELECT
+  USING (get_user_role() IN ('administrator', 'vedouci', 'delnik'));
+
+CREATE POLICY "ERP zapisuje historii bodů"
+  ON construction_point_history FOR INSERT
+  WITH CHECK (get_user_role() IN ('administrator', 'vedouci', 'delnik'));
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON construction_points TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON construction_point_notes TO authenticated, service_role;
+GRANT SELECT, INSERT ON construction_point_history TO authenticated, service_role;
+
+-- Migrace existujících fotografií: každá fotka = vlastní stavební bod
+DO $$
+DECLARE
+  r RECORD;
+  new_id UUID;
+  pt_num INTEGER;
+BEGIN
+  FOR r IN
+    SELECT p.*
+    FROM gps_photos p
+    WHERE p.construction_point_id IS NULL
+    ORDER BY p.created_at ASC
+  LOOP
+    SELECT COALESCE(MAX(cp.point_number), 0) + 1
+    INTO pt_num
+    FROM construction_points cp
+    WHERE cp.order_id IS NOT DISTINCT FROM r.order_id;
+
+    INSERT INTO construction_points (
+      point_number,
+      name,
+      order_id,
+      gps_lat,
+      gps_lng,
+      gps_accuracy,
+      address_full,
+      street,
+      city,
+      postal_code,
+      country,
+      created_by,
+      created_at,
+      updated_at
+    ) VALUES (
+      pt_num,
+      'Stavební bod ' || pt_num,
+      r.order_id,
+      r.gps_lat,
+      r.gps_lng,
+      r.gps_accuracy,
+      COALESCE(r.address_full, ''),
+      COALESCE(r.street, ''),
+      COALESCE(r.city, ''),
+      COALESCE(r.postal_code, ''),
+      COALESCE(r.country, ''),
+      r.created_by,
+      r.created_at,
+      r.updated_at
+    )
+    RETURNING id INTO new_id;
+
+    UPDATE gps_photos
+    SET construction_point_id = new_id, sort_order = 0
+    WHERE id = r.id;
+
+    INSERT INTO construction_point_history (point_id, action, details, performed_by, created_at)
+    VALUES (
+      new_id,
+      'Bod vytvořen z existující fotografie',
+      jsonb_build_object('photo_id', r.id),
+      r.created_by,
+      r.created_at
+    );
+  END LOOP;
+END $$;
+
+
+-- =============================================================================
+-- MIGRATION: 032_login_logs.sql
+-- =============================================================================
+
+-- Bezpečnostní log přihlášení + e-mailové upozornění administrátorovi
+
+CREATE TABLE login_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  user_email TEXT NOT NULL,
+  user_name TEXT,
+  login_time TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ip_address TEXT,
+  device TEXT,
+  browser TEXT,
+  os TEXT,
+  location TEXT,
+  user_agent TEXT,
+  device_type TEXT NOT NULL DEFAULT 'unknown' CHECK (device_type IN ('mobile', 'desktop', 'unknown')),
+  email_sent BOOLEAN NOT NULL DEFAULT false,
+  email_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_login_logs_user ON login_logs(user_id);
+CREATE INDEX idx_login_logs_time ON login_logs(login_time DESC);
+
+ALTER TABLE login_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admin čte login logy"
+  ON login_logs FOR SELECT
+  USING (get_user_role() = 'administrator');
+
+CREATE POLICY "Service role spravuje login logy"
+  ON login_logs FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+GRANT SELECT ON login_logs TO authenticated, service_role;
+GRANT INSERT, UPDATE ON login_logs TO service_role;
+
+-- Záložní RPC: uloží log, pokud Edge Function není dostupná (bez e-mailu)
+CREATE OR REPLACE FUNCTION insert_login_log_fallback(
+  p_user_email TEXT,
+  p_user_name TEXT,
+  p_ip_address TEXT,
+  p_device TEXT,
+  p_browser TEXT,
+  p_os TEXT,
+  p_location TEXT,
+  p_user_agent TEXT,
+  p_device_type TEXT,
+  p_email_error TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_log_id UUID;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Neautorizovaný požadavek';
+  END IF;
+
+  INSERT INTO login_logs (
+    user_id,
+    user_email,
+    user_name,
+    login_time,
+    ip_address,
+    device,
+    browser,
+    os,
+    location,
+    user_agent,
+    device_type,
+    email_sent,
+    email_error
+  ) VALUES (
+    v_user_id,
+    p_user_email,
+    NULLIF(TRIM(p_user_name), ''),
+    now(),
+    NULLIF(TRIM(p_ip_address), ''),
+    NULLIF(TRIM(p_device), ''),
+    NULLIF(TRIM(p_browser), ''),
+    NULLIF(TRIM(p_os), ''),
+    NULLIF(TRIM(p_location), ''),
+    NULLIF(TRIM(p_user_agent), ''),
+    COALESCE(NULLIF(TRIM(p_device_type), ''), 'unknown'),
+    false,
+    COALESCE(NULLIF(TRIM(p_email_error), ''), 'E-mail neodeslán – Edge Function nedostupná')
+  )
+  RETURNING id INTO v_log_id;
+
+  RETURN v_log_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION insert_login_log_fallback TO authenticated;

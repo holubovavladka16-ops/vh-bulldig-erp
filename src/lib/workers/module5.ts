@@ -3,6 +3,7 @@ import type {
   WorkerReport,
   WorkerAttendanceRecord,
   WorkerReportStatus,
+  AttendanceStatus,
   ReportDetail,
   PortalAttendanceRecord,
 } from '@/types/workers'
@@ -14,6 +15,7 @@ export interface ModuleListFilters {
   dateFrom?: string
   dateTo?: string
   status?: WorkerReportStatus | ''
+  attendanceStatus?: AttendanceStatus | ''
   sortBy?: 'date' | 'worker' | 'order'
   sortDir?: 'asc' | 'desc'
 }
@@ -69,7 +71,7 @@ function sortRecords<T extends AttendanceListRecord | ReportListRecord>(
   })
 }
 
-function filterBySearch<T extends { worker_first_name?: string; worker_last_name?: string; order_name?: string }>(
+function filterBySearch<T extends { worker_first_name?: string; worker_last_name?: string; order_name?: string; note?: string | null }>(
   rows: T[],
   search?: string
 ): T[] {
@@ -78,7 +80,8 @@ function filterBySearch<T extends { worker_first_name?: string; worker_last_name
   return rows.filter((r) => {
     const worker = `${r.worker_first_name ?? ''} ${r.worker_last_name ?? ''}`.toLowerCase()
     const order = (r.order_name ?? '').toLowerCase()
-    return worker.includes(q) || order.includes(q)
+    const note = (r.note ?? '').toLowerCase()
+    return worker.includes(q) || order.includes(q) || note.includes(q)
   })
 }
 
@@ -92,6 +95,7 @@ export async function fetchAllAttendance(filters: ModuleListFilters = {}): Promi
 
   if (filters.workerId) query = query.eq('worker_id', filters.workerId)
   if (filters.orderName?.trim()) query = query.eq('order_id', filters.orderName)
+  if (filters.attendanceStatus) query = query.eq('attendance_status', filters.attendanceStatus)
   query = applyDateFilters(query, filters.dateFrom, filters.dateTo, 'attendance_date')
 
   const { data, error } = await query.order('attendance_date', { ascending: false })
@@ -99,7 +103,8 @@ export async function fetchAllAttendance(filters: ModuleListFilters = {}): Promi
 
   const rows: AttendanceListRecord[] = ((data ?? []) as Array<Record<string, unknown> & { workers?: { first_name: string; last_name: string } | null }>).map((row) => {
     const worker = row.workers ?? null
-    const { workers: _, ...rest } = row
+    const { workers: _workers, ...rest } = row
+    void _workers
     return {
       ...(rest as unknown as WorkerAttendanceRecord),
       worker_first_name: worker?.first_name ?? '',
@@ -129,7 +134,8 @@ export async function fetchAllReports(filters: ModuleListFilters = {}): Promise<
 
   const rows: ReportListRecord[] = ((data ?? []) as Array<Record<string, unknown> & { workers?: { first_name: string; last_name: string } | null }>).map((row) => {
     const worker = row.workers ?? null
-    const { workers: _, ...rest } = row
+    const { workers: _workers, ...rest } = row
+    void _workers
     return {
       ...(rest as unknown as WorkerReport),
       worker_first_name: worker?.first_name ?? '',

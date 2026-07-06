@@ -3,8 +3,9 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
 import type { ModuleListFilters } from '@/lib/workers/module5'
-import type { WorkerReportStatus } from '@/types/workers'
+import type { WorkerReportStatus, AttendanceStatus } from '@/types/workers'
 import { WORKER_REPORT_STATUS_LABELS } from '@/constants/workers'
+import { ATTENDANCE_STATUS_OPTIONS } from '@/constants/attendance'
 
 interface ModuleFiltersProps {
   filters: ModuleListFilters
@@ -12,6 +13,7 @@ interface ModuleFiltersProps {
   workers: { id: string; label: string }[]
   orders: { id: string; label: string }[]
   showStatus?: boolean
+  showAttendanceStatus?: boolean
 }
 
 const sortOptions = [
@@ -39,6 +41,7 @@ export function ModuleFilters({
   workers,
   orders,
   showStatus = false,
+  showAttendanceStatus = false,
 }: ModuleFiltersProps) {
   const workerOptions = [{ value: '', label: 'Všichni zaměstnanci' }, ...workers.map((w) => ({ value: w.id, label: w.label }))]
   const orderOptions = [{ value: '', label: 'Všechny zakázky' }, ...orders.map((o) => ({ value: o.id, label: o.label }))]
@@ -74,6 +77,14 @@ export function ModuleFilters({
             options={statusOptions}
             value={filters.status ?? ''}
             onChange={(e) => onChange({ status: (e.target.value as WorkerReportStatus) || '' })}
+          />
+        )}
+        {showAttendanceStatus && (
+          <Select
+            label="Stav docházky"
+            options={[{ value: '', label: 'Všechny stavy' }, ...ATTENDANCE_STATUS_OPTIONS]}
+            value={filters.attendanceStatus ?? ''}
+            onChange={(e) => onChange({ attendanceStatus: (e.target.value as AttendanceStatus) || '' })}
           />
         )}
         <Input

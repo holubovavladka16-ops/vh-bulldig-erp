@@ -62,7 +62,13 @@ export function WorkerDetailPage() {
       {activeTab === 'cenik' && <PriceListTab workerId={worker.id} isAdmin={isAdmin} />}
       {activeTab === 'dokumenty' && <DocumentsTab worker={worker} isAdmin={isAdmin} />}
       {activeTab === 'vykazy' && <ReportsTab workerId={worker.id} isAdmin={isAdmin} />}
-      {activeTab === 'dochazka' && <AttendanceTab workerId={worker.id} />}
+      {activeTab === 'dochazka' && (
+        <AttendanceTab
+          workerId={worker.id}
+          workerLabel={`${worker.last_name} ${worker.first_name}`}
+          isAdmin={isAdmin}
+        />
+      )}
       {activeTab === 'historie' && <HistoryTab workerId={worker.id} />}
       {activeTab === 'formular' && <FormLinkTab worker={worker} onWorkerUpdated={setWorker} />}
     </AppLayout>

@@ -14,6 +14,8 @@ export type WorkerReportStatus = 'cekajici' | 'schvaleny' | 'k_oprave'
 export type PriceUnitType = 'hodina' | 'metr' | 'kus' | 'pausal' | 'm2' | 'den'
 export type WorkType = 'hodinova' | 'ukolova' | 'kombinovana'
 
+export type AttendanceStatus = 'pritomen' | 'dovolena' | 'nemoc' | 'ocr' | 'neplacene_volno'
+
 export interface Worker {
   id: string
   first_name: string
@@ -147,7 +149,20 @@ export interface WorkerAttendanceRecord {
   work_start: string | null
   work_end: string | null
   break_minutes: number
+  attendance_status: AttendanceStatus
+  note: string
   created_at: string
+}
+
+export interface AttendanceUpsertInput {
+  worker_id: string
+  attendance_date: string
+  order_id: string | null
+  work_start: string
+  work_end: string
+  break_minutes: number
+  attendance_status: AttendanceStatus
+  note: string
 }
 
 export interface WorkerHistoryEntry {
