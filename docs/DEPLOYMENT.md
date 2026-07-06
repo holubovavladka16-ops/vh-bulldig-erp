@@ -17,6 +17,7 @@ Frontend je statická SPA (Vite + React). Backend běží na **Supabase Cloud** 
 | `VITE_INITIAL_ADMIN_EMAIL` | `admin@vhbulldig.cz` (volitelné, jen pro bootstrap skripty) |
 
 > Build musí proběhnout **s nastavenými VITE_ proměnnými** – Vite je vkládá do bundle při `npm run build`.
+> Produkční hodnoty jsou v souboru `.env.production` (commitnutý, pouze veřejné klíče). Alternativně nastavte proměnné ve Vercel dashboardu – mají přednost před `.env.production`.
 
 ---
 

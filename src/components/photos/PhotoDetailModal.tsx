@@ -10,7 +10,9 @@ import {
   getGpsPhotoUrl,
   updateGpsPhotoNote,
 } from '@/lib/photos/api'
-import { getOpenStreetMapEmbedUrl, getStreetViewEmbedUrl, getGoogleMapsUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
+import { getStreetViewEmbedUrl, getGoogleMapsUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
+import { formatGpsCoordinates, formatPhotoAddress } from '@/lib/photos/photoDisplay'
+import { PhotoMiniMap } from '@/components/photos/PhotoMiniMap'
 import { PhotoDeleteButton, PhotoNoteEditor, PhotoShareButtons } from '@/components/photos/PhotoShareButtons'
 import type { GpsPhotoDetail } from '@/types/photos'
 
@@ -105,28 +107,32 @@ export function PhotoDetailModal({ photoId, onClose, onUpdated }: PhotoDetailMod
                       : '—'
                   }
                 />
-                <Info label="Adresa" value={detail.address_full} />
+                <Info label="Adresa" value={formatPhotoAddress(detail)} />
                 <Info label="Ulice" value={detail.street || '—'} />
                 <Info label="Město" value={detail.city || '—'} />
                 <Info label="PSČ" value={detail.postal_code || '—'} />
                 <Info label="Stát" value={detail.country || '—'} />
                 {detail.order_name && <Info label="Zakázka" value={detail.order_name} />}
                 {detail.worker_name && <Info label="Zaměstnanec" value={detail.worker_name} />}
+                <Info
+                  label="Pořídil"
+                  value={detail.creator_name?.trim() || detail.worker_name || '—'}
+                />
               </div>
             </div>
 
             <div className="space-y-6">
               <Card>
                 <h3 className="mb-3 font-semibold text-theme-primary">Mapa</h3>
-                <iframe
-                  title="Mapa"
-                  src={getOpenStreetMapEmbedUrl(detail.gps_lat, detail.gps_lng)}
-                  className="h-56 w-full rounded-xl border border-[var(--border-glass)]"
-                  loading="lazy"
-                />
-                <a href={getGoogleMapsUrl(detail.gps_lat, detail.gps_lng)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm text-accent hover:underline">
-                  Otevřít v Google Maps
-                </a>
+                <PhotoMiniMap lat={detail.gps_lat} lng={detail.gps_lng} height={160} />
+                <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                  <a href={getGoogleMapsUrl(detail.gps_lat, detail.gps_lng)} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                    Google Maps
+                  </a>
+                  <span className="font-mono text-xs text-theme-muted">
+                    {formatGpsCoordinates(detail.gps_lat, detail.gps_lng)}
+                  </span>
+                </div>
               </Card>
 
               <Card>

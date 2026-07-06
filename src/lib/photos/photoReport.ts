@@ -1,6 +1,10 @@
 import { formatDate, formatTime } from '@/constants/workers'
-import { getGoogleMapsUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
+import { getGoogleMapsUrl, getStaticMapImageUrl } from '@/lib/photos/mapLinks'
 import { getGpsPhotoUrl } from '@/lib/photos/api'
+import {
+  formatGpsCoordinates,
+  formatPhotoAddress,
+} from '@/lib/photos/photoDisplay'
 import {
   buildCompanyHeaderHtml,
   buildPrintDocument,
@@ -19,7 +23,9 @@ function row(label: string, value: string | null | undefined): string {
 export function buildPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | null): string {
   const photoUrl = getGpsPhotoUrl(photo.file_path)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
-  const streetViewUrl = getStreetViewUrl(photo.gps_lat, photo.gps_lng)
+  const mapImageUrl = getStaticMapImageUrl(photo.gps_lat, photo.gps_lng, 640, 180)
+  const address = formatPhotoAddress(photo)
+  const capturedBy = photo.creator_name?.trim() || photo.worker_name?.trim() || '—'
 
   return `
     <div class="report">
@@ -32,22 +38,25 @@ export function buildPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | 
       <table>
         ${row('Datum pořízení', formatDate(photo.captured_date))}
         ${row('Čas pořízení', formatTime(photo.captured_time))}
-        ${row('GPS souřadnice', `${photo.gps_lat.toFixed(6)}, ${photo.gps_lng.toFixed(6)}`)}
-        ${row('Přesná adresa', photo.address_full)}
+        ${row('GPS souřadnice', formatGpsCoordinates(photo.gps_lat, photo.gps_lng))}
+        ${row('Přesnost GPS', photo.gps_accuracy != null ? `±${Math.round(photo.gps_accuracy)} m` : '')}
+        ${row('Adresa', address)}
         ${row('Ulice', photo.street)}
         ${row('Město', photo.city)}
         ${row('PSČ', photo.postal_code)}
         ${row('Stát', photo.country)}
         ${row('Poznámka', photo.note)}
         ${row('Zakázka', photo.order_name ?? '')}
-        ${row('Zaměstnanec', photo.worker_name ?? '')}
+        ${row('Pořídil', capturedBy)}
       </table>
 
-      <h2>Mapa</h2>
-      <p><a href="${escHtml(mapUrl)}">${escHtml(mapUrl)}</a></p>
-
-      <h2>Pohled z ulice</h2>
-      <p><a href="${escHtml(streetViewUrl)}">${escHtml(streetViewUrl)}</a></p>
+      <h2>Mapa místa pořízení</h2>
+      <div class="photo-wrap">
+        <a href="${escHtml(mapUrl)}">
+          <img src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" style="max-height:180px;object-fit:cover" />
+        </a>
+      </div>
+      <p><a href="${escHtml(mapUrl)}">Otevřít v Google Maps</a></p>
 
       <p class="footer">Vygenerováno z ERP VH Bulldig · ${escHtml(formatDate(new Date().toISOString().slice(0, 10)))}</p>
     </div>

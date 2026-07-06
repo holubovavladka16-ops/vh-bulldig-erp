@@ -2,22 +2,7 @@ import type { EmploymentType, Worker } from '@/types/workers'
 import type { CompanySettings } from '@/types'
 import type { JobOrder } from '@/types/orders'
 
-const DOCUMENT_PREFIX: Record<DocumentType, string> = {
-  HPP: 'PS',
-  DPP: 'DPP',
-  DPC: 'DPC',
-  SMLOUVA_O_DILO: 'SD',
-  RAMCOVA_SMLOUVA: 'RS',
-  OBJEDNAVKA: 'OBJ',
-  PREDAVACI_PROTOKOL: 'PP',
-  DODATEK: 'DOD',
-}
-
-export function generateDocumentNumber(documentType: DocumentType): string {
-  const year = new Date().getFullYear()
-  const seq = String(Date.now()).slice(-6)
-  return `${DOCUMENT_PREFIX[documentType]}-${year}-${seq}`
-}
+export { generateDocumentNumber } from '@/lib/contracts/contractNumbering'
 
 export type ContractType = Extract<EmploymentType, 'HPP' | 'DPP' | 'DPC'>
 

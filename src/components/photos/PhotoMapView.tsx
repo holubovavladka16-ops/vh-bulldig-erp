@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css'
 import '@/styles/photoMap.css'
 import type { GpsPhoto } from '@/types/photos'
 import { formatDate } from '@/constants/workers'
+import { formatPhotoAddress } from '@/lib/photos/photoDisplay'
 
 const CZECH_CENTER: L.LatLngExpression = [49.8175, 15.473]
 const MARKER_COLOR = '#06b6d4'
@@ -84,6 +85,13 @@ export function PhotoMapView({
       marker.bindTooltip(
         `${formatDate(photo.captured_date)} · ${photo.captured_time.slice(0, 5)}`,
         { direction: 'top', offset: L.point(0, -10), opacity: 0.95 }
+      )
+      marker.bindPopup(
+        `<strong>${formatDate(photo.captured_date)} ${photo.captured_time.slice(0, 5)}</strong><br/>` +
+          `${formatPhotoAddress(photo)}<br/>` +
+          `${photo.order_name ? `Zakázka: ${photo.order_name}<br/>` : ''}` +
+          `${photo.note ? `${photo.note}<br/>` : ''}` +
+          `<em>Klikněte pro detail</em>`
       )
       marker.addTo(map)
       markersRef.current.push(marker)

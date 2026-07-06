@@ -15,3 +15,18 @@ export function getOpenStreetMapEmbedUrl(lat: number, lng: number): string {
 export function getStreetViewEmbedUrl(lat: number, lng: number): string {
   return `https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0&output=svembed`
 }
+
+export function getOpenStreetMapUrl(lat: number, lng: number): string {
+  return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`
+}
+
+/** Statický náhled mapy pro tisk / PDF (OpenStreetMap static map služba). */
+export function getStaticMapImageUrl(lat: number, lng: number, width = 640, height = 200): string {
+  const params = new URLSearchParams({
+    center: `${lat},${lng}`,
+    zoom: '16',
+    size: `${width}x${height}`,
+    markers: `${lat},${lng},red-pushpin`,
+  })
+  return `https://staticmap.openstreetmap.de/staticmap.php?${params.toString()}`
+}

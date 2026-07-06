@@ -7,6 +7,8 @@ import { Select } from '@/components/ui/Select'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import { buildContractHtmlDocument } from '@/lib/contracts/contractDocument'
 import { saveContractDocument } from '@/lib/contracts/api'
+import { validateContractData } from '@/lib/contracts/contractValidation'
+import { generateDocumentNumber } from '@/lib/contracts/contractNumbering'
 import { openPrintDocument } from '@/lib/print/printDocument'
 import {
   buildContractData,
@@ -52,7 +54,11 @@ export function ContractCreateModal({ open, worker, onClose, onSaved, uploadedBy
 
   const contractData = useMemo(() => {
     if (!company) return null
-    return buildContractData(worker, company, contractType, supplemental)
+    return {
+      ...buildContractData(worker, company, contractType, supplemental),
+      documentNumber: generateDocumentNumber(contractType),
+      createdAt: new Date().toISOString().slice(0, 10),
+    }
   }, [worker, company, contractType, supplemental])
 
   if (!open || !company) return null
@@ -63,12 +69,23 @@ export function ContractCreateModal({ open, worker, onClose, onSaved, uploadedBy
 
   function handlePreview() {
     if (!contractData) return
+    const validationError = validateContractData(contractData)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
     openPrintDocument(buildContractHtmlDocument(contractData))
   }
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
     if (!contractData) return
+
+    const validationError = validateContractData(contractData)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
 
     setLoading(true)
     setError('')

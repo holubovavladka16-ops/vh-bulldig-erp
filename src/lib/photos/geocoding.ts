@@ -1,4 +1,5 @@
 import type { GeocodedAddress } from '@/types/photos'
+import { geocodeFallbackAddress } from '@/lib/photos/photoDisplay'
 
 interface NominatimAddress {
   road?: string
@@ -17,36 +18,47 @@ export const GPS_TARGET_ACCURACY_METERS = 2
 const GPS_MAX_WAIT_MS = 30000
 
 export async function reverseGeocode(lat: number, lng: number): Promise<GeocodedAddress> {
-  const url = new URL('https://nominatim.openstreetmap.org/reverse')
-  url.searchParams.set('lat', String(lat))
-  url.searchParams.set('lon', String(lng))
-  url.searchParams.set('format', 'json')
-  url.searchParams.set('addressdetails', '1')
-  url.searchParams.set('accept-language', 'cs')
+  try {
+    const url = new URL('https://nominatim.openstreetmap.org/reverse')
+    url.searchParams.set('lat', String(lat))
+    url.searchParams.set('lon', String(lng))
+    url.searchParams.set('format', 'json')
+    url.searchParams.set('addressdetails', '1')
+    url.searchParams.set('accept-language', 'cs')
 
-  const response = await fetch(url.toString(), {
-    headers: { 'Accept-Language': 'cs' },
-  })
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Accept-Language': 'cs',
+        Accept: 'application/json',
+      },
+    })
 
-  if (!response.ok) {
-    throw new Error('Adresu se nepodařilo načíst z GPS souřadnic.')
-  }
+    if (!response.ok) {
+      return geocodeFallbackAddress(lat, lng)
+    }
 
-  const data = (await response.json()) as {
-    display_name?: string
-    address?: NominatimAddress
-  }
+    const data = (await response.json()) as {
+      display_name?: string
+      address?: NominatimAddress
+    }
 
-  const address = data.address ?? {}
-  const streetParts = [address.road, address.house_number].filter(Boolean)
-  const city = address.city ?? address.town ?? address.village ?? address.municipality ?? ''
+    if (!data.display_name?.trim()) {
+      return geocodeFallbackAddress(lat, lng)
+    }
 
-  return {
-    address_full: data.display_name ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-    street: streetParts.join(' '),
-    city,
-    postal_code: address.postcode ?? '',
-    country: address.country ?? '',
+    const address = data.address ?? {}
+    const streetParts = [address.road, address.house_number].filter(Boolean)
+    const city = address.city ?? address.town ?? address.village ?? address.municipality ?? ''
+
+    return {
+      address_full: data.display_name,
+      street: streetParts.join(' '),
+      city,
+      postal_code: address.postcode ?? '',
+      country: address.country ?? '',
+    }
+  } catch {
+    return geocodeFallbackAddress(lat, lng)
   }
 }
 

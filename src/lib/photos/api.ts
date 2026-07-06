@@ -10,6 +10,7 @@ import type {
 type GpsPhotoRow = GpsPhoto & {
   job_orders: { name: string } | null
   workers: { first_name: string; last_name: string } | null
+  creator: { full_name: string; email: string } | null
 }
 
 function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
@@ -37,6 +38,7 @@ function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
     photo_phase: row.photo_phase ?? null,
     order_name: row.job_orders?.name ?? row.order_name,
     worker_name: row.workers ? `${row.workers.last_name} ${row.workers.first_name}` : row.worker_name,
+    creator_name: row.creator?.full_name?.trim() || row.creator?.email || undefined,
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -68,7 +70,7 @@ export async function downloadGpsPhoto(filePath: string, fileName: string): Prom
 export async function fetchGpsPhotos(filters: GpsPhotoFilters = {}): Promise<GpsPhoto[]> {
   let query = supabase
     .from('gps_photos')
-    .select('*, job_orders(name), workers(first_name, last_name)')
+    .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
     .order('captured_at', { ascending: false })
 
   if (filters.orderId) query = query.eq('order_id', filters.orderId)
@@ -84,7 +86,7 @@ export async function fetchGpsPhotos(filters: GpsPhotoFilters = {}): Promise<Gps
 export async function fetchGpsPhotoDetail(id: string): Promise<GpsPhotoDetail | null> {
   const { data, error } = await supabase
     .from('gps_photos')
-    .select('*, job_orders(name), workers(first_name, last_name)')
+    .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
     .eq('id', id)
     .maybeSingle()
 
@@ -152,7 +154,7 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
       photo_phase: input.photo_phase ?? null,
       created_by: createdBy,
     })
-    .select('*, job_orders(name), workers(first_name, last_name)')
+    .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
     .single()
 
   if (error) throw new Error(error.message)

@@ -18,6 +18,7 @@ import {
 } from '@/lib/contracts/contractDocument'
 import { openPreviewDocument } from '@/lib/print/printDocument'
 import { saveContractDocument } from '@/lib/contracts/api'
+import { validateContractData } from '@/lib/contracts/contractValidation'
 import {
   buildDocumentData,
   DOCUMENT_TYPE_OPTIONS,
@@ -84,34 +85,45 @@ export function ContractsModulePage() {
 
   const documentData = useMemo(() => {
     if (!company) return null
-    const worker = documentRequiresWorker(documentType) ? selectedWorker : selectedWorker
-    const order = documentRequiresOrder(documentType) ? selectedOrder : selectedOrder
+    const worker = selectedWorker
+    const order = selectedOrder
     const base = buildDocumentData(company, documentType, supplemental, worker, order)
     return { ...base, documentNumber, createdAt: new Date().toISOString().slice(0, 10) }
   }, [company, documentType, supplemental, selectedWorker, selectedOrder, documentNumber])
+
+  function ensureValid(): boolean {
+    if (!documentData) return false
+    const validationError = validateContractData(documentData)
+    if (validationError) {
+      setError(validationError)
+      return false
+    }
+    setError('')
+    return true
+  }
 
   function updateSupplemental<K extends keyof ContractSupplemental>(key: K, value: ContractSupplemental[K]) {
     setSupplemental((prev) => ({ ...prev, [key]: value }))
   }
 
   function handlePreview() {
-    if (!documentData) return
+    if (!documentData || !ensureValid()) return
     openPreviewDocument(buildContractHtmlDocument(documentData))
   }
 
   function handlePrint() {
-    if (!documentData) return
+    if (!documentData || !ensureValid()) return
     printContractDocument(documentData)
   }
 
   function handleDownload() {
-    if (!documentData) return
+    if (!documentData || !ensureValid()) return
     downloadContractDocument(documentData)
   }
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
-    if (!documentData || !user) return
+    if (!documentData || !user || !ensureValid()) return
 
     if (documentRequiresWorker(documentType) && !selectedWorker) {
       setError('Vyberte zaměstnance.')
@@ -379,7 +391,7 @@ export function ContractsModulePage() {
             </Button>
             <Button type="submit" loading={saving} className="w-full sm:w-auto">
               <Save className="h-4 w-4" />
-              Uložit do dokumentů zaměstnance
+              {selectedWorker ? 'Uložit do dokumentů zaměstnance' : 'Uložit do firemního archivu'}
             </Button>
           </div>
         </form>

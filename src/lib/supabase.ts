@@ -1,16 +1,19 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
-import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from '@/lib/env'
+import {
+  getSupabaseAnonKey,
+  getSupabaseConfigHint,
+  getSupabaseUrl,
+  isSupabaseConfigured,
+} from '@/lib/env'
 
-export { isSupabaseConfigured, getSupabaseUrl, getSupabaseAnonKey }
+export { isSupabaseConfigured, getSupabaseUrl, getSupabaseAnonKey, getSupabaseConfigHint }
 
 const supabaseUrl = getSupabaseUrl()
 const supabaseAnonKey = getSupabaseAnonKey()
 
 if (!isSupabaseConfigured()) {
-  console.error(
-    'Chybí Supabase konfigurace. Vyplňte VITE_SUPABASE_URL a VITE_SUPABASE_ANON_KEY v souboru .env.local (viz .env.example).'
-  )
+  console.error(`Chybí Supabase konfigurace. ${getSupabaseConfigHint()}`)
 }
 
 export const supabase = createClient<Database>(

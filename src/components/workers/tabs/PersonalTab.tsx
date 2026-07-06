@@ -63,6 +63,12 @@ export function PersonalTab({ worker, isAdmin, onUpdate }: PersonalTabProps) {
 
   const persistWorker = useCallback(
     async (data: Worker) => {
+      if (!data.birth_date?.trim()) {
+        throw new Error('Datum narození je povinné.')
+      }
+      if (!data.start_date?.trim()) {
+        throw new Error('Datum nástupu je povinné.')
+      }
       await updateWorker(data.id, {
         first_name: data.first_name,
         last_name: data.last_name,
@@ -109,6 +115,8 @@ export function PersonalTab({ worker, isAdmin, onUpdate }: PersonalTabProps) {
     setManualSaving(true)
     try {
       await persistWorker(form)
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Uložení se nezdařilo')
     } finally {
       setManualSaving(false)
     }
@@ -229,6 +237,7 @@ export function PersonalTab({ worker, isAdmin, onUpdate }: PersonalTabProps) {
               label="Datum narození"
               type="date"
               value={form.birth_date}
+              required
               disabled={!isAdmin}
               onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
             />

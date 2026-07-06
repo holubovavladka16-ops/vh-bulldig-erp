@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase'
 import { uploadDocument } from '@/lib/workers/api'
 import {
   buildContractDocumentTitle,
@@ -12,19 +13,27 @@ function resolveCategory(type: DocumentType): WorkerDocumentCategory {
   return 'ostatni'
 }
 
+async function uploadCompanyArchive(data: ContractData, file: File): Promise<void> {
+  const folder = data.order?.id ? `company/orders/${data.order.id}` : 'company/contracts'
+  const path = `${folder}/${data.documentNumber ?? Date.now()}_${file.name}`
+  const { error } = await supabase.storage.from('worker-documents').upload(path, file, { upsert: true })
+  if (error) throw new Error(error.message)
+}
+
 export async function saveContractDocument(
   workerId: string | null,
   data: ContractData,
   uploadedBy: string
 ): Promise<void> {
-  if (!workerId) {
-    throw new Error('Pro uložení dokumentu vyberte zaměstnance.')
-  }
-
   const html = buildContractHtmlDocument(data)
   const title = buildContractDocumentTitle(data)
-  const fileName = `${data.documentType.toLowerCase()}_${Date.now()}.html`
+  const fileName = `${(data.documentNumber ?? data.documentType).toLowerCase()}_${Date.now()}.html`
   const file = new File([html], fileName, { type: 'text/html;charset=utf-8' })
 
-  await uploadDocument(workerId, resolveCategory(data.documentType), title, file, uploadedBy)
+  if (workerId) {
+    await uploadDocument(workerId, resolveCategory(data.documentType), title, file, uploadedBy)
+    return
+  }
+
+  await uploadCompanyArchive(data, file)
 }

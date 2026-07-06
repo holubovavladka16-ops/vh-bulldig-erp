@@ -117,6 +117,13 @@ export function formatNumber(value: number, fractionDigits = 0): string {
 }
 
 export function formatDate(date: string): string {
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (match) {
+    const [, year, month, day] = match
+    return new Intl.DateTimeFormat('cs-CZ').format(
+      new Date(Number(year), Number(month) - 1, Number(day))
+    )
+  }
   return new Intl.DateTimeFormat('cs-CZ').format(new Date(date))
 }
 

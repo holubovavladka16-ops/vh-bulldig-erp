@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { supabase, getSupabaseConfigHint, isSupabaseConfigured } from '@/lib/supabase'
 import type { Profile } from '@/types'
 
 interface AuthContextType {
@@ -76,8 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signIn(email: string, password: string) {
     if (!isSupabaseConfigured()) {
       return {
-        error:
-          'Supabase není nakonfigurován. Vyplňte .env.local a restartujte aplikaci.',
+        error: `Supabase není nakonfigurován. ${getSupabaseConfigHint()}`,
       }
     }
 

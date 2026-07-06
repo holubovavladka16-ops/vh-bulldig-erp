@@ -8,6 +8,7 @@ import {
   captureHighAccuracyPosition,
   reverseGeocode,
 } from '@/lib/photos/geocoding'
+import { geocodeFallbackAddress } from '@/lib/photos/photoDisplay'
 import { createGpsPhoto, fetchReportOptions } from '@/lib/photos/api'
 import { fetchJobOrders } from '@/lib/orders/api'
 import { fetchWorkers } from '@/lib/workers/api'
@@ -98,8 +99,8 @@ export function PhotoCaptureModal({ open, onClose, onCreated, uploadedBy }: Phot
   }
 
   async function handleSave() {
-    if (!file || !capturedAt || !gps || !address) {
-      setError('Nejdříve pořiďte fotografii a počkejte na GPS polohu s přesností ±2 m.')
+    if (!file || !capturedAt || !gps) {
+      setError('Nejdříve pořiďte fotografii a počkejte na GPS polohu.')
       return
     }
 
@@ -107,6 +108,8 @@ export function PhotoCaptureModal({ open, onClose, onCreated, uploadedBy }: Phot
       setError(`GPS přesnost ±${Math.round(gps.accuracy)} m nesplňuje požadavek ±${GPS_TARGET_ACCURACY_METERS} m.`)
       return
     }
+
+    const resolvedAddress = address ?? geocodeFallbackAddress(gps.lat, gps.lng)
 
     setSaving(true)
     setError('')
@@ -118,7 +121,7 @@ export function PhotoCaptureModal({ open, onClose, onCreated, uploadedBy }: Phot
           gps_lat: gps.lat,
           gps_lng: gps.lng,
           gps_accuracy: gps.accuracy,
-          ...address,
+          ...resolvedAddress,
           note,
           order_id: links.order_id || null,
           worker_id: links.worker_id || null,
@@ -137,7 +140,6 @@ export function PhotoCaptureModal({ open, onClose, onCreated, uploadedBy }: Phot
 
   const gpsReady =
     gps != null &&
-    address != null &&
     (gps.accuracy == null || gps.accuracy <= GPS_TARGET_ACCURACY_METERS)
 
   return (
@@ -196,7 +198,7 @@ export function PhotoCaptureModal({ open, onClose, onCreated, uploadedBy }: Phot
           </div>
         )}
 
-        {gps && address && capturedAt && (
+        {gps && capturedAt && (
           <div className="neon-border mb-6 grid gap-3 rounded-xl p-4 sm:grid-cols-2">
             <Meta label="Datum pořízení" value={formatDateFromDate(capturedAt)} />
             <Meta label="Čas pořízení" value={formatTime(capturedAt)} />
@@ -209,9 +211,13 @@ export function PhotoCaptureModal({ open, onClose, onCreated, uploadedBy }: Phot
                   : '—'
               }
             />
-            <Meta label="Adresa" value={address.address_full} className="sm:col-span-2" />
-            <Meta label="Ulice" value={address.street || '—'} />
-            <Meta label="Město" value={address.city || '—'} />
+            {address && (
+              <>
+                <Meta label="Adresa" value={address.address_full} className="sm:col-span-2" />
+                <Meta label="Ulice" value={address.street || '—'} />
+                <Meta label="Město" value={address.city || '—'} />
+              </>
+            )}
           </div>
         )}
 

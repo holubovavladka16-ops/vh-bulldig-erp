@@ -24,6 +24,13 @@ export function isSupabaseConfigured(): boolean {
   return Boolean(getSupabaseUrl() && getSupabaseAnonKey())
 }
 
+export function getSupabaseConfigHint(): string {
+  if (import.meta.env.PROD) {
+    return 'Nastavte VITE_SUPABASE_URL a VITE_SUPABASE_ANON_KEY v .env.production nebo ve Vercel → Environment Variables a spusťte nový deploy.'
+  }
+  return 'Vyplňte VITE_SUPABASE_URL a VITE_SUPABASE_ANON_KEY v souboru .env.local (viz .env.example) a restartujte vývojový server.'
+}
+
 export function getInitialAdminEmailHint(): string {
   return import.meta.env.VITE_INITIAL_ADMIN_EMAIL?.trim() ?? ''
 }

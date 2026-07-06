@@ -22,6 +22,7 @@ export interface GpsPhoto {
   photo_phase: 'pred' | 'po' | null
   order_name?: string
   worker_name?: string
+  creator_name?: string
   created_by: string | null
   created_at: string
   updated_at: string

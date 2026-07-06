@@ -139,23 +139,26 @@ export function buildCompanyAddressLine(company: CompanyHeader): string {
 
 export function buildCompanyHeaderHtml(company?: CompanyHeader | null, documentTitle?: string): string {
   const title = documentTitle ? `<h1>${escHtml(documentTitle)}</h1>` : ''
-  if (!company?.company_name) {
+  if (!company?.company_name && !company?.logo_url) {
     return title ? `<header class="header"><div>${title}</div></header>` : ''
   }
 
-  const logo = company.logo_url
+  const logo = company?.logo_url
     ? `<img src="${escHtml(company.logo_url)}" alt="Logo společnosti" class="logo" />`
     : ''
-  const address = buildCompanyAddressLine(company)
-  const ids = [company.ico ? `IČO: ${company.ico}` : '', company.dic ? `DIČ: ${company.dic}` : ''].filter(Boolean).join(' · ')
-  const contact = buildCompanyContactLine(company)
+  const address = company ? buildCompanyAddressLine(company) : ''
+  const ids = company
+    ? [company.ico ? `IČO: ${company.ico}` : '', company.dic ? `DIČ: ${company.dic}` : ''].filter(Boolean).join(' · ')
+    : ''
+  const contact = company ? buildCompanyContactLine(company) : ''
+  const companyName = company?.company_name ?? 'VH Bulldig s.r.o.'
 
   return `
     <header class="header">
       ${logo}
       <div>
-        ${title || `<h1>${escHtml(company.company_name)}</h1>`}
-        ${company.tagline ? `<p class="subtitle">${escHtml(company.tagline)}</p>` : ''}
+        ${title || `<h1>${escHtml(companyName)}</h1>`}
+        ${company?.tagline ? `<p class="subtitle">${escHtml(company.tagline)}</p>` : ''}
         ${address ? `<p class="subtitle">${escHtml(address)}</p>` : ''}
         ${ids ? `<p class="subtitle">${escHtml(ids)}</p>` : ''}
         ${contact ? `<p class="subtitle">${escHtml(contact)}</p>` : ''}
