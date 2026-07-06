@@ -1,6 +1,23 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+let runtimeEnvCache = null
+
+function loadRuntimeEnvFile() {
+  if (runtimeEnvCache) return runtimeEnvCache
+  const path = resolve(process.cwd(), 'api/.runtime-env.json')
+  if (!existsSync(path)) {
+    runtimeEnvCache = {}
+    return runtimeEnvCache
+  }
+  try {
+    runtimeEnvCache = JSON.parse(readFileSync(path, 'utf8'))
+  } catch {
+    runtimeEnvCache = {}
+  }
+  return runtimeEnvCache
+}
+
 function parseEnvFile(filePath) {
   const out = {}
   if (!existsSync(filePath)) return out
@@ -36,5 +53,9 @@ export function getSupabaseConfig() {
 }
 
 export function getGeminiApiKey() {
-  return process.env.GEMINI_API_KEY ?? ''
+  const fromProcess = process.env.GEMINI_API_KEY?.trim()
+  if (fromProcess) return fromProcess
+
+  const runtime = loadRuntimeEnvFile()
+  return runtime.GEMINI_API_KEY?.trim() ?? ''
 }
