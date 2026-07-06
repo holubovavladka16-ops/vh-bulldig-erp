@@ -13,7 +13,7 @@ import { toDateInputValue, todayIsoDate } from '@/lib/dates'
 import type { AttendanceListRecord } from '@/lib/workers/module5'
 import type { AttendanceUpsertInput, TaskLineInput, WorkerPriceItem, WorkType } from '@/types/workers'
 import { formatCurrency } from '@/constants/workers'
-import { calculateFormEarnings, getHourlyRateItem, getTaskPriceItems } from '@/lib/workers/earnings'
+import { calculateFormEarnings, getHourlyRateItem, getTaskPriceItems, filterTaskLinesForSave } from '@/lib/workers/earnings'
 import { calcWorkHours, formatTimeForInput } from '@/lib/workers/attendance'
 
 interface AttendanceFormModalProps {
@@ -50,6 +50,15 @@ export function AttendanceFormModal({
   const [loadingPrices, setLoadingPrices] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [priceError, setPriceError] = useState('')
+
+  function createDefaultTaskLine(priceItemId: string): TaskLineInput {
+    return {
+      price_item_id: priceItemId,
+      quantity: 0,
+      lineKey: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `line-${Date.now()}`,
+    }
+  }
 
   const performanceItems = useMemo(() => getTaskPriceItems(priceItems), [priceItems])
   const hourlyItem = useMemo(() => getHourlyRateItem(priceItems), [priceItems])
@@ -131,33 +140,67 @@ export function AttendanceFormModal({
   useEffect(() => {
     if (!open || !form.worker_id) {
       setPriceItems([])
+      setTaskLines([])
       return
     }
 
+    let cancelled = false
+    const workerId = form.worker_id
+    const formId = initial?.form_id ?? null
+
     setLoadingPrices(true)
-    fetchPriceItems(form.worker_id)
+    setPriceError('')
+    setPriceItems([])
+    setTaskLines([])
+
+    fetchPriceItems(workerId)
       .then(async (items) => {
+        if (cancelled) return
         setPriceItems(items)
         const perfItems = getTaskPriceItems(items)
 
-        if (initial?.form_id) {
-          const saved = await adminGetFormTaskItems(initial.form_id)
+        if (perfItems.length === 0) {
+          setTaskLines([])
+          setPriceError('Zaměstnanec nemá aktivní položky v osobním ceníku. Doplňte ceník v kartě dělníka.')
+          return
+        }
+
+        if (formId) {
+          const saved = await adminGetFormTaskItems(formId)
+          if (cancelled) return
           const hourly = getHourlyRateItem(items)
           const lines = saved
             .filter((line) => !hourly || line.price_item_id !== hourly.id)
-            .map((line) => ({ price_item_id: line.price_item_id, quantity: line.quantity }))
-          setTaskLines(lines.length > 0 ? lines : perfItems[0] ? [{ price_item_id: perfItems[0].id, quantity: 0 }] : [])
+            .map((line) => ({
+              price_item_id: line.price_item_id,
+              quantity: Number(line.quantity) || 0,
+              lineKey: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `line-${line.price_item_id}`,
+            }))
+          setTaskLines(lines.length > 0 ? lines : [createDefaultTaskLine(perfItems[0].id)])
         } else {
-          setTaskLines(perfItems[0] ? [{ price_item_id: perfItems[0].id, quantity: 0 }] : [])
+          setTaskLines([createDefaultTaskLine(perfItems[0].id)])
         }
       })
-      .finally(() => setLoadingPrices(false))
-  }, [open, form.worker_id, initial])
+      .catch((err) => {
+        if (!cancelled) {
+          setPriceError(err instanceof Error ? err.message : 'Načtení ceníku se nezdařilo')
+          setPriceItems([])
+          setTaskLines([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPrices(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, form.worker_id, initial?.form_id])
 
   if (!open) return null
 
   function buildTaskItems(): TaskLineInput[] {
-    const lines = taskLines.filter((line) => line.quantity > 0)
+    const lines = filterTaskLinesForSave(taskLines, priceItems)
     if (hourlyItem && calculatedHours > 0) {
       return [{ price_item_id: hourlyItem.id, quantity: calculatedHours }, ...lines]
     }
@@ -300,7 +343,7 @@ export function AttendanceFormModal({
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
               </div>
             ) : performanceItems.length === 0 ? (
-              <p className="text-sm text-theme-muted">Ceník není nastaven. Nejdříve doplňte ceník v kartě dělníka.</p>
+              <p className="text-sm text-red-400">{priceError || 'Ceník není nastaven. Nejdříve doplňte ceník v kartě dělníka.'}</p>
             ) : (
               <>
                 <p className="mb-3 text-sm text-theme-muted">

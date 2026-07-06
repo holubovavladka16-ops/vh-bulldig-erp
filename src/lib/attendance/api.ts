@@ -13,7 +13,9 @@ export async function upsertAttendanceRecord(
     p_order_id: input.order_id,
     p_advance: input.daily_advance,
     p_note: input.note,
-    p_task_items: input.task_items.filter((t) => t.quantity > 0),
+    p_task_items: input.task_items
+      .filter((t) => t.quantity > 0)
+      .map(({ price_item_id, quantity }) => ({ price_item_id, quantity })),
     p_work_start: input.work_start || null,
     p_work_end: input.work_end || null,
     p_break_minutes: input.break_minutes,

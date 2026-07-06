@@ -1,7 +1,7 @@
 {
   "name": "vh-bulldig-erp",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -28,6 +28,7 @@
     "verify-auth-system": "node scripts/verify-auth-system.mjs",
     "verify-birth-date": "node scripts/verify-birth-date.mjs",
     "verify-portal-performance": "node scripts/verify-portal-performance.mjs",
+    "verify-admin-attendance": "node scripts/verify-admin-attendance.mjs",
     "verify-full-regression": "node scripts/verify-full-regression.mjs",
     "deploy-notify-login": "node scripts/deploy-notify-login.mjs",
     "verify-worker-save": "node scripts/local-stack/verify-worker-save.mjs",

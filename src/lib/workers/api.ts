@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { normalizePriceItems } from '@/lib/workers/earnings'
 import { formatSupabaseError, logSupabaseError } from '@/lib/supabaseErrors'
 import { normalizeDateForDb } from '@/lib/dates'
 import { WORKER_STATUS_LABELS } from '@/constants/workers'
@@ -180,7 +181,7 @@ export async function fetchPriceItems(workerId: string): Promise<WorkerPriceItem
     .order('sort_order')
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as WorkerPriceItem[]
+  return normalizePriceItems((data ?? []) as WorkerPriceItem[])
 }
 
 export async function createPriceItem(

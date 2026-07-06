@@ -10,6 +10,15 @@ export function getHourlyRateItem(items: WorkerPriceItem[]): WorkerPriceItem | n
   return items.find((i) => isHourlyRateItem(i) && i.is_active !== false) ?? null
 }
 
+/** Normalizace ceníku z DB (price může přijít jako string). */
+export function normalizePriceItems(items: WorkerPriceItem[]): WorkerPriceItem[] {
+  return items.map((item) => ({
+    ...item,
+    price: Number(item.price) || 0,
+    is_active: item.is_active !== false,
+  }))
+}
+
 /** Aktivní položky ceníku použitelné jako výkony (bez hodinové sazby). */
 export function getTaskPriceItems(items: WorkerPriceItem[]): WorkerPriceItem[] {
   return items.filter((i) => i.is_active !== false && !isHourlyRateItem(i))
