@@ -2,9 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { DateInput } from '@/components/ui/DateInput'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select } from '@/components/ui/Select'
 import { fetchActiveJobOrders } from '@/lib/orders/api'
+import { todayIsoDate } from '@/lib/dates'
 import type { WorkerCreateInput, EmploymentType } from '@/types/workers'
 import { EMPLOYMENT_TYPE_LABELS } from '@/constants/workers'
 
@@ -111,8 +113,20 @@ export function WorkerCreateModal({ open, onClose, onSubmit }: WorkerCreateModal
               className="sm:col-span-2"
             />
             <Select label="Pracovní poměr *" options={employmentOptions} value={form.employment_type} onChange={(e) => updateField('employment_type', e.target.value as EmploymentType)} required />
-            <Input label="Datum narození *" type="date" value={form.birth_date} onChange={(e) => updateField('birth_date', e.target.value)} required />
-            <Input label="Datum nástupu *" type="date" value={form.start_date} onChange={(e) => updateField('start_date', e.target.value)} required />
+            <DateInput
+              label="Datum narození *"
+              value={form.birth_date}
+              required
+              max={todayIsoDate()}
+              hint="Formát DD.MM.RRRR"
+              onChange={(birth_date) => updateField('birth_date', birth_date)}
+            />
+            <DateInput
+              label="Datum nástupu *"
+              value={form.start_date}
+              required
+              onChange={(start_date) => updateField('start_date', start_date)}
+            />
             <Input label="Adresa *" value={form.address} onChange={(e) => updateField('address', e.target.value)} required className="sm:col-span-2" />
             <Input label="Telefon" value={form.phone ?? ''} onChange={(e) => updateField('phone', e.target.value)} />
             <Input label="E-mail" type="email" value={form.email ?? ''} onChange={(e) => updateField('email', e.target.value)} />
@@ -130,6 +144,12 @@ export function WorkerCreateModal({ open, onClose, onSubmit }: WorkerCreateModal
               onChange={(e) => setPhotoFile(e.target.files?.[0])}
               className="input-glass w-full rounded-xl px-3 py-2 text-sm"
             />
+          </div>
+
+          <div className="rounded-xl border border-[var(--border-glass)] bg-white/5 px-4 py-3 text-sm text-theme-secondary">
+            Po vytvoření karty se automaticky založí <strong className="text-theme-primary">osobní ceník</strong>{' '}
+            (hodinová sazba, výkopy, dlažba…). Zaměstnanec ho uvidí ve svém portálu v záložce{' '}
+            <strong className="text-theme-primary">Docházka</strong>.
           </div>
 
           {error && (

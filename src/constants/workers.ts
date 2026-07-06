@@ -89,13 +89,12 @@ export const WORKER_TABS = [
 
 export const PORTAL_TABS = [
   { id: 'denni-formular' as const, label: 'Denní formulář' },
+  { id: 'moje-dochazka' as const, label: 'Docházka' },
   { id: 'muj-vykaz' as const, label: 'Můj výkaz' },
   { id: 'prehled-vydelku' as const, label: 'Přehled výdělku' },
 ]
 
-export const LEGACY_PORTAL_TAB_REDIRECTS: Record<string, 'prehled-vydelku' | 'muj-vykaz' | 'denni-formular'> = {
-  'moje-dochazka': 'prehled-vydelku',
-}
+export const LEGACY_PORTAL_TAB_REDIRECTS: Record<string, 'prehled-vydelku' | 'muj-vykaz' | 'denni-formular' | 'moje-dochazka'> = {}
 
 export function getPortalUrl(token: string): string {
   return `${window.location.origin}/portal/${token}`
@@ -116,15 +115,14 @@ export function formatNumber(value: number, fractionDigits = 0): string {
   }).format(value)
 }
 
+import { formatDateCz } from '@/lib/dates'
+
 export function formatDate(date: string): string {
-  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (match) {
-    const [, year, month, day] = match
-    return new Intl.DateTimeFormat('cs-CZ').format(
-      new Date(Number(year), Number(month) - 1, Number(day))
-    )
-  }
-  return new Intl.DateTimeFormat('cs-CZ').format(new Date(date))
+  const formatted = formatDateCz(date)
+  if (formatted) return formatted
+
+  // Záloha bez timezone posunu – zobrazí surovou hodnotu místo špatného parsování.
+  return date
 }
 
 export function formatDateFromDate(date: Date): string {

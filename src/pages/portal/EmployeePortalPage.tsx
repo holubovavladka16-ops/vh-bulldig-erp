@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { portalGetWorker } from '@/lib/workers/api'
 import { isValidPortalToken } from '@/lib/workers/portalToken'
-import { PortalLayout, PortalDailyFormTab } from '@/pages/portal/PortalDailyFormTab'
+import { PortalDailyFormTab, PortalLayout } from '@/pages/portal/PortalDailyFormTab'
 import { PortalReportsTab } from '@/pages/portal/PortalReportsTab'
 import { PortalEarningsTab } from '@/pages/portal/PortalEarningsTab'
+import { PortalAttendanceTab } from '@/pages/portal/PortalAttendanceTab'
 import { LEGACY_PORTAL_TAB_REDIRECTS, PORTAL_TABS } from '@/constants/workers'
 import type { PortalTabId, PortalWorker } from '@/types/workers'
 
@@ -90,6 +91,7 @@ export function EmployeePortalPage() {
       </div>
 
       {activeTab === 'denni-formular' && <PortalDailyFormTab token={token} />}
+      {activeTab === 'moje-dochazka' && <PortalAttendanceTab token={token} />}
       {activeTab === 'muj-vykaz' && <PortalReportsTab token={token} />}
       {activeTab === 'prehled-vydelku' && <PortalEarningsTab token={token} />}
     </PortalLayout>

@@ -240,6 +240,8 @@ export interface PortalAttendanceRecord {
   work_end: string | null
   break_minutes: number
   hours: number
+  attendance_status?: AttendanceStatus
+  note?: string
 }
 
 export interface ReportTaskItemDetail {
@@ -272,4 +274,4 @@ export type WorkerTabId =
   | 'historie'
   | 'formular'
 
-export type PortalTabId = 'denni-formular' | 'muj-vykaz' | 'prehled-vydelku'
+export type PortalTabId = 'denni-formular' | 'moje-dochazka' | 'muj-vykaz' | 'prehled-vydelku'
