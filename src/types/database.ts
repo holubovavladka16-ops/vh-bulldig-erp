@@ -6,18 +6,16 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type GenericTable = {
-  Row: any
-  Insert: any
-  Update: any
+  Row: Record<string, unknown>
+  Insert: Record<string, unknown>
+  Update: Record<string, unknown>
   Relationships: []
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type GenericFunction = {
-  Args: any
-  Returns: any
+  Args: Record<string, unknown>
+  Returns: unknown
 }
 
 export type Database = {

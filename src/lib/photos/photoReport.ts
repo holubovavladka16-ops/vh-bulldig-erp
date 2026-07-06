@@ -1,9 +1,13 @@
 import { formatDate, formatTime } from '@/constants/workers'
-import { getGoogleMapsUrl, getStaticMapImageUrl } from '@/lib/photos/mapLinks'
+import { getGoogleMapsUrl, getStaticMapImageUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
 import { getGpsPhotoUrl } from '@/lib/photos/api'
 import {
-  formatGpsCoordinates,
+  formatCaptureDateLabel,
+  formatCaptureTime,
+  formatCaptureWeekday,
+  formatGpsCoordinatesCompact,
   formatPhotoAddress,
+  getOrderDisplayName,
 } from '@/lib/photos/photoDisplay'
 import {
   buildCompanyHeaderHtml,
@@ -15,57 +19,61 @@ import {
 } from '@/lib/print/printDocument'
 import type { GpsPhoto } from '@/types/photos'
 
-function row(label: string, value: string | null | undefined): string {
-  if (!value?.trim()) return ''
-  return `<tr><th>${escHtml(label)}</th><td>${escHtml(value)}</td></tr>`
-}
-
 export function buildPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | null): string {
   const photoUrl = getGpsPhotoUrl(photo.file_path)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const mapImageUrl = getStaticMapImageUrl(photo.gps_lat, photo.gps_lng, 640, 180)
   const address = formatPhotoAddress(photo)
+  const orderName = getOrderDisplayName(photo)
+  const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
   const capturedBy = photo.creator_name?.trim() || photo.worker_name?.trim() || '—'
+  const weekday = formatCaptureWeekday(photo.captured_date)
+  const dateLabel = formatCaptureDateLabel(photo.captured_date)
+  const timeLabel = formatCaptureTime(photo.captured_time)
 
   return `
     <div class="report">
-      ${buildCompanyHeaderHtml(company, 'Fotodokumentace s GPS')}
+      ${buildCompanyHeaderHtml(company, 'GPS fotodoklad – stavební dokumentace')}
 
-      <div class="photo-wrap">
-        <img src="${escHtml(photoUrl)}" alt="Fotografie" />
+      <div class="photo-wrap" style="position:relative">
+        <img src="${escHtml(photoUrl)}" alt="Fotografie" style="max-height:420px;width:100%;object-fit:contain" />
+        <div style="position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,0.75);color:#fff;padding:8px 12px;border-radius:8px;border:1px solid #a3e635">
+          <div style="color:#fcd34d;font-weight:bold;font-size:11px;text-transform:uppercase">${escHtml(orderName)}</div>
+          <div style="font-family:monospace;font-size:11px;margin-top:4px">📍 ${escHtml(coords)}</div>
+        </div>
       </div>
 
-      <table>
-        ${row('Datum pořízení', formatDate(photo.captured_date))}
-        ${row('Čas pořízení', formatTime(photo.captured_time))}
-        ${row('GPS souřadnice', formatGpsCoordinates(photo.gps_lat, photo.gps_lng))}
-        ${row('Přesnost GPS', photo.gps_accuracy != null ? `±${Math.round(photo.gps_accuracy)} m` : '')}
-        ${row('Adresa', address)}
-        ${row('Ulice', photo.street)}
-        ${row('Město', photo.city)}
-        ${row('PSČ', photo.postal_code)}
-        ${row('Stát', photo.country)}
-        ${row('Poznámka', photo.note)}
-        ${row('Zakázka', photo.order_name ?? '')}
-        ${row('Pořídil', capturedBy)}
+      <table style="margin-top:16px">
+        <tr><th>Den</th><td>${escHtml(weekday)}</td></tr>
+        <tr><th>Datum pořízení</th><td>${escHtml(dateLabel)}</td></tr>
+        <tr><th>Čas pořízení</th><td>${escHtml(timeLabel)}</td></tr>
+        <tr><th>GPS souřadnice</th><td>${escHtml(coords)}</td></tr>
+        <tr><th>Přesnost GPS</th><td>${photo.gps_accuracy != null ? `±${Math.round(photo.gps_accuracy)} m` : '—'}</td></tr>
+        <tr><th>Adresa</th><td>${escHtml(address)}</td></tr>
+        <tr><th>Popis prací / poznámka</th><td>${escHtml(photo.note ?? '—')}</td></tr>
+        <tr><th>Zakázka</th><td>${escHtml(orderName)}</td></tr>
+        <tr><th>Pořídil</th><td>${escHtml(capturedBy)}</td></tr>
       </table>
 
       <h2>Mapa místa pořízení</h2>
       <div class="photo-wrap">
         <a href="${escHtml(mapUrl)}">
-          <img src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" style="max-height:180px;object-fit:cover" />
+          <img src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" style="max-height:180px;object-fit:cover;width:100%" />
         </a>
       </div>
-      <p><a href="${escHtml(mapUrl)}">Otevřít v Google Maps</a></p>
+      <p>
+        <a href="${escHtml(mapUrl)}">Google Maps</a> ·
+        <a href="${escHtml(getStreetViewUrl(photo.gps_lat, photo.gps_lng))}">Street View</a>
+      </p>
 
-      <p class="footer">Vygenerováno z ERP VH Bulldig · ${escHtml(formatDate(new Date().toISOString().slice(0, 10)))}</p>
+      <p class="footer">Vygenerováno z ERP VH Bulldig · ${escHtml(formatDate(new Date().toISOString().slice(0, 10)))} ${escHtml(formatTime(new Date()))}</p>
     </div>
   `
 }
 
 export function buildPhotoReportDocument(photo: GpsPhoto, company?: CompanyHeader | null): string {
   return buildPrintDocument(
-    `Fotodokumentace ${formatDate(photo.captured_date)}`,
+    `GPS fotodoklad ${formatDate(photo.captured_date)}`,
     buildPhotoReportHtml(photo, company)
   )
 }
@@ -77,6 +85,6 @@ export function printPhotoReport(photo: GpsPhoto, company?: CompanyHeader | null
 export function downloadPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | null): void {
   downloadHtmlDocument(
     buildPhotoReportDocument(photo, company),
-    `fotodokumentace_${photo.captured_date}_${photo.id.slice(0, 8)}.html`
+    `gps-fotodoklad_${photo.captured_date}_${photo.id.slice(0, 8)}.html`
   )
 }

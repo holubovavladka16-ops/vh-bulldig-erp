@@ -1,5 +1,8 @@
 import type { GeocodedAddress } from '@/types/photos'
 import { geocodeFallbackAddress } from '@/lib/photos/photoDisplay'
+import { GPS_MAX_WAIT_MS } from '@/lib/photos/gpsWatch'
+
+export { GPS_MAX_WAIT_MS }
 
 interface NominatimAddress {
   road?: string
@@ -15,7 +18,53 @@ interface NominatimAddress {
 /** Požadovaná přesnost GPS pro fotodokumentaci (metry). */
 export const GPS_TARGET_ACCURACY_METERS = 2
 
-const GPS_MAX_WAIT_MS = 30000
+const GPS_CAPTURE_MAX_WAIT_MS = GPS_MAX_WAIT_MS
+
+export interface ForwardGeocodeResult {
+  lat: number
+  lng: number
+  display_name: string
+}
+
+/** Vyhledání adresy → souřadnice (OpenStreetMap Nominatim). */
+export async function forwardGeocode(query: string): Promise<ForwardGeocodeResult | null> {
+  const trimmed = query.trim()
+  if (!trimmed) return null
+
+  try {
+    const url = new URL('https://nominatim.openstreetmap.org/search')
+    url.searchParams.set('q', trimmed)
+    url.searchParams.set('format', 'json')
+    url.searchParams.set('limit', '1')
+    url.searchParams.set('countrycodes', 'cz')
+    url.searchParams.set('accept-language', 'cs')
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Accept-Language': 'cs',
+        Accept: 'application/json',
+      },
+    })
+
+    if (!response.ok) return null
+
+    const data = (await response.json()) as Array<{ lat?: string; lon?: string; display_name?: string }>
+    const hit = data[0]
+    if (!hit?.lat || !hit.lon) return null
+
+    const lat = Number(hit.lat)
+    const lng = Number(hit.lon)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+
+    return {
+      lat,
+      lng,
+      display_name: hit.display_name?.trim() || trimmed,
+    }
+  } catch {
+    return null
+  }
+}
 
 export async function reverseGeocode(lat: number, lng: number): Promise<GeocodedAddress> {
   try {
@@ -112,7 +161,7 @@ export function captureHighAccuracyPosition(onProgress?: GpsCaptureProgress): Pr
         return
       }
       fail('Polohu se nepodařilo získat. Povolte GPS v prohlížeči a v nastavení telefonu.')
-    }, GPS_MAX_WAIT_MS)
+    }, GPS_CAPTURE_MAX_WAIT_MS)
 
     watchId = navigator.geolocation.watchPosition(
       (position) => {
@@ -131,7 +180,7 @@ export function captureHighAccuracyPosition(onProgress?: GpsCaptureProgress): Pr
       {
         enableHighAccuracy: true,
         maximumAge: 0,
-        timeout: GPS_MAX_WAIT_MS,
+        timeout: GPS_CAPTURE_MAX_WAIT_MS,
       }
     )
   })

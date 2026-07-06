@@ -8,6 +8,7 @@ export interface GpsPhoto {
   gps_lat: number
   gps_lng: number
   gps_accuracy: number | null
+  device_heading: number | null
   address_full: string
   street: string
   city: string
@@ -20,6 +21,8 @@ export interface GpsPhoto {
   diary_entry_id: string | null
   utility_connection_id: string | null
   photo_phase: 'pred' | 'po' | null
+  construction_point_id: string | null
+  sort_order: number
   order_name?: string
   worker_name?: string
   creator_name?: string
@@ -42,6 +45,7 @@ export interface GpsPhotoCreateInput {
   gps_lat: number
   gps_lng: number
   gps_accuracy: number | null
+  device_heading?: number | null
   address_full: string
   street: string
   city: string
@@ -55,6 +59,7 @@ export interface GpsPhotoCreateInput {
   diary_entry_id?: string | null
   utility_connection_id?: string | null
   photo_phase?: 'pred' | 'po' | null
+  construction_point_id?: string | null
 }
 
 export interface GpsPhotoFilters {

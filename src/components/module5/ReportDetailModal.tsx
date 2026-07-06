@@ -14,6 +14,7 @@ import {
   deleteDailyReport,
 } from '@/lib/workers/module5'
 import { fetchJobOrderOptions } from '@/lib/orders/api'
+import { filterTaskLinesForSave } from '@/lib/workers/earnings'
 import {
   adminGetFormTaskItems,
   adminSaveForm,
@@ -98,7 +99,7 @@ export function ReportDetailModal({
         gps_lng: editState.gpsLng,
         gps_accuracy: editState.gpsAccuracy,
         signature_data: editState.signatureData,
-        task_items: editState.taskLines,
+        task_items: filterTaskLinesForSave(editState.taskLines, priceItems),
       })
       const refreshed = await loadDetail(reportId)
       setDetail(refreshed)

@@ -109,6 +109,8 @@ export interface WorkerFormTaskItem {
 export interface TaskLineInput {
   price_item_id: string
   quantity: number
+  /** Stabilní klíč pro React – nepřenáší se do API. */
+  lineKey?: string
 }
 
 export interface WorkerFormPhoto {
@@ -146,6 +148,7 @@ export interface WorkerAttendanceRecord {
   order_id: string | null
   order_name: string
   hours: number
+  daily_advance?: number
   work_start: string | null
   work_end: string | null
   break_minutes: number
@@ -161,8 +164,9 @@ export interface AttendanceUpsertInput {
   work_start: string
   work_end: string
   break_minutes: number
-  attendance_status: AttendanceStatus
+  daily_advance: number
   note: string
+  task_items: TaskLineInput[]
 }
 
 export interface WorkerHistoryEntry {

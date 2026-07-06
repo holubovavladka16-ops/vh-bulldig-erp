@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { ModulePlaceholderPage } from '@/pages/modules/ModulePlaceholderPage'
 import { SettingsHubPage } from '@/pages/settings/SettingsHubPage'
@@ -18,6 +20,8 @@ import { OrdersModulePage } from '@/pages/orders/OrdersModulePage'
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage'
 import { CostsModulePage } from '@/pages/ekonomika/CostsModulePage'
 import { PhotosModulePage } from '@/pages/photos/PhotosModulePage'
+import { PhotosMapModulePage } from '@/pages/photos/PhotosMapModulePage'
+import { ExcavationsMapModulePage } from '@/pages/excavations/ExcavationsMapModulePage'
 import { DiaryModulePage } from '@/pages/diary/DiaryModulePage'
 import { ConnectionsModulePage } from '@/pages/pripojky/ConnectionsModulePage'
 import { PayrollModulePage } from '@/pages/payroll/PayrollModulePage'
@@ -38,6 +42,8 @@ const placeholderModules = FUTURE_MODULES.filter(
       'zakazky',
       'ekonomika',
       'fotky',
+      'fotky-na-mape',
+      'mapa-vykopu',
       'denik',
       'pripojky',
       'denni-formulare',
@@ -51,6 +57,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/prihlaseni" element={<LoginPage />} />
+      <Route path="/zapomenute-heslo" element={<ForgotPasswordPage />} />
+      <Route path="/obnova-hesla" element={<ResetPasswordPage />} />
 
       {/* Portál zaměstnance – veřejný, bez ERP přístupu */}
       <Route path="/portal/:token" element={<EmployeePortalPage />} />
@@ -139,6 +147,24 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="fotky">
             <PhotosModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/fotky-na-mape"
+        element={
+          <ProtectedRoute requiredModule="fotky-na-mape">
+            <PhotosMapModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/mapa-vykopu"
+        element={
+          <ProtectedRoute requiredModule="mapa-vykopu">
+            <ExcavationsMapModulePage />
           </ProtectedRoute>
         }
       />

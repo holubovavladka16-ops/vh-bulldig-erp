@@ -4,16 +4,30 @@ import 'leaflet/dist/leaflet.css'
 import '@/styles/photoMap.css'
 import type { GpsPhoto } from '@/types/photos'
 import { formatDate } from '@/constants/workers'
-import { formatPhotoAddress } from '@/lib/photos/photoDisplay'
+import { formatPhotoAddress, getOrderDisplayName } from '@/lib/photos/photoDisplay'
 
 const CZECH_CENTER: L.LatLngExpression = [49.8175, 15.473]
 const MARKER_COLOR = '#06b6d4'
+const MARKER_SELECTED = '#a3e635'
+
+function createPinIcon(selected: boolean): L.DivIcon {
+  const color = selected ? MARKER_SELECTED : MARKER_COLOR
+  return L.divIcon({
+    className: 'photo-map-pin-icon',
+    html: `<span class="photo-map-pin" style="--pin-color:${color}"></span>`,
+    iconSize: [28, 36],
+    iconAnchor: [14, 36],
+    popupAnchor: [0, -32],
+  })
+}
 
 interface PhotoMapViewProps {
   photos: GpsPhoto[]
   onPhotoSelect: (id: string) => void
   selectedPhotoId?: string | null
   className?: string
+  fullHeight?: boolean
+  flyToSelected?: boolean
 }
 
 export function PhotoMapView({
@@ -21,10 +35,12 @@ export function PhotoMapView({
   onPhotoSelect,
   selectedPhotoId,
   className = '',
+  fullHeight = false,
+  flyToSelected = false,
 }: PhotoMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
-  const markersRef = useRef<L.CircleMarker[]>([])
+  const markersRef = useRef<L.Marker[]>([])
   const onSelectRef = useRef(onPhotoSelect)
 
   onSelectRef.current = onPhotoSelect
@@ -73,34 +89,35 @@ export function PhotoMapView({
       bounds.extend(latlng)
 
       const isSelected = photo.id === selectedPhotoId
-      const marker = L.circleMarker(latlng, {
-        radius: isSelected ? 12 : 9,
-        color: isSelected ? '#ffffff' : MARKER_COLOR,
-        fillColor: MARKER_COLOR,
-        fillOpacity: isSelected ? 1 : 0.92,
-        weight: isSelected ? 3 : 2,
-      })
+      const marker = L.marker(latlng, { icon: createPinIcon(isSelected) })
 
       marker.on('click', () => onSelectRef.current(photo.id))
-      marker.bindTooltip(
-        `${formatDate(photo.captured_date)} · ${photo.captured_time.slice(0, 5)}`,
-        { direction: 'top', offset: L.point(0, -10), opacity: 0.95 }
-      )
+      marker.bindTooltip(getOrderDisplayName(photo), {
+        direction: 'top',
+        offset: L.point(0, -36),
+        opacity: 0.95,
+      })
       marker.bindPopup(
-        `<strong>${formatDate(photo.captured_date)} ${photo.captured_time.slice(0, 5)}</strong><br/>` +
+        `<strong>${getOrderDisplayName(photo)}</strong><br/>` +
+          `${formatDate(photo.captured_date)} ${photo.captured_time.slice(0, 5)}<br/>` +
           `${formatPhotoAddress(photo)}<br/>` +
-          `${photo.order_name ? `Zakázka: ${photo.order_name}<br/>` : ''}` +
-          `${photo.note ? `${photo.note}<br/>` : ''}` +
-          `<em>Klikněte pro detail</em>`
+          `<em>Klikněte pro detail fotky</em>`
       )
       marker.addTo(map)
       markersRef.current.push(marker)
     })
 
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 17 })
+      if (selectedPhotoId && flyToSelected) {
+        const selected = photos.find((p) => p.id === selectedPhotoId)
+        if (selected) {
+          map.flyTo([selected.gps_lat, selected.gps_lng], Math.max(map.getZoom(), 16), { duration: 0.6 })
+        }
+      } else {
+        map.fitBounds(bounds, { padding: [48, 48], maxZoom: 17 })
+      }
     }
-  }, [photos, selectedPhotoId])
+  }, [photos, selectedPhotoId, flyToSelected])
 
   useEffect(() => {
     const map = mapRef.current
@@ -117,9 +134,9 @@ export function PhotoMapView({
   return (
     <div
       ref={containerRef}
-      className={`photo-map-view w-full rounded-2xl neon-border ${className}`}
+      className={`photo-map-view w-full rounded-2xl neon-border ${fullHeight ? 'photo-map-view--full' : ''} ${className}`}
       role="application"
-      aria-label="Mapa fotografií s GPS tečkami"
+      aria-label="Mapa fotografií s GPS špendlíky"
     />
   )
 }

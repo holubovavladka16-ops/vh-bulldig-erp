@@ -1,3 +1,4 @@
+import { translateAuthError } from '@/lib/auth/errors'
 import { getInitialAdminEmailHint } from '@/lib/env'
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import type { UserRole } from '@/types'
@@ -94,17 +95,4 @@ export function buildAccessShareEmailUrl(input: {
   }
 
   return `mailto:${encodeURIComponent(input.recipientEmail)}?subject=${encodeURIComponent('Přístup do VH Bulldig ERP')}&body=${encodeURIComponent(lines.join('\n'))}`
-}
-
-function translateAuthError(message: string): string {
-  const errors: Record<string, string> = {
-    'Invalid login credentials': 'Neplatné přihlašovací údaje',
-    'Email not confirmed': 'E-mail nebyl potvrzen – zkontrolujte schránku',
-    'User not found': 'Uživatel nenalezen',
-    'Too many requests': 'Příliš mnoho pokusů, zkuste to později',
-    'New email address is not valid': 'Nový e-mail není platný',
-    'Password should be at least 6 characters': 'Heslo musí mít alespoň 8 znaků',
-    'Unable to validate email address: invalid format': 'Neplatný formát e-mailu',
-  }
-  return errors[message] ?? message
 }

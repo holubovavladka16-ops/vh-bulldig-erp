@@ -8,11 +8,12 @@ import { Select } from '@/components/ui/Select'
 import { AutoSaveIndicator } from '@/components/ui/AutoSaveIndicator'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import { useAppSettings } from '@/context/AppSettingsContext'
-import { toDateInputValue } from '@/lib/dates'
+import { toDateInputValue, todayIsoDate } from '@/lib/dates'
 import { fetchWorker, updateWorker, uploadWorkerPhoto } from '@/lib/workers/api'
 import { fetchActiveJobOrders } from '@/lib/orders/api'
 import type { Worker, EmploymentType } from '@/types/workers'
 import { EMPLOYMENT_TYPE_LABELS, WORKER_STATUS_LABELS, formatDate } from '@/constants/workers'
+import { DateInput } from '@/components/ui/DateInput'
 
 interface PersonalTabProps {
   worker: Worker
@@ -65,6 +66,9 @@ export function PersonalTab({ worker, isAdmin, onUpdate }: PersonalTabProps) {
     async (data: Worker) => {
       if (!data.birth_date?.trim()) {
         throw new Error('Datum narození je povinné.')
+      }
+      if (!toDateInputValue(data.birth_date)) {
+        throw new Error('Datum narození musí být ve formátu DD.MM.RRRR.')
       }
       if (!data.start_date?.trim()) {
         throw new Error('Datum nástupu je povinné.')
@@ -233,20 +237,20 @@ export function PersonalTab({ worker, isAdmin, onUpdate }: PersonalTabProps) {
               disabled={!isAdmin}
               onChange={(e) => setForm({ ...form, employment_type: e.target.value as EmploymentType })}
             />
-            <Input
+            <DateInput
               label="Datum narození"
-              type="date"
               value={form.birth_date}
               required
               disabled={!isAdmin}
-              onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
+              max={todayIsoDate()}
+              hint="Formát DD.MM.RRRR · kalendář otevřete ikonou vpravo"
+              onChange={(birth_date) => setForm({ ...form, birth_date })}
             />
-            <Input
+            <DateInput
               label="Datum nástupu"
-              type="date"
               value={form.start_date}
               disabled={!isAdmin}
-              onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+              onChange={(start_date) => setForm({ ...form, start_date })}
             />
             {form.end_date && <Input label="Datum ukončení" value={formatDate(form.end_date)} disabled />}
             <Input

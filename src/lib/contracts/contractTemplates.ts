@@ -268,7 +268,7 @@ export function partiesSection(data: ContractData): string {
     documentType === 'OBJEDNAVKA' ||
     documentType === 'PREDAVACI_PROTOKOL'
 
-  let left = companyPartyBlock(company, isBusiness ? 'Zhotovitel' : 'Zaměstnavatel')
+  const left = companyPartyBlock(company, isBusiness ? 'Zhotovitel' : 'Zaměstnavatel')
   let right = ''
 
   if (worker) {

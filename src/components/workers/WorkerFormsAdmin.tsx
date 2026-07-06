@@ -15,6 +15,7 @@ import {
   approveForm,
   returnFormForCorrection,
 } from '@/lib/workers/api'
+import { filterTaskLinesForSave } from '@/lib/workers/earnings'
 import type { WorkerDailyForm, WorkerPriceItem } from '@/types/workers'
 import { WORK_TYPE_LABELS, WORKER_FORM_STATUS_LABELS, formatCurrency, formatDate } from '@/constants/workers'
 import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTable'
@@ -84,7 +85,7 @@ export function WorkerFormsAdmin({ workerId, isAdmin }: WorkerFormsAdminProps) {
         gps_lng: editState.gpsLng,
         gps_accuracy: editState.gpsAccuracy,
         signature_data: editState.signatureData,
-        task_items: editState.taskLines,
+        task_items: filterTaskLinesForSave(editState.taskLines, priceItems),
       })
       setEditForm(null)
       setEditState(null)

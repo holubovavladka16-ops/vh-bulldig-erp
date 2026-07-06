@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import { X, HardHat } from 'lucide-react'
+import { X } from 'lucide-react'
+import { APP_BUILD_VERSION } from '@/constants/branding'
 import {
   APP_INFO,
   FUTURE_MODULES,
@@ -9,6 +10,7 @@ import {
 import { hasModuleAccess, isAdministrator } from '@/constants/permissions'
 import { useAuth } from '@/context/AuthContext'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
+import { CompanyLogo } from '@/components/ui/CompanyLogo'
 import { NavIcon } from '@/components/ui/NavIcon'
 import { RoleBadge, ModuleBadge } from '@/components/ui/Badge'
 
@@ -62,8 +64,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       >
         <div className="flex h-16 items-center justify-between border-b border-[var(--border-glass)] px-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl neon-border nav-item-active">
-              <HardHat className="h-5 w-5 icon-neon" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl neon-border bg-white/5 p-1">
+              <CompanyLogo className="h-full w-full object-contain" preferCompany />
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-theme-primary">{companyName}</p>
@@ -107,7 +109,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         <div className="border-t border-[var(--border-glass)] p-4">
-          <p className="mb-3 text-xs text-theme-muted">{APP_INFO.moduleLabel}</p>
+          <p className="mb-1 text-xs text-theme-muted">{APP_INFO.moduleLabel}</p>
+          <p className="mb-3 text-[10px] text-theme-muted">Verze {APP_BUILD_VERSION}</p>
           {profile && (
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full neon-border text-sm font-bold text-accent">

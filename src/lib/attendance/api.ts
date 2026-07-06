@@ -1,19 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { formatSupabaseError, logSupabaseError } from '@/lib/supabaseErrors'
 import type { AttendanceUpsertInput, WorkerAttendanceRecord } from '@/types/workers'
-import { calcWorkHours } from '@/lib/workers/attendance'
-
-export { calcWorkHours, formatTimeForInput } from '@/lib/workers/attendance'
-
-export function calcAttendanceHours(
-  status: AttendanceUpsertInput['attendance_status'],
-  workStart: string,
-  workEnd: string,
-  breakMinutes: number
-): number {
-  if (status !== 'pritomen') return 0
-  return calcWorkHours(workStart, workEnd, breakMinutes)
-}
 
 export async function upsertAttendanceRecord(
   input: AttendanceUpsertInput,
@@ -24,11 +11,12 @@ export async function upsertAttendanceRecord(
     p_worker_id: input.worker_id,
     p_attendance_date: input.attendance_date,
     p_order_id: input.order_id,
+    p_advance: input.daily_advance,
+    p_note: input.note,
+    p_task_items: input.task_items.filter((t) => t.quantity > 0),
     p_work_start: input.work_start || null,
     p_work_end: input.work_end || null,
     p_break_minutes: input.break_minutes,
-    p_attendance_status: input.attendance_status,
-    p_note: input.note,
     p_id: id ?? null,
     p_performed_by: performedBy,
   })

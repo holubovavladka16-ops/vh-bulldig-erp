@@ -18,5 +18,13 @@ if (!isSupabaseConfigured()) {
 
 export const supabase = createClient<Database>(
   supabaseUrl ?? 'https://placeholder.supabase.co',
-  supabaseAnonKey ?? 'placeholder-key'
+  supabaseAnonKey ?? 'placeholder-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    },
+  }
 )

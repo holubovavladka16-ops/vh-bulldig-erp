@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { formatSupabaseError, logSupabaseError } from '@/lib/supabaseErrors'
-import { toDateInputValue } from '@/lib/dates'
+import { normalizeDateForDb } from '@/lib/dates'
 import { WORKER_STATUS_LABELS } from '@/constants/workers'
 import { assertValidPortalToken } from '@/lib/workers/portalToken'
 import type {
@@ -23,12 +23,18 @@ import type {
   WorkerFormTaskItem,
 } from '@/types/workers'
 
+function serializeTaskItems(items: TaskLineInput[]): { price_item_id: string; quantity: number }[] {
+  return items
+    .filter((t) => t.quantity > 0)
+    .map(({ price_item_id, quantity }) => ({ price_item_id, quantity }))
+}
+
 function normalizeWorker(worker: Worker): Worker {
   return {
     ...worker,
-    birth_date: toDateInputValue(worker.birth_date),
-    start_date: toDateInputValue(worker.start_date),
-    end_date: worker.end_date ? toDateInputValue(worker.end_date) : null,
+    birth_date: normalizeDateForDb(worker.birth_date),
+    start_date: normalizeDateForDb(worker.start_date),
+    end_date: worker.end_date ? normalizeDateForDb(worker.end_date) : null,
   }
 }
 
@@ -77,10 +83,15 @@ function normalizeWorkerPayload(input: Partial<WorkerCreateInput>): Record<strin
     'assigned_order_id',
     'photo_url',
   ])
+  const dateKeys = new Set(['birth_date', 'start_date', 'end_date'])
 
   const payload: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(input)) {
     if (value === undefined) continue
+    if (dateKeys.has(key) && typeof value === 'string') {
+      payload[key] = value === '' ? null : normalizeDateForDb(value)
+      continue
+    }
     payload[key] = nullableKeys.has(key) && value === '' ? null : value
   }
   return payload
@@ -363,7 +374,8 @@ export async function portalGetWorker(token: string): Promise<PortalWorker | nul
   assertValidPortalToken(token)
   const { data, error } = await supabase.rpc('portal_get_worker', { p_token: token })
   if (error) throw new Error(error.message)
-  return (data?.[0] ?? null) as PortalWorker | null
+  const rows = (data ?? []) as PortalWorker[]
+  return rows[0] ?? null
 }
 
 export async function portalGetPriceItems(token: string): Promise<WorkerPriceItem[]> {
@@ -391,7 +403,8 @@ export async function portalGetEarningsSummary(token: string): Promise<WorkerEar
   assertValidPortalToken(token)
   const { data, error } = await supabase.rpc('portal_get_earnings_summary', { p_token: token })
   if (error) throw new Error(error.message)
-  return (data?.[0] ?? null) as WorkerEarningsSummary | null
+  const rows = (data ?? []) as WorkerEarningsSummary[]
+  return rows[0] ?? null
 }
 
 export async function portalGetDailyAdvances(token: string): Promise<PortalDailyAdvance[]> {
@@ -435,7 +448,7 @@ export async function portalSaveForm(token: string, form: PortalFormInput): Prom
     p_gps_lng: form.gps_lng,
     p_gps_accuracy: form.gps_accuracy,
     p_signature_data: form.signature_data,
-    p_task_items: form.task_items.filter((t) => t.quantity > 0),
+    p_task_items: serializeTaskItems(form.task_items),
   })
 
   if (error) throw new Error(error.message)
@@ -496,7 +509,7 @@ export async function adminSaveForm(formId: string, form: AdminFormInput): Promi
     p_gps_lng: form.gps_lng,
     p_gps_accuracy: form.gps_accuracy,
     p_signature_data: form.signature_data,
-    p_task_items: form.task_items.filter((t) => t.quantity > 0),
+    p_task_items: serializeTaskItems(form.task_items),
   })
   if (error) throw new Error(error.message)
   return data as string

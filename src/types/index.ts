@@ -70,6 +70,8 @@ export type ModuleId =
   | 'paragony'
   | 'pripojky'
   | 'fotky'
+  | 'fotky-na-mape'
+  | 'mapa-vykopu'
   | 'dokumenty'
   | 'statistiky'
   | 'nastaveni'

@@ -21,7 +21,7 @@ import {
   uploadFormPhoto,
   type PortalFormInput,
 } from '@/lib/workers/api'
-import { getTaskPriceItems } from '@/lib/workers/earnings'
+import { getTaskPriceItems, hasValidPerformances, filterTaskLinesForSave } from '@/lib/workers/earnings'
 import { portalGetActiveOrders } from '@/lib/orders/api'
 import type { ActiveJobOrderOption } from '@/types/orders'
 import { calcWorkHours, formatTimeForInput } from '@/lib/workers/attendance'
@@ -94,7 +94,15 @@ function stateFromForm(
   }
 }
 
-function toSaveInput(formId: string | null, state: PortalFormState): PortalFormInput {
+function createDefaultTaskLine(priceItemId: string): TaskLineInput {
+  return {
+    price_item_id: priceItemId,
+    quantity: 0,
+    lineKey: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `line-${Date.now()}`,
+  }
+}
+
+function toSaveInput(formId: string | null, state: PortalFormState, priceItems: WorkerPriceItem[]): PortalFormInput {
   return {
     form_id: formId,
     form_date: state.formDate,
@@ -109,7 +117,7 @@ function toSaveInput(formId: string | null, state: PortalFormState): PortalFormI
     gps_lng: state.gpsLng,
     gps_accuracy: state.gpsAccuracy,
     signature_data: state.signatureData,
-    task_items: state.taskLines,
+    task_items: filterTaskLinesForSave(state.taskLines, priceItems),
   }
 }
 
@@ -163,7 +171,7 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
         setState((prev) =>
           prev.taskLines.length > 0
             ? prev
-            : { ...prev, taskLines: [{ price_item_id: taskItems[0].id, quantity: 0 }] }
+            : { ...prev, taskLines: [createDefaultTaskLine(taskItems[0].id)] }
         )
       }
       setLoading(false)
@@ -189,6 +197,13 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
     setState((prev) => ({ ...prev, ...patch }))
   }
 
+  function validatePerformances(): string | null {
+    if (!hasValidPerformances(state.taskLines, priceItems)) {
+      return 'Zadejte alespoň jeden výkon z ceníku s množstvím větším než 0.'
+    }
+    return null
+  }
+
   async function handleSave(e?: FormEvent) {
     e?.preventDefault()
     if (!isEditable) return
@@ -196,11 +211,16 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
       setError('Vyberte aktivní zakázku.')
       return
     }
+    const performanceError = validatePerformances()
+    if (performanceError) {
+      setError(performanceError)
+      return
+    }
     setSaving(true)
     setError('')
     setSuccess('')
     try {
-      const id = await portalSaveForm(token, toSaveInput(formId, state))
+      const id = await portalSaveForm(token, toSaveInput(formId, state, priceItems))
       setFormId(id)
       const photoError = await uploadPhotos(id)
       setSuccess(photoError ? `Formulář uložen. ${photoError}` : 'Formulář uložen jako koncept')
@@ -223,10 +243,15 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
       setError('Vyberte aktivní zakázku.')
       return
     }
+    const performanceError = validatePerformances()
+    if (performanceError) {
+      setError(performanceError)
+      return
+    }
     setSaving(true)
     setError('')
     try {
-      const id = await portalSaveForm(token, toSaveInput(formId, state))
+      const id = await portalSaveForm(token, toSaveInput(formId, state, priceItems))
       setFormId(id)
       const photoError = await uploadPhotos(id)
       await portalSubmitForm(token, id)
@@ -251,7 +276,11 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
     setState(
       stateFromForm(
         f,
-        taskItems.map((t) => ({ price_item_id: t.price_item_id, quantity: t.quantity }))
+        taskItems.map((t) => ({
+          price_item_id: t.price_item_id,
+          quantity: t.quantity,
+          lineKey: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `line-${t.price_item_id}`,
+        }))
       )
     )
     setSuccess('')
@@ -268,7 +297,7 @@ export function PortalDailyFormTab({ token }: PortalDailyFormProps) {
     setState({
       ...createEmptyState(),
       orderId: defaultOrder,
-      taskLines: taskItems[0] ? [{ price_item_id: taskItems[0].id, quantity: 0 }] : [],
+      taskLines: taskItems[0] ? [createDefaultTaskLine(taskItems[0].id)] : [],
     })
     setPhotos([])
     setSuccess('')

@@ -36,7 +36,8 @@ export async function fetchAllDailyForms(filters: DailyFormFilters = {}): Promis
     (data ?? []) as Array<Record<string, unknown> & { workers?: { first_name: string; last_name: string } | null }>
   ).map((row) => {
     const worker = row.workers ?? null
-    const { workers: _, ...rest } = row
+    const { workers: _workers, ...rest } = row
+    void _workers
     return {
       ...(rest as unknown as WorkerDailyForm),
       worker_first_name: worker?.first_name ?? '',

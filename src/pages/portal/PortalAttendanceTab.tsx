@@ -4,7 +4,6 @@ import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTabl
 import { PortalPriceListCard } from '@/components/portal/PortalPriceListCard'
 import { portalGetPriceItems } from '@/lib/workers/api'
 import { portalGetAttendance } from '@/lib/workers/module5'
-import { ATTENDANCE_STATUS_LABELS } from '@/constants/attendance'
 import type { PortalAttendanceRecord, WorkerPriceItem } from '@/types/workers'
 import { formatDate } from '@/constants/workers'
 import { formatTimeForInput } from '@/lib/workers/attendance'
@@ -34,8 +33,7 @@ export function PortalAttendanceTab({ token }: PortalAttendanceTabProps) {
       <Card>
         <h3 className="mb-2 text-base font-semibold text-theme-primary">Docházka</h3>
         <p className="mb-4 text-sm text-theme-muted">
-          Evidence odpracovaného času z odeslaných denních formulářů. Po odeslání formuláře se záznam
-          automaticky objeví zde.
+          Po odeslání denního formuláře se záznam automaticky zobrazí zde i u administrátora ve výkazu a mzdách.
         </p>
 
         {loading ? (
@@ -47,11 +45,9 @@ export function PortalAttendanceTab({ token }: PortalAttendanceTabProps) {
             columns={[
               { key: 'date', label: 'Datum' },
               { key: 'order', label: 'Zakázka' },
-              { key: 'status', label: 'Stav' },
-              { key: 'start', label: 'Začátek' },
-              { key: 'end', label: 'Konec' },
-              { key: 'break', label: 'Přestávka' },
-              { key: 'hours', label: 'Celkem hodin' },
+              { key: 'time', label: 'Prac. doba' },
+              { key: 'hours', label: 'Hodiny' },
+              { key: 'note', label: 'Poznámka' },
             ]}
             isEmpty={records.length === 0}
             emptyMessage="Zatím nemáte žádnou docházku. Pošlete denní formulář a záznam se zde zobrazí."
@@ -60,11 +56,13 @@ export function PortalAttendanceTab({ token }: PortalAttendanceTabProps) {
               <DataTableRow key={r.id}>
                 <DataTableCell>{formatDate(r.attendance_date)}</DataTableCell>
                 <DataTableCell>{r.order_name || '—'}</DataTableCell>
-                <DataTableCell>{ATTENDANCE_STATUS_LABELS[r.attendance_status ?? 'pritomen']}</DataTableCell>
-                <DataTableCell>{r.work_start ? formatTimeForInput(r.work_start) : '—'}</DataTableCell>
-                <DataTableCell>{r.work_end ? formatTimeForInput(r.work_end) : '—'}</DataTableCell>
-                <DataTableCell>{r.break_minutes ? `${r.break_minutes} min` : '—'}</DataTableCell>
+                <DataTableCell className="whitespace-nowrap text-sm">
+                  {r.work_start && r.work_end
+                    ? `${formatTimeForInput(r.work_start)}–${formatTimeForInput(r.work_end)}`
+                    : '—'}
+                </DataTableCell>
                 <DataTableCell>{r.hours} h</DataTableCell>
+                <DataTableCell className="max-w-[180px] truncate">{r.note || '—'}</DataTableCell>
               </DataTableRow>
             ))}
           </DataTable>

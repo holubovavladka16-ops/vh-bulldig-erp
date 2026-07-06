@@ -75,10 +75,12 @@ export async function fetchPayrollSlipDetail(
 
   if (workerError) throw new Error(workerError.message)
 
+  const w = worker as { first_name: string; last_name: string }
+
   const summary: PayrollSlipSummary = {
     worker_id: workerId,
-    worker_first_name: worker.first_name,
-    worker_last_name: worker.last_name,
+    worker_first_name: w.first_name,
+    worker_last_name: w.last_name,
     report_count: list.length,
     total_earnings: totalEarnings,
     total_advances: totalAdvances,

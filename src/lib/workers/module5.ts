@@ -23,6 +23,9 @@ export interface ModuleListFilters {
 export interface AttendanceListRecord extends WorkerAttendanceRecord {
   worker_first_name: string
   worker_last_name: string
+  earnings?: number
+  meters?: number
+  pieces?: number
 }
 
 export interface ReportListRecord extends WorkerReport {
@@ -90,7 +93,8 @@ export async function fetchAllAttendance(filters: ModuleListFilters = {}): Promi
     .from('worker_attendance_records')
     .select(`
       *,
-      workers:worker_id ( first_name, last_name )
+      workers:worker_id ( first_name, last_name ),
+      worker_daily_forms:form_id ( earnings, meters, pieces, advance )
     `)
 
   if (filters.workerId) query = query.eq('worker_id', filters.workerId)
@@ -101,14 +105,26 @@ export async function fetchAllAttendance(filters: ModuleListFilters = {}): Promi
   const { data, error } = await query.order('attendance_date', { ascending: false })
   if (error) throw new Error(error.message)
 
-  const rows: AttendanceListRecord[] = ((data ?? []) as Array<Record<string, unknown> & { workers?: { first_name: string; last_name: string } | null }>).map((row) => {
+  const rows: AttendanceListRecord[] = ((data ?? []) as Array<
+    Record<string, unknown> & {
+      workers?: { first_name: string; last_name: string } | null
+      worker_daily_forms?: { earnings: number; meters: number; pieces: number; advance: number } | null
+    }
+  >).map((row) => {
     const worker = row.workers ?? null
-    const { workers: _workers, ...rest } = row
+    const form = row.worker_daily_forms ?? null
+    const { workers: _workers, worker_daily_forms: _form, ...rest } = row
     void _workers
+    void _form
+    const record = rest as unknown as WorkerAttendanceRecord
     return {
-      ...(rest as unknown as WorkerAttendanceRecord),
+      ...record,
       worker_first_name: worker?.first_name ?? '',
       worker_last_name: worker?.last_name ?? '',
+      earnings: form?.earnings != null ? Number(form.earnings) : undefined,
+      meters: form?.meters != null ? Number(form.meters) : undefined,
+      pieces: form?.pieces != null ? Number(form.pieces) : undefined,
+      daily_advance: record.daily_advance ?? (form?.advance != null ? Number(form.advance) : 0),
     }
   })
 

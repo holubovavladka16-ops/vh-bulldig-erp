@@ -4,12 +4,62 @@
   z-index: 0;
 }
 
+.photo-map-view--full {
+  height: min(calc(100dvh - 280px), 780px);
+  min-height: 360px;
+}
+
 @media (max-width: 640px) {
   .photo-map-view {
     height: min(58vh, 520px);
     min-height: 240px;
     border-radius: 1rem;
   }
+
+  .photo-map-view--full {
+    height: min(calc(100dvh - 320px), 560px);
+    min-height: 280px;
+  }
+}
+
+.photo-map-pin-icon {
+  background: transparent;
+  border: none;
+}
+
+.photo-map-pin {
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 0 auto;
+  background: var(--pin-color, #06b6d4);
+  border: 2px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 12px var(--pin-color, #06b6d4);
+}
+
+.construction-point-badge {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  transform: translateX(-50%);
+  min-width: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #0a0e17;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.photo-map-view .leaflet-marker-icon.photo-map-pin-icon {
+  background: transparent;
+  overflow: visible;
 }
 
 .photo-map-view .leaflet-control-zoom a {
@@ -25,8 +75,117 @@
   touch-action: pan-x pan-y;
 }
 
+.photo-map-view--freehand .leaflet-container {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.excavation-vertex-icon {
+  background: transparent;
+  border: none;
+}
+
 .photo-map-view .leaflet-tooltip {
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 8px;
+}
+
+/* GPS fotodokumentace – kamera s overlay */
+.photo-capture-flow--page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.photo-camera-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.photo-camera-viewport {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid var(--border-glass);
+  background: #0a0e17;
+  aspect-ratio: 3 / 4;
+  max-height: min(72vh, 640px);
+}
+
+@media (min-width: 640px) {
+  .photo-camera-viewport {
+    aspect-ratio: 4 / 3;
+    max-height: min(60vh, 520px);
+  }
+}
+
+.photo-camera-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-camera-placeholder {
+  display: flex;
+  height: 100%;
+  min-height: 280px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.photo-camera-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0.75rem;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, transparent 45%);
+}
+
+.photo-camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.photo-capture-btn {
+  display: inline-flex;
+  min-height: 48px;
+  min-width: 120px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.photo-capture-btn--primary {
+  background: var(--accent-primary, #06b6d4);
+  color: #fff;
+  box-shadow: 0 0 16px var(--accent-glow, rgba(6, 182, 212, 0.4));
+}
+
+.photo-capture-btn--secondary {
+  border: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+}
+
+.photo-capture-btn--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  pointer-events: none;
 }

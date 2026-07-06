@@ -6,10 +6,10 @@ import { AttendanceFormModal } from '@/components/attendance/AttendanceFormModal
 import { useAuth } from '@/context/AuthContext'
 import { upsertAttendanceRecord } from '@/lib/attendance/api'
 import { fetchAttendance } from '@/lib/workers/api'
-import { fetchDistinctOrders } from '@/lib/workers/module5'
-import { ATTENDANCE_STATUS_LABELS, attendanceSourceLabel } from '@/constants/attendance'
+import { fetchActiveJobOrders } from '@/lib/orders/api'
+import { attendanceSourceLabel } from '@/constants/attendance'
 import type { WorkerAttendanceRecord, AttendanceUpsertInput } from '@/types/workers'
-import { formatDate } from '@/constants/workers'
+import { formatCurrency, formatDate } from '@/constants/workers'
 import { formatTimeForInput } from '@/lib/workers/attendance'
 
 interface AttendanceTabProps {
@@ -35,7 +35,9 @@ export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: Attend
   }, [workerId])
 
   useEffect(() => {
-    fetchDistinctOrders().then(setOrders)
+    fetchActiveJobOrders().then((list) =>
+      setOrders(list.map((o) => ({ id: o.id, label: `${o.name}${o.location ? ` (${o.location})` : ''}` })))
+    )
   }, [])
 
   useEffect(() => {
@@ -71,11 +73,10 @@ export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: Attend
         columns={[
           { key: 'date', label: 'Datum' },
           { key: 'order', label: 'Zakázka' },
-          { key: 'status', label: 'Stav' },
-          { key: 'start', label: 'Začátek' },
-          { key: 'end', label: 'Konec' },
-          { key: 'break', label: 'Přestávka' },
+          { key: 'time', label: 'Prac. doba' },
           { key: 'hours', label: 'Hodiny' },
+          { key: 'advance', label: 'Záloha' },
+          { key: 'note', label: 'Poznámka' },
           { key: 'source', label: 'Zdroj' },
         ]}
         isEmpty={records.length === 0}
@@ -85,11 +86,14 @@ export function AttendanceTab({ workerId, workerLabel, isAdmin = false }: Attend
           <DataTableRow key={r.id}>
             <DataTableCell>{formatDate(r.attendance_date)}</DataTableCell>
             <DataTableCell>{r.order_name || '—'}</DataTableCell>
-            <DataTableCell>{ATTENDANCE_STATUS_LABELS[r.attendance_status ?? 'pritomen']}</DataTableCell>
-            <DataTableCell>{r.work_start ? formatTimeForInput(r.work_start) : '—'}</DataTableCell>
-            <DataTableCell>{r.work_end ? formatTimeForInput(r.work_end) : '—'}</DataTableCell>
-            <DataTableCell>{r.break_minutes ? `${r.break_minutes} min` : '—'}</DataTableCell>
+            <DataTableCell className="whitespace-nowrap text-sm">
+              {r.work_start && r.work_end
+                ? `${formatTimeForInput(r.work_start)}–${formatTimeForInput(r.work_end)}`
+                : '—'}
+            </DataTableCell>
             <DataTableCell>{r.hours} h</DataTableCell>
+            <DataTableCell>{formatCurrency(r.daily_advance ?? 0)}</DataTableCell>
+            <DataTableCell className="max-w-[200px] truncate">{r.note || '—'}</DataTableCell>
             <DataTableCell>{attendanceSourceLabel(r.form_id)}</DataTableCell>
           </DataTableRow>
         ))}

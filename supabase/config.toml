@@ -1,5 +1,8 @@
 project_id = "khhalcjgvqoyskkjlkyg"
 
+[functions.notify-login]
+verify_jwt = true
+
 [api]
 enabled = true
 

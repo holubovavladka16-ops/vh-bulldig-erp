@@ -1,4 +1,7 @@
 import { supabase } from '@/lib/supabase'
+import {
+  createConstructionPoint,
+} from '@/lib/constructionPoints/api'
 import type {
   GpsPhoto,
   GpsPhotoCreateInput,
@@ -24,6 +27,7 @@ function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
     gps_lat: Number(row.gps_lat),
     gps_lng: Number(row.gps_lng),
     gps_accuracy: row.gps_accuracy != null ? Number(row.gps_accuracy) : null,
+    device_heading: row.device_heading != null ? Number(row.device_heading) : null,
     address_full: row.address_full,
     street: row.street,
     city: row.city,
@@ -34,9 +38,11 @@ function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
     worker_id: row.worker_id,
     report_id: row.report_id,
     diary_entry_id: row.diary_entry_id,
-    utility_connection_id: row.utility_connection_id ?? null,
-    photo_phase: row.photo_phase ?? null,
-    order_name: row.job_orders?.name ?? row.order_name,
+  utility_connection_id: row.utility_connection_id ?? null,
+  photo_phase: row.photo_phase ?? null,
+    construction_point_id: row.construction_point_id ?? null,
+    sort_order: Number(row.sort_order ?? 0),
+  order_name: row.job_orders?.name ?? row.order_name,
     worker_name: row.workers ? `${row.workers.last_name} ${row.workers.first_name}` : row.worker_name,
     creator_name: row.creator?.full_name?.trim() || row.creator?.email || undefined,
     created_by: row.created_by,
@@ -129,6 +135,36 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
   const { error: uploadError } = await supabase.storage.from('gps-photos').upload(path, input.file)
   if (uploadError) throw new Error(uploadError.message)
 
+  let constructionPointId = input.construction_point_id ?? null
+  let sortOrder = 0
+
+  if (constructionPointId) {
+    const { data: maxRow, error: maxError } = await supabase
+      .from('gps_photos')
+      .select('sort_order')
+      .eq('construction_point_id', constructionPointId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (maxError) throw new Error(maxError.message)
+    sortOrder = ((maxRow as { sort_order: number } | null)?.sort_order ?? -1) + 1
+  } else {
+    const point = await createConstructionPoint({
+      order_id: input.order_id ?? null,
+      gps_lat: input.gps_lat,
+      gps_lng: input.gps_lng,
+      gps_accuracy: input.gps_accuracy,
+      address_full: input.address_full,
+      street: input.street,
+      city: input.city,
+      postal_code: input.postal_code,
+      country: input.country,
+      created_by: createdBy,
+    })
+    constructionPointId = point.id
+    sortOrder = 0
+  }
+
   const { data, error } = await supabase
     .from('gps_photos')
     .insert({
@@ -140,6 +176,7 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
       gps_lat: input.gps_lat,
       gps_lng: input.gps_lng,
       gps_accuracy: input.gps_accuracy,
+      device_heading: input.device_heading ?? null,
       address_full: input.address_full,
       street: input.street,
       city: input.city,
@@ -152,6 +189,8 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
       diary_entry_id: input.diary_entry_id ?? null,
       utility_connection_id: input.utility_connection_id ?? null,
       photo_phase: input.photo_phase ?? null,
+      construction_point_id: constructionPointId,
+      sort_order: sortOrder,
       created_by: createdBy,
     })
     .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
@@ -165,7 +204,19 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
     address_full: photo.address_full,
     gps_lat: photo.gps_lat,
     gps_lng: photo.gps_lng,
+    device_heading: photo.device_heading,
+    construction_point_id: constructionPointId,
   })
+
+  if (constructionPointId && input.construction_point_id) {
+    const { error: histError } = await supabase.from('construction_point_history').insert({
+      point_id: constructionPointId,
+      action: 'Fotografie přidána do bodu',
+      performed_by: createdBy,
+      details: { photo_id: photo.id, file_name: photo.file_name },
+    })
+    if (histError) throw new Error(histError.message)
+  }
 
   return photo
 }

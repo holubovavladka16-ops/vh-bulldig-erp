@@ -1,3 +1,7 @@
+export function getMapyCzUrl(lat: number, lng: number): string {
+  return `https://mapy.cz/zakladni?x=${lng}&y=${lat}&z=18`
+}
+
 export function getGoogleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat},${lng}`
 }
