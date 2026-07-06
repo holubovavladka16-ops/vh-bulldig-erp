@@ -11,6 +11,8 @@
     "bootstrap-admin": "node scripts/bootstrap-admin.mjs",
     "check-supabase": "node scripts/check-supabase.mjs",
     "apply-migrations": "node scripts/apply-migrations.mjs",
+    "apply-migrations-pg": "node scripts/apply-migrations-pg.mjs",
+    "test-db-connection": "node scripts/test-db-connection.mjs",
     "build-apply-all-sql": "node scripts/build-apply-all-sql.mjs",
     "verify-migrations": "node scripts/build-apply-all-sql.mjs && node scripts/verify-apply-all-local.mjs",
     "run-apply-all-migrations": "node scripts/run-apply-all-migrations.mjs",

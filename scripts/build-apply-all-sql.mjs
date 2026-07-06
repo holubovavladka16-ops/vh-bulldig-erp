@@ -5,7 +5,7 @@ const dir = join(process.cwd(), 'supabase/migrations')
 const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
 const lines = [
   '-- =============================================================================',
-  '-- VH Bulldig ERP - All Migrations (001-019)',
+  '-- VH Bulldig ERP - All Migrations',
   '-- Project: khhalcjgvqoyskkjlkyg',
   '-- Run in Supabase Dashboard -> SQL Editor -> New query',
   `-- Generated: ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,

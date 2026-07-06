@@ -19,6 +19,23 @@ Frontend je statická SPA (Vite + React). Backend běží na **Supabase Cloud** 
 > Build musí proběhnout **s nastavenými VITE_ proměnnými** – Vite je vkládá do bundle při `npm run build`.
 > Produkční hodnoty jsou v souboru `.env.production` (commitnutý, pouze veřejné klíče). Alternativně nastavte proměnné ve Vercel dashboardu – mají přednost před `.env.production`.
 
+## Inicializace databáze (jednorázově)
+
+Cloud projekt musí dostat migrace a prvního administrátora:
+
+```bash
+# 1. Doplňte do .env.local (necommitovat):
+#    SUPABASE_DB_PASSWORD=...   (Dashboard → Settings → Database)
+#    nebo SUPABASE_ACCESS_TOKEN=... (Dashboard → Account → Access Tokens)
+
+# 2. Spusťte kompletní setup:
+npm run setup-complete
+```
+
+Alternativa: GitHub Actions workflow **Supabase Database Setup** (secrets viz `.github/workflows/supabase-setup.yml`).
+
+Ručně: SQL Editor → vložte `supabase/apply-all-migrations.sql` → `npm run bootstrap-admin`.
+
 ---
 
 ## Varianta A: Vercel (doporučeno)

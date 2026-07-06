@@ -2,7 +2,7 @@
 -- VH Bulldig ERP - All Migrations (001-019)
 -- Project: khhalcjgvqoyskkjlkyg
 -- Run in Supabase Dashboard -> SQL Editor -> New query
--- Generated: 2026-07-05 21:17
+-- Generated: 2026-07-06 05:09
 -- =============================================================================
 
 
@@ -4644,18 +4644,38 @@ VALUES
   ('company-logos', 'company-logos', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'])
 ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY IF NOT EXISTS "Authenticated upload company logos"
+DROP POLICY IF EXISTS "Authenticated upload company logos" ON storage.objects;
+CREATE POLICY "Authenticated upload company logos"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'company-logos');
 
-CREATE POLICY IF NOT EXISTS "Public read company logos"
+DROP POLICY IF EXISTS "Public read company logos" ON storage.objects;
+CREATE POLICY "Public read company logos"
   ON storage.objects FOR SELECT TO public
   USING (bucket_id = 'company-logos');
 
-CREATE POLICY IF NOT EXISTS "Authenticated update company logos"
+DROP POLICY IF EXISTS "Authenticated update company logos" ON storage.objects;
+CREATE POLICY "Authenticated update company logos"
   ON storage.objects FOR UPDATE TO authenticated
   USING (bucket_id = 'company-logos');
 
-CREATE POLICY IF NOT EXISTS "Authenticated delete company logos"
+DROP POLICY IF EXISTS "Authenticated delete company logos" ON storage.objects;
+CREATE POLICY "Authenticated delete company logos"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'company-logos');
+
+
+-- =============================================================================
+-- MIGRATION: 025_worker_photos_storage_policies.sql
+-- =============================================================================
+
+-- Oprava storage pro nahrávání fotografií zaměstnanců (upsert / přepsání)
+DROP POLICY IF EXISTS "Autentizovaní aktualizují fotografie" ON storage.objects;
+CREATE POLICY "Autentizovaní aktualizují fotografie"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'worker-photos');
+
+DROP POLICY IF EXISTS "Autentizovaní mažou fotografie" ON storage.objects;
+CREATE POLICY "Autentizovaní mažou fotografie"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'worker-photos');

@@ -36,7 +36,7 @@ if (hasAccessToken) {
   const r = spawnSync('node', ['scripts/apply-migrations-dashboard.mjs'], { stdio: 'inherit', shell: true })
   if (r.status !== 0) process.exit(r.status ?? 1)
 } else {
-  const r = spawnSync('node', ['scripts/run-apply-all-migrations.mjs'], { stdio: 'inherit', shell: true })
+  const r = spawnSync('node', ['scripts/apply-migrations-pg.mjs'], { stdio: 'inherit', shell: true })
   if (r.status !== 0) process.exit(r.status ?? 1)
 }
 

@@ -14,7 +14,7 @@ export function MigrationSetupNotice({ message }: MigrationSetupNoticeProps) {
         </div>
         <h1 className="text-2xl font-bold text-theme-primary">Je potřeba dokončit setup</h1>
         <p className="mt-2 text-theme-secondary">
-          Supabase projekt je připojený, ale chybí ERP schéma (migrace 001–019). Bez něj nelze vytvořit
+          Supabase projekt je připojený, ale chybí ERP schéma (migrace 001–025). Bez něj nelze vytvořit
           administrátora ani se přihlásit.
         </p>
       </div>
