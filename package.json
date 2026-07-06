@@ -30,6 +30,8 @@
     "verify-portal-performance": "node scripts/verify-portal-performance.mjs",
     "verify-admin-attendance": "node scripts/verify-admin-attendance.mjs",
     "verify-gemini-ai": "node scripts/verify-gemini-ai.mjs",
+    "verify-all-modules": "node scripts/verify-all-modules.mjs",
+    "verify-full-regression": "node scripts/verify-full-regression.mjs",
     "deploy-notify-login": "node scripts/deploy-notify-login.mjs",
     "verify-worker-save": "node scripts/local-stack/verify-worker-save.mjs",
     "verify-e2e": "node scripts/local-stack/verify-e2e.mjs"

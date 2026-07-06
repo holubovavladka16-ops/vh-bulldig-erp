@@ -1,3 +1,5 @@
+import { getGeminiApiKey, getSupabaseConfig } from './lib/config.js'
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -24,8 +26,7 @@ function setCors(res) {
 }
 
 async function verifyAccess(req) {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL
-  const anonKey = process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY
+  const { url: supabaseUrl, anonKey } = getSupabaseConfig()
 
   if (!supabaseUrl || !anonKey) {
     return { ok: false, reason: 'missing_supabase_config' }
@@ -63,7 +64,7 @@ async function verifyAccess(req) {
 }
 
 async function polishWithGemini(roughText, context) {
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = getGeminiApiKey()
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY_MISSING')
   }
@@ -118,6 +119,11 @@ export default async function handler(req, res) {
   try {
     const access = await verifyAccess(req)
     if (!access.ok) {
+      if (access.reason === 'missing_supabase_config') {
+        return res.status(503).json({
+          error: 'AI asistent není dostupný. Chybí konfigurace Supabase na serveru.',
+        })
+      }
       return res.status(401).json({ error: 'Pro použití AI asistenta se musíte přihlásit.' })
     }
 
