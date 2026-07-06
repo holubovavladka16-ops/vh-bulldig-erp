@@ -1,8 +1,8 @@
 -- =============================================================================
--- VH Bulldig ERP - All Migrations (001-019)
+-- VH Bulldig ERP - All Migrations
 -- Project: khhalcjgvqoyskkjlkyg
 -- Run in Supabase Dashboard -> SQL Editor -> New query
--- Generated: 2026-07-06 05:09
+-- Generated: 2026-07-06 05:53
 -- =============================================================================
 
 

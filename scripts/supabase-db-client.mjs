@@ -20,20 +20,28 @@ export function getProjectRef(supabaseUrl) {
 function buildConnectionCandidates(projectRef, dbPassword) {
   const encodedPassword = encodeURIComponent(dbPassword)
   const candidates = []
+  const preferDirect = process.env.SUPABASE_DB_PREFER_DIRECT !== 'false'
 
-  if (process.env.SUPABASE_DB_URL) {
-    candidates.push({ label: 'SUPABASE_DB_URL', url: process.env.SUPABASE_DB_URL })
+  if (process.env.SUPABASE_DB_DIRECT_URL) {
+    candidates.push({ label: 'SUPABASE_DB_DIRECT_URL', url: process.env.SUPABASE_DB_DIRECT_URL, timeout: 30000 })
   }
 
-  candidates.push({
-    label: 'direct-postgres',
-    url: `postgresql://postgres:${encodedPassword}@db.${projectRef}.supabase.co:5432/postgres`,
-  })
+  if (preferDirect) {
+    candidates.push({
+      label: 'direct-postgres',
+      url: `postgresql://postgres:${encodedPassword}@db.${projectRef}.supabase.co:5432/postgres`,
+      timeout: 30000,
+    })
+    candidates.push({
+      label: 'direct-project-user',
+      url: `postgresql://postgres.${projectRef}:${encodedPassword}@db.${projectRef}.supabase.co:5432/postgres`,
+      timeout: 30000,
+    })
+  }
 
-  candidates.push({
-    label: 'direct-project-user',
-    url: `postgresql://postgres.${projectRef}:${encodedPassword}@db.${projectRef}.supabase.co:5432/postgres`,
-  })
+  if (process.env.SUPABASE_DB_URL) {
+    candidates.push({ label: 'SUPABASE_DB_URL', url: process.env.SUPABASE_DB_URL, timeout: 20000 })
+  }
 
   const regions = process.env.SUPABASE_DB_REGION
     ? [process.env.SUPABASE_DB_REGION, ...POOLER_REGIONS.filter((r) => r !== process.env.SUPABASE_DB_REGION)]
@@ -44,10 +52,12 @@ function buildConnectionCandidates(projectRef, dbPassword) {
       candidates.push({
         label: `${hostPrefix}-${region}-session`,
         url: `postgresql://postgres.${projectRef}:${encodedPassword}@${hostPrefix}-${region}.pooler.supabase.com:5432/postgres`,
+        timeout: 15000,
       })
       candidates.push({
         label: `${hostPrefix}-${region}-transaction`,
-        url: `postgresql://postgres.${projectRef}:${encodedPassword}@${hostPrefix}-${region}.pooler.supabase.com:6543/postgres`,
+        url: `postgresql://postgres.${projectRef}:${encodedPassword}@${hostPrefix}-${region}.pooler.supabase.com:6543/postgres?pgbouncer=true`,
+        timeout: 15000,
       })
     }
   }
@@ -63,7 +73,7 @@ export async function connectSupabaseDb({ projectRef, dbPassword }) {
     const client = new pg.Client({
       connectionString: candidate.url,
       ssl: { rejectUnauthorized: false },
-      connectionTimeoutMillis: 15000,
+      connectionTimeoutMillis: candidate.timeout ?? 15000,
     })
 
     try {

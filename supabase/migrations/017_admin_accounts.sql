@@ -2,7 +2,7 @@
 -- Spusťte po 016_module12_vyplatni_pasky.sql
 -- Hesla se ukládají šifrovaně v auth.users (bcrypt). Nikdy neukládejte hesla do zdrojového kódu.
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- První uživatel = administrátor
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -75,7 +75,7 @@ CREATE OR REPLACE FUNCTION internal_create_auth_user(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = auth, public
+SET search_path = auth, public, extensions
 AS $$
 DECLARE
   v_user_id UUID := gen_random_uuid();
@@ -101,6 +101,10 @@ BEGIN
     email,
     encrypted_password,
     email_confirmed_at,
+    confirmation_token,
+    recovery_token,
+    email_change_token_new,
+    email_change,
     raw_app_meta_data,
     raw_user_meta_data,
     created_at,
@@ -113,6 +117,10 @@ BEGIN
     v_email,
     crypt(p_password, gen_salt('bf')),
     now(),
+    '',
+    '',
+    '',
+    '',
     jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
     jsonb_build_object('full_name', p_full_name, 'role', p_role::text),
     now(),
@@ -125,7 +133,6 @@ BEGIN
     identity_data,
     provider,
     provider_id,
-    email,
     last_sign_in_at,
     created_at,
     updated_at
@@ -134,8 +141,7 @@ BEGIN
     v_user_id,
     jsonb_build_object('sub', v_user_id::text, 'email', v_email),
     'email',
-    v_email,
-    v_email,
+    v_user_id::text,
     now(),
     now(),
     now()
@@ -171,7 +177,7 @@ CREATE OR REPLACE FUNCTION bootstrap_first_admin(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = auth, public
+SET search_path = auth, public, extensions
 AS $$
 DECLARE
   v_full_name TEXT := COALESCE(NULLIF(TRIM(p_full_name), ''), split_part(lower(trim(p_email)), '@', 1));
@@ -195,7 +201,7 @@ CREATE OR REPLACE FUNCTION admin_create_user(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = auth, public
+SET search_path = auth, public, extensions
 AS $$
 DECLARE
   v_full_name TEXT := COALESCE(NULLIF(TRIM(p_full_name), ''), split_part(lower(trim(p_email)), '@', 1));
@@ -216,7 +222,7 @@ CREATE OR REPLACE FUNCTION admin_set_user_active(p_user_id UUID, p_is_active BOO
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = auth, public
+SET search_path = auth, public, extensions
 AS $$
 DECLARE
   v_role user_role;

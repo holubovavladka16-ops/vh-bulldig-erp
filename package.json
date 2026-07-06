@@ -23,6 +23,7 @@
     "dev:local:app": "node scripts/local-stack/run-vite.mjs",
     "dev:mobile:url": "node scripts/print-mobile-url.mjs",
     "verify-local-login": "node scripts/local-stack/verify-login.mjs",
+    "verify-cloud-login": "node scripts/verify-cloud-login.mjs",
     "verify-worker-save": "node scripts/local-stack/verify-worker-save.mjs",
     "verify-e2e": "node scripts/local-stack/verify-e2e.mjs"
   },
