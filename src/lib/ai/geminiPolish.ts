@@ -69,6 +69,26 @@ export async function polishTextWithAi(
   }
 
   if (!response.ok) {
+    const shouldTrySupabaseFallback =
+      accessToken &&
+      (response.status === 503 || response.status === 404 || response.status >= 500)
+
+    if (shouldTrySupabaseFallback) {
+      try {
+        const { data: edgeData, error: edgeError } = await supabase.functions.invoke('diary-ai-polish', {
+          body: { rough_text: trimmed },
+        })
+        if (!edgeError && edgeData?.polished_text?.trim()) {
+          return {
+            polished_text: edgeData.polished_text.trim(),
+            ai_assisted: edgeData.ai_assisted ?? true,
+          }
+        }
+      } catch {
+        // pokračuj s původní chybou
+      }
+    }
+
     throw new Error(translateAiError(data.error, response.status))
   }
 
