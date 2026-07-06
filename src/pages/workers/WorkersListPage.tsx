@@ -31,6 +31,7 @@ export function WorkersListPage() {
   const navigate = useNavigate()
   const [workers, setWorkers] = useState<Awaited<ReturnType<typeof fetchWorkers>>>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<WorkerFilter>('aktivni')
   const [modalOpen, setModalOpen] = useState(false)
@@ -39,11 +40,12 @@ export function WorkersListPage() {
 
   const loadWorkers = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const data = await fetchWorkers(filter, search)
       setWorkers(data)
     } catch (err) {
-      console.error(err)
+      setLoadError(err instanceof Error ? err.message : 'Nepodařilo se načíst zaměstnance')
     } finally {
       setLoading(false)
     }
@@ -119,6 +121,12 @@ export function WorkersListPage() {
           ))}
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {loadError}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-20">

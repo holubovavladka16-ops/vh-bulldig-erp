@@ -43,16 +43,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    let mounted = true
+
+    async function initSession() {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (!mounted) return
+
       setSession(currentSession)
       setUser(currentSession?.user ?? null)
 
       if (currentSession?.user) {
-        fetchProfile(currentSession.user.id).then(setProfile)
+        const userProfile = await fetchProfile(currentSession.user.id)
+        if (mounted) setProfile(userProfile)
       }
 
-      setLoading(false)
-    })
+      if (mounted) setLoading(false)
+    }
+
+    void initSession()
 
     const {
       data: { subscription },
@@ -70,7 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function signIn(email: string, password: string) {

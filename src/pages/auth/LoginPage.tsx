@@ -71,20 +71,23 @@ export function LoginPage() {
 
 
   if (authLoading || needsBootstrap === null) {
-
     return (
-
       <div className="app-background flex min-h-dvh items-center justify-center">
-
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
-
       </div>
-
     )
-
   }
 
-
+  if (user && !profile) {
+    return (
+      <div className="app-background flex min-h-dvh items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--border-glass)] border-t-[var(--accent-primary)]" />
+          <p className="text-sm text-theme-muted">Dokončuji přihlášení…</p>
+        </div>
+      </div>
+    )
+  }
 
   if (user && profile && canAccessErp(profile.role)) {
     return <Navigate to="/" replace />
