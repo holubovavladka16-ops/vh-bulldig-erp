@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { X, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import {
@@ -38,7 +38,7 @@ export function WorkerFormsAdmin({ workerId, isAdmin }: WorkerFormsAdminProps) {
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
   const [saving, setSaving] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const [f, items, orders] = await Promise.all([
       fetchForms(workerId),
@@ -49,11 +49,11 @@ export function WorkerFormsAdmin({ workerId, isAdmin }: WorkerFormsAdminProps) {
     setPriceItems(items)
     setOrderOptions(orders)
     setLoading(false)
-  }
+  }, [workerId])
 
   useEffect(() => {
     load()
-  }, [workerId])
+  }, [workerId, load])
 
   async function openEdit(form: WorkerDailyForm) {
     const tasks = await adminGetFormTaskItems(form.id)

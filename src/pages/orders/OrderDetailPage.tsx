@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Upload, Trash2, FileText, Download, ExternalLink } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -33,7 +33,7 @@ export function OrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!id) return
     setLoading(true)
     setLoadError('')
@@ -45,11 +45,11 @@ export function OrderDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     load()
-  }, [id])
+  }, [id, load])
 
   async function handleDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!id || !user || !e.target.files?.[0]) return

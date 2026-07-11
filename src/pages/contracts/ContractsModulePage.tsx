@@ -47,7 +47,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 export function ContractsModulePage() {
   const { user } = useAuth()
   const { settings: companySettings, loading: companyLoading } = useCompanySettings()
-  const company = companySettings ?? { ...DEFAULT_COMPANY_SETTINGS, id: '', updated_at: '', updated_by: null }
+  const company = useMemo(() => companySettings ?? { ...DEFAULT_COMPANY_SETTINGS, id: '', updated_at: '', updated_by: null }, [companySettings])
   const [workers, setWorkers] = useState<Worker[]>([])
   const [orders, setOrders] = useState<JobOrder[]>([])
   const [documentType, setDocumentType] = useState<DocumentType>('HPP')

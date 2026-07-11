@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Upload, Trash2, FileText, FileSignature } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -31,13 +31,13 @@ export function DocumentsTab({ worker, isAdmin }: DocumentsTabProps) {
   const [uploading, setUploading] = useState(false)
   const [contractModalOpen, setContractModalOpen] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setDocs(await fetchDocuments(worker.id))
     setLoading(false)
-  }
+  }, [worker.id])
 
-  useEffect(() => { load() }, [worker.id])
+  useEffect(() => { load() }, [worker.id, load])
 
   async function handleUpload() {
     if (!file || !title.trim() || !user) return

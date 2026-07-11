@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -33,16 +33,16 @@ export function PriceListTab({ workerId, isAdmin }: PriceListTabProps) {
   const [newUnit, setNewUnit] = useState<PriceUnitType>('hodina')
   const [newPrice, setNewPrice] = useState('0')
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     const data = await fetchPriceItems(workerId)
     setItems(data)
     setLoading(false)
-  }
+  }, [workerId])
 
   useEffect(() => {
     load()
-  }, [workerId])
+  }, [workerId, load])
 
   const visibleItems = isAdmin ? items : items.filter((i) => i.is_active !== false)
 

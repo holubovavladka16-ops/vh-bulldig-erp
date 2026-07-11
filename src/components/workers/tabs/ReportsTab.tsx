@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Eye } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTable'
@@ -21,15 +21,15 @@ export function ReportsTab({ workerId, isAdmin }: ReportsTabProps) {
   const [loading, setLoading] = useState(true)
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setReports(await fetchReports(workerId))
     setLoading(false)
-  }
+  }, [workerId])
 
   useEffect(() => {
     load()
-  }, [workerId])
+  }, [workerId, load])
 
   if (loading) {
     return (
