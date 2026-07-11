@@ -1,0 +1,8 @@
+# Environment files (should be set in Vercel dashboard)
+.env.local
+.env.*.local
+
+# Test scripts
+scripts/check-*.mjs
+scripts/verify-*.mjs
+scripts/create-test-admin.mjs

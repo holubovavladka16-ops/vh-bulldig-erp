@@ -9,6 +9,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  envPrefix: ['VITE_', 'SUPABASE_'],
   build: {
     rollupOptions: {
       output: {
