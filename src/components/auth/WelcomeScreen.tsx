@@ -2,32 +2,21 @@ import { useEffect, useState } from 'react'
 
 export function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
   const [mounted, setMounted] = useState(false)
-  const [fadingOut, setFadingOut] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     
     const timer = setTimeout(() => {
-      setFadingOut(true)
-      setTimeout(() => {
-        onComplete()
-      }, 500) // 500ms fade-out duration
-    }, 10000) // Exactly 10 seconds before starting fade-out
+      onComplete()
+    }, 10000) // Exactly 10 seconds
 
     return () => clearTimeout(timer)
   }, [onComplete])
 
   return (
-    <div 
-      className={`fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-[#0a0e17] transition-opacity duration-500 ${
-        fadingOut ? 'opacity-0' : 'opacity-100'
-      }`}
-    >
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-[#0a0e17]">
       {/* Animated gradient background */}
       <div className="absolute inset-0 animate-gradient-x bg-gradient-to-br from-blue-500 via-purple-500 via-yellow-400 via-teal-400 to-green-500 opacity-30" />
-      
-      {/* Solid dark overlay to prevent dashboard from showing through */}
-      <div className="absolute inset-0 bg-[#0a0e17] opacity-90" />
       
       {/* Light effects */}
       <div className="absolute inset-0">
@@ -47,8 +36,11 @@ export function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
             <img 
               src="/logo-bulldig.png" 
               alt="VH Bulldig Logo" 
-              className="relative w-32 h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 object-contain animate-pulse drop-shadow-2xl mix-blend-screen"
-              style={{ animationDuration: '3s' }}
+              className="relative w-32 h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 object-contain animate-pulse drop-shadow-2xl"
+              style={{ 
+                animationDuration: '3s',
+                filter: 'brightness(1.2) contrast(1.1)'
+              }}
             />
           </div>
         </div>

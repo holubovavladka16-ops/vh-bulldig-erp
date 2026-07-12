@@ -10,12 +10,12 @@ import { WelcomeScreen } from '@/components/auth/WelcomeScreen'
 function AppContent() {
   const { showWelcome, hideWelcome } = useAuth()
 
-  return (
-    <>
-      {showWelcome && <WelcomeScreen onComplete={hideWelcome} />}
-      {!showWelcome && <AppRoutes />}
-    </>
-  )
+  // TRUE conditional rendering: EITHER WelcomeScreen OR AppRoutes, never both
+  if (showWelcome) {
+    return <WelcomeScreen onComplete={hideWelcome} />
+  }
+  
+  return <AppRoutes />
 }
 
 export function App() {
