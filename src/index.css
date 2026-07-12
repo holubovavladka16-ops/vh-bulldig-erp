@@ -444,3 +444,42 @@
     transition: box-shadow var(--accent-transition);
   }
 }
+
+/* Welcome screen animations */
+@keyframes gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
+@keyframes gradient-x {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes progress {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-gradient-text {
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.border-gradient {
+  border-image: linear-gradient(90deg, #3b82f6, #8b5cf6, #fbbf24, #2dd4bf, #22c55e, #3b82f6) 1;
+  border-image-slice: 1;
+}
+

@@ -1,10 +1,22 @@
 import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { SystemHealthProvider } from '@/context/SystemHealthContext'
-import { AuthProvider } from '@/context/AuthContext'
+import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { AppSettingsProvider } from '@/context/AppSettingsContext'
 import { CompanySettingsProvider } from '@/context/CompanySettingsContext'
 import { AppRoutes } from '@/routes/AppRoutes'
+import { WelcomeScreen } from '@/components/auth/WelcomeScreen'
+
+function AppContent() {
+  const { showWelcome, hideWelcome } = useAuth()
+
+  return (
+    <>
+      {showWelcome && <WelcomeScreen onComplete={hideWelcome} />}
+      <AppRoutes />
+    </>
+  )
+}
 
 export function App() {
   return (
@@ -14,7 +26,7 @@ export function App() {
           <AuthProvider>
             <AppSettingsProvider>
               <CompanySettingsProvider>
-                <AppRoutes />
+                <AppContent />
               </CompanySettingsProvider>
             </AppSettingsProvider>
           </AuthProvider>

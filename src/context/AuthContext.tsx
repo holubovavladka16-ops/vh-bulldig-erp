@@ -19,10 +19,12 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   profileError: string | null
+  showWelcome: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
   resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>
+  hideWelcome: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -35,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [profileError, setProfileError] = useState<string | null>(null)
+  const [showWelcome, setShowWelcome] = useState(false)
   const initDone = useRef(false)
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
@@ -93,6 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (currentSession?.user) {
         await loadUserProfile(currentSession.user.id)
+        // Don't show welcome on page refresh - only on new login
+        if (sessionStorage.getItem('justLoggedIn') === 'true') {
+          setShowWelcome(true)
+        }
       } else {
         setProfile(null)
         setProfileError(null)
@@ -177,6 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(userProfile)
       setUser(data.user)
       setSession(data.session)
+      
+      // Show welcome screen only on new login (not page refresh)
+      sessionStorage.setItem('justLoggedIn', 'true')
+      setShowWelcome(true)
+      
       void notifyLoginSuccess({
         user: data.user,
         profile: userProfile,
@@ -203,6 +215,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileError(null)
     setSession(null)
     setUser(null)
+    setShowWelcome(false)
+    sessionStorage.removeItem('justLoggedIn')
+  }
+
+  function hideWelcome() {
+    setShowWelcome(false)
+    sessionStorage.removeItem('justLoggedIn')
   }
 
   async function resetPasswordForEmail(email: string) {
@@ -226,10 +245,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         loading,
         profileError,
+        showWelcome,
         signIn,
         signOut,
         refreshProfile,
         resetPasswordForEmail,
+        hideWelcome,
       }}
     >
       {children}
