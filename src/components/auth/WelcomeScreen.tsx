@@ -2,29 +2,40 @@ import { useEffect, useState } from 'react'
 
 export function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
   const [mounted, setMounted] = useState(false)
+  const [fadingOut, setFadingOut] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     
     const timer = setTimeout(() => {
-      onComplete()
-    }, 10000) // Exactly 10 seconds
+      setFadingOut(true)
+      setTimeout(() => {
+        onComplete()
+      }, 500) // 500ms fade-out duration
+    }, 10000) // Exactly 10 seconds before starting fade-out
 
     return () => clearTimeout(timer)
   }, [onComplete])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden">
+    <div 
+      className={`fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-[#0a0e17] transition-opacity duration-500 ${
+        fadingOut ? 'opacity-0' : 'opacity-100'
+      }`}
+    >
       {/* Animated gradient background */}
-      <div className="absolute inset-0 animate-gradient-x bg-gradient-to-br from-blue-500 via-purple-500 via-yellow-400 via-teal-400 to-green-500 opacity-20" />
+      <div className="absolute inset-0 animate-gradient-x bg-gradient-to-br from-blue-500 via-purple-500 via-yellow-400 via-teal-400 to-green-500 opacity-30" />
+      
+      {/* Solid dark overlay to prevent dashboard from showing through */}
+      <div className="absolute inset-0 bg-[#0a0e17] opacity-90" />
       
       {/* Light effects */}
       <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" />
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-yellow-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '2s' }} />
-        <div className="absolute bottom-1/3 right-1/3 w-96 h-96 bg-teal-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '3s' }} />
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-green-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{ animationDelay: '4s' }} />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-400 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse" />
+        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-purple-400 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-yellow-400 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute bottom-1/3 right-1/3 w-96 h-96 bg-teal-400 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '3s' }} />
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-green-400 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '4s' }} />
       </div>
 
       {/* Content */}
@@ -32,11 +43,11 @@ export function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
         {/* Logo */}
         <div className="mb-8 flex justify-center">
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-purple-400 via-yellow-400 via-teal-400 to-green-400 rounded-full blur-2xl opacity-50 animate-pulse" />
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-purple-400 via-yellow-400 via-teal-400 to-green-400 rounded-full blur-2xl opacity-30 animate-pulse" />
             <img 
               src="/logo-bulldig.png" 
               alt="VH Bulldig Logo" 
-              className="relative w-32 h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 object-contain animate-pulse"
+              className="relative w-32 h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 object-contain animate-pulse drop-shadow-2xl mix-blend-screen"
               style={{ animationDuration: '3s' }}
             />
           </div>
@@ -82,9 +93,6 @@ export function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
           </div>
         </div>
       </div>
-
-      {/* Border glow effect */}
-      <div className="absolute inset-4 border-2 border-gradient opacity-30 rounded-3xl" />
     </div>
   )
 }

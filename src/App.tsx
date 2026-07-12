@@ -13,7 +13,7 @@ function AppContent() {
   return (
     <>
       {showWelcome && <WelcomeScreen onComplete={hideWelcome} />}
-      <AppRoutes />
+      {!showWelcome && <AppRoutes />}
     </>
   )
 }
