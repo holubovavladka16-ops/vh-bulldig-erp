@@ -137,7 +137,12 @@ export function ReportDetailModal({
 
   function handlePrint() {
     if (!detail) return
-    openPrintDocument(buildReportPrintDocument(detail, company))
+    const workerName = `${detail.worker.first_name} ${detail.worker.last_name}`
+    openPrintDocument(buildReportPrintDocument(detail, company), {
+      fileName: `Denni-vykaz-${workerName}-${detail.report.report_date}.pdf`,
+      title: `Denní výkaz – ${workerName}`,
+      shareText: `Denní výkaz – ${workerName} – ${formatDate(detail.report.report_date)}`,
+    })
   }
 
   function handleExportExcel() {

@@ -1,5 +1,15 @@
 import { DEFAULT_APP_LOGO_URL } from '@/constants/branding'
 import type { CompanySettings } from '@/types'
+import {
+  buildDefaultPdfFileName,
+  extractDocumentTitle,
+  htmlToPdfBlob,
+  isMobilePrintDevice,
+} from '@/lib/print/pdfDownload'
+import { openPdfPreview, withPdfGeneratingOverlay } from '@/lib/print/pdfMobileUi'
+
+export { downloadPdfBlob, sharePdfFile } from '@/lib/print/pdfDownload'
+export { openPdfPreview } from '@/lib/print/pdfMobileUi'
 
 export function escHtml(value: string | number | null | undefined): string {
   return String(value ?? '')
@@ -25,7 +35,7 @@ const WATERMARK_PRINT_CSS = `
     position: fixed;
     top: 50%;
     left: 50%;
-    width: 175mm;
+    width: 120mm;
     max-height: 240mm;
     transform: translate(-50%, -50%);
     opacity: ${DOCUMENT_WATERMARK_OPACITY};
@@ -36,6 +46,12 @@ const WATERMARK_PRINT_CSS = `
     print-color-adjust: exact;
   }
   .doc-content { position: relative; z-index: 1; }
+  .doc-logo {
+    max-height: 22mm;
+    max-width: 22mm;
+    object-fit: contain;
+    mix-blend-multiply;
+  }
 `
 
 const PROFESSIONAL_TABLE_CSS = `
@@ -58,33 +74,46 @@ const PROFESSIONAL_TABLE_CSS = `
 
 export function getProfessionalDocumentStyles(extra = ''): string {
   return `
-    @page { size: A4; margin: 22mm 18mm 24mm 18mm; }
+    @page { size: A4 portrait; margin: 12mm 14mm; }
     * { box-sizing: border-box; }
     html, body {
       font-family: ${PRINT_FONT_STACK};
       color: #1a1a1a;
       margin: 0;
+      padding: 0;
       font-size: 11pt;
       line-height: 1.45;
       -webkit-font-smoothing: antialiased;
+      width: 210mm;
+      min-height: 297mm;
+      max-height: 297mm;
+      height: auto;
     }
-    .doc-shell { max-width: 174mm; margin: 0 auto; }
+    .doc-shell { 
+      width: 100%; 
+      max-width: 100%; 
+      margin: 0; 
+      min-height: 297mm;
+      max-height: 297mm;
+      height: auto;
+    }
     .doc-header {
       display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 16px;
+      grid-template-columns: 22mm 1fr;
+      gap: 12px;
       align-items: start;
       padding-bottom: 12px;
       border-bottom: 2px solid #1e3a5f;
       margin-bottom: 18px;
     }
-    .doc-logo { max-height: 72px; max-width: 180px; object-fit: contain; }
+    .doc-logo { max-height: 22mm; max-width: 22mm; object-fit: contain; mix-blend-multiply; }
     .doc-company-name { margin: 0; font-size: 16pt; font-weight: 700; color: #1e3a5f; }
     .doc-company-meta { margin: 4px 0 0; font-size: 9.5pt; color: #444; line-height: 1.4; }
     .doc-title-block { margin: 0 0 18px; text-align: center; }
     .doc-title { margin: 0 0 6px; font-size: 17pt; font-weight: 700; letter-spacing: 0.02em; color: #1e3a5f; }
     .doc-meta-line { margin: 2px 0; font-size: 10pt; color: #555; }
-    .doc-section { margin: 16px 0; page-break-inside: avoid; }
+    .doc-section { margin: 16px 0; page-break-inside: avoid; break-inside: avoid; }
+    .doc-section:empty { display: none; }
     .doc-section h2 {
       margin: 0 0 8px;
       font-size: 12pt;
@@ -121,8 +150,8 @@ export function getProfessionalDocumentStyles(extra = ''): string {
     .doc-sign-role { font-size: 9pt; color: #666; }
     .doc-footer {
       position: fixed;
-      left: 18mm;
-      right: 18mm;
+      left: 14mm;
+      right: 14mm;
       bottom: 10mm;
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -139,9 +168,12 @@ export function getProfessionalDocumentStyles(extra = ''): string {
     .doc-footer-right { text-align: right; }
     body.has-doc-footer { padding-bottom: 18mm; }
     @media print {
-      body { padding: 0; }
+      body { padding: 0; margin: 0; }
+      html { height: auto; }
       .doc-footer { position: fixed; }
       th, td, .net-row th, .net-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      h1, h2, h3 { break-after: avoid-page; page-break-after: avoid; }
+      p, li { orphans: 3; widows: 3; }
     }
     ${WATERMARK_PRINT_CSS}
     ${PROFESSIONAL_TABLE_CSS}
@@ -404,13 +436,87 @@ export function buildPrintDocument(
   )
 }
 
-export function openPrintDocument(html: string): void {
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) return
-  win.document.write(html)
-  win.document.close()
-  win.focus()
-  win.print()
+export interface OpenPrintDocumentOptions {
+  fileName?: string
+  title?: string
+  shareText?: string
+}
+
+function openPrintDocumentDesktop(html: string): void {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const blobUrl = URL.createObjectURL(blob)
+
+  let cleaned = false
+  const cleanup = (frame?: HTMLIFrameElement) => {
+    if (cleaned) return
+    cleaned = true
+    URL.revokeObjectURL(blobUrl)
+    if (frame?.parentNode) frame.parentNode.removeChild(frame)
+  }
+
+  const printWhenReady = (targetWindow: Window, frame?: HTMLIFrameElement) => {
+    const schedulePrint = () => {
+      targetWindow.focus()
+      targetWindow.print()
+      targetWindow.addEventListener('afterprint', () => cleanup(frame), { once: true })
+      window.setTimeout(() => cleanup(frame), 120_000)
+    }
+
+    const doc = targetWindow.document
+    if (doc.fonts?.ready) {
+      void doc.fonts.ready.then(schedulePrint).catch(schedulePrint)
+    } else {
+      window.setTimeout(schedulePrint, 450)
+    }
+  }
+
+  // Nové okno s izolovaným HTML dokumentem (desktop i většina mobilů)
+  const printWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer')
+  if (printWindow) {
+    printWindow.addEventListener('load', () => printWhenReady(printWindow), { once: true })
+    return
+  }
+
+  // Fallback: iframe s reálnými rozměry A4 mimo obrazovku.
+  // iframe 0×0 na mobilu tiskne nadřazenou stránku aplikace včetně modálních tlačítek – toto tomu zabraňuje.
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('title', 'Tisk dokumentu')
+  iframe.style.cssText =
+    'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;visibility:hidden;'
+  document.body.appendChild(iframe)
+
+  const frameWindow = iframe.contentWindow
+  if (!frameWindow) {
+    cleanup(iframe)
+    return
+  }
+
+  iframe.onload = () => printWhenReady(frameWindow, iframe)
+  iframe.src = blobUrl
+}
+
+async function openPrintDocumentMobile(html: string, options?: OpenPrintDocumentOptions): Promise<void> {
+  try {
+    const pdfBlob = await withPdfGeneratingOverlay(() => htmlToPdfBlob(html))
+    const title = options?.title ?? extractDocumentTitle(html)
+    const fileName = options?.fileName ?? buildDefaultPdfFileName(html)
+
+    openPdfPreview(pdfBlob, fileName, {
+      title,
+      shareText: options?.shareText,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Generování PDF se nezdařilo.'
+    window.alert(message)
+  }
+}
+
+export function openPrintDocument(html: string, options?: OpenPrintDocumentOptions): void {
+  if (isMobilePrintDevice()) {
+    void openPrintDocumentMobile(html, options)
+    return
+  }
+  openPrintDocumentDesktop(html)
 }
 
 export function openPreviewDocument(html: string): void {
