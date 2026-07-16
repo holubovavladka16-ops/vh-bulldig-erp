@@ -1,0 +1,13 @@
+project_id = "khhalcjgvqoyskkjlkyg"
+
+[functions.notify-login]
+verify_jwt = true
+
+[functions.diary-ai-polish]
+verify_jwt = false
+
+[api]
+enabled = true
+
+[db]
+major_version = 15
