@@ -284,7 +284,7 @@ export function PaperFormDetailPage() {
       {tab === 'tisk' && (
         <Card>
           <p className="mb-4 text-sm text-theme-secondary">
-            Černobílý jednostránkový A4 formulář — sloupce: Den, Datum, Zakázka, Od, Do, Celkem hodin, Výkop bm, Průraz ks, Záloha, Podpis. QR vpravo dole.
+            Černobílý jednostránkový A4 formulář — sloupce: Den, Datum, Zakázka, Od, Do, Celkem hodin, Ruční výkop hloubka 50–70 cm (bm), Průraz do objektu (ks), Záloha (Kč), Podpis. QR vpravo dole.
           </p>
           <Button onClick={handlePrint} loading={busy}>
             <Printer className="h-4 w-4" />

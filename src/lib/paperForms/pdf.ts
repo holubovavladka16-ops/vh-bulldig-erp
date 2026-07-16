@@ -19,19 +19,21 @@ const MUTED: [number, number, number] = [90, 90, 90]
 const DAY_NAMES = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So']
 const QR_SIZE = 20
 
-/** Sloupce dle specifikace — pouze tyto, nic navíc */
-const TABLE_COLUMNS = [
+/** Sloupce dle finální specifikace — pouze těchto 10, nic navíc */
+export const PAPER_FORM_TABLE_COLUMNS = [
   { key: 'den', label: 'Den', w: 5 },
   { key: 'datum', label: 'Datum', w: 11 },
-  { key: 'zakazka', label: 'Zakázka', w: 18 },
-  { key: 'od', label: 'Od', w: 8 },
-  { key: 'do', label: 'Do', w: 8 },
+  { key: 'zakazka', label: 'Zakázka', w: 16 },
+  { key: 'od', label: 'Od', w: 7 },
+  { key: 'do', label: 'Do', w: 7 },
   { key: 'hodiny', label: 'Celkem\nhodin', w: 10 },
-  { key: 'vykop', label: 'Výkop\n50–70 bm', w: 16 },
-  { key: 'pruraz', label: 'Průraz\nks', w: 10 },
-  { key: 'zaloha', label: 'Záloha\nKč', w: 9 },
-  { key: 'podpis', label: 'Podpis', w: CONTENT_W - 5 - 11 - 18 - 8 - 8 - 10 - 16 - 10 - 9 },
+  { key: 'vykop', label: 'Ruční výkop\nhloubka 50–70 cm\n(bm)', w: 22 },
+  { key: 'pruraz', label: 'Průraz do\nobjektu (ks)', w: 14 },
+  { key: 'zaloha', label: 'Záloha\n(Kč)', w: 9 },
+  { key: 'podpis', label: 'Podpis', w: CONTENT_W - 5 - 11 - 16 - 7 - 7 - 10 - 22 - 14 - 9 },
 ] as const
+
+const TABLE_COLUMNS = PAPER_FORM_TABLE_COLUMNS
 
 async function loadImageDataUrl(url: string): Promise<string | null> {
   const trimmed = url.trim()
@@ -101,13 +103,12 @@ function drawCell(doc: jsPDF, x: number, y: number, w: number, h: number, fill?:
 
 function drawMultilineHeader(doc: jsPDF, text: string, x: number, y: number, w: number) {
   const lines = text.split('\n')
-  doc.setFontSize(5.2)
-  if (lines.length === 1) {
-    doc.text(lines[0]!, x + w / 2, y + 3.4, { align: 'center' })
-  } else {
-    doc.text(lines[0]!, x + w / 2, y + 2.6, { align: 'center' })
-    doc.text(lines[1]!, x + w / 2, y + 4.8, { align: 'center' })
-  }
+  doc.setFontSize(lines.length >= 3 ? 4.6 : 5.2)
+  const lineGap = lines.length >= 3 ? 2.1 : 2.2
+  const startY = y + (lines.length === 1 ? 3.4 : lines.length === 2 ? 2.6 : 2.2)
+  lines.forEach((line, i) => {
+    doc.text(line, x + w / 2, startY + i * lineGap, { align: 'center' })
+  })
 }
 
 function daysInMonth(month: number, year: number): number {
@@ -259,9 +260,9 @@ export async function buildPaperMonthlyFormPdfBlob(
   doc.setFontSize(7)
   doc.setTextColor(...INK)
   doc.text('Celkem hodin: _______________', M.left, summaryY - 9)
-  doc.text('Celkem bm: __________________', M.left + 48, summaryY - 9)
-  doc.text('Celkem průrazů: _____________', M.left + 96, summaryY - 9)
-  doc.text('Celkem záloh: ________________', M.left, summaryY - 4)
+  doc.text('Celkem ruční výkop (bm): __________', M.left + 48, summaryY - 9)
+  doc.text('Celkem průrazů (ks): _____________', M.left + 96, summaryY - 9)
+  doc.text('Celkem záloh (Kč): ________________', M.left, summaryY - 4)
   doc.text('Podpis zaměstnance: _____________________________', M.left, summaryY + 2)
   doc.text('Podpis vedoucího: ______________________________', M.left, summaryY + 7)
 
