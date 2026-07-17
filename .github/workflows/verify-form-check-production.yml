@@ -2,6 +2,12 @@ name: Verify Form Check Production
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply-form-check-migrations-060-061.mjs'
+      - 'scripts/verify-form-check-production.mjs'
+      - '.github/workflows/verify-form-check-production.yml'
 
 jobs:
   verify:
