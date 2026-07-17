@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { CheckCircle2, History } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -216,19 +217,21 @@ export function FormCheckModulePage() {
 
     setConfirmingCompare(true)
     try {
-      await saveFormCheckRecord({
+      const recordId = await saveFormCheckRecord({
         formId: state.context.formId,
+        formNumber: state.context.formNumber,
         workerId: state.context.workerId,
         month: state.context.month,
         year: state.context.year,
         outcome: state.comparisonResult.outcome,
         differenceCount: state.comparisonResult.differenceCount,
+        ocrConfidence: state.ocrResult.overallConfidence,
         ocrResult: state.ocrResult,
         comparisonResult: state.comparisonResult,
         photoPath: state.capturedImageStoragePath,
         checkedBy: user.id,
       })
-      setState((prev) => transitionToResult(prev))
+      setState((prev) => transitionToResult(prev, recordId))
     } catch (err) {
       setState((prev) =>
         transitionCompareError(prev, {
@@ -251,6 +254,15 @@ export function FormCheckModulePage() {
       <PageHeader
         title="Kontrola formuláře"
         description="Naskenujte QR kód, vyfoťte formulář, ověřte OCR a porovnejte údaje s docházkou v ERP."
+        action={
+          <Link
+            to="/kontrola-formulare/historie"
+            className="btn-neon inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium"
+          >
+            <History className="h-4 w-4" />
+            Historie kontrol
+          </Link>
+        }
       />
 
       <div className="mx-auto max-w-5xl space-y-4">
@@ -345,9 +357,19 @@ export function FormCheckModulePage() {
                   Výsledek kontroly formuláře {state.context.formNumber} byl uložen. Docházka v ERP
                   nebyla změněna.
                 </p>
-                <Button variant="secondary" className="mt-6" onClick={handleCancel}>
-                  Nové skenování
-                </Button>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  {state.savedRecordId && (
+                    <Link
+                      to={`/kontrola-formulare/historie/${state.savedRecordId}`}
+                      className="btn-neon-primary inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-base font-medium"
+                    >
+                      Zobrazit detail kontroly
+                    </Link>
+                  )}
+                  <Button variant="secondary" onClick={handleCancel}>
+                    Nové skenování
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>

@@ -131,6 +131,46 @@ export interface ErpAttendanceDay {
   note: string | null
 }
 
+export interface FormCheckRecordListItem {
+  id: string
+  formId: string
+  formNumber: string
+  workerId: string
+  workerName: string
+  month: number
+  year: number
+  periodLabel: string
+  checkedAt: string
+  outcome: CompareOutcome
+  differenceCount: number
+  ocrConfidence: number | null
+  photoPath: string | null
+  checkedById: string | null
+  checkedByName: string | null
+}
+
+export interface FormCheckRecordDetail extends FormCheckRecordListItem {
+  ocrResult: FormCheckOcrResult
+  comparisonResult: FormCheckComparisonResult
+}
+
+export interface FormCheckStats {
+  totalChecks: number
+  matchCount: number
+  mismatchCount: number
+  manualReviewCount: number
+  ocrSuccessRate: number | null
+  averageConfidence: number | null
+}
+
+export interface FormCheckHistoryFilters {
+  workerId?: string
+  month?: number
+  year?: number
+  outcome?: CompareOutcome | ''
+  checkedBy?: string
+}
+
 /** Stav workflow – připraveno pro rozšíření o porovnání a ukládání. */
 export interface FormCheckWorkflowState {
   phase: FormCheckPhase
@@ -144,6 +184,7 @@ export interface FormCheckWorkflowState {
   ocrResult: FormCheckOcrResult | null
   /** Fáze 4+: výsledek porovnání s docházkou */
   comparisonResult: FormCheckComparisonResult | null
+  savedRecordId: string | null
 }
 
 export const INITIAL_FORM_CHECK_STATE: FormCheckWorkflowState = {
@@ -154,4 +195,5 @@ export const INITIAL_FORM_CHECK_STATE: FormCheckWorkflowState = {
   capturedImageStoragePath: null,
   ocrResult: null,
   comparisonResult: null,
+  savedRecordId: null,
 }

@@ -167,11 +167,15 @@ export function transitionCompareError(
 }
 
 /** Fáze 5: potvrzení a uložení kontroly. */
-export function transitionToResult(state: FormCheckWorkflowState): FormCheckWorkflowState {
+export function transitionToResult(
+  state: FormCheckWorkflowState,
+  savedRecordId: string
+): FormCheckWorkflowState {
   if (!state.context) return state
   return {
     ...state,
     phase: 'result',
+    savedRecordId,
     error: null,
   }
 }
