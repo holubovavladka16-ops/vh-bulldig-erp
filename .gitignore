@@ -31,3 +31,4 @@ Thumbs.db
 # Local dev stack
 .local-stack/
 .vercel
+tmp/
