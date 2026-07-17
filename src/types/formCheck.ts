@@ -17,6 +17,8 @@ export type FormCheckErrorCode =
   | 'camera_error'
   | 'upload_failed'
   | 'ocr_failed'
+  | 'compare_failed'
+  | 'attendance_missing'
   | 'unknown'
 
 export interface FormCheckError {
@@ -69,6 +71,66 @@ export interface FormCheckOcrResult {
   storagePath: string | null
 }
 
+export type CompareItemStatus =
+  | 'match'
+  | 'mismatch'
+  | 'missing_in_erp'
+  | 'missing_on_form'
+  | 'low_confidence'
+  | 'not_compared'
+
+export type CompareOutcome = 'match' | 'mismatch' | 'manual_review'
+
+export type CompareFieldKey =
+  | 'hours'
+  | 'order'
+  | 'manual_dig'
+  | 'penetration'
+  | 'advance'
+  | 'note'
+
+export interface CompareItem {
+  date: string
+  field: CompareFieldKey
+  fieldLabel: string
+  erpValue: string
+  formValue: string
+  status: CompareItemStatus
+  confidence: number | null
+}
+
+export interface CompareSummaryRow {
+  field: CompareFieldKey
+  fieldLabel: string
+  erpTotal: number | null
+  formTotal: number | null
+  status: CompareItemStatus
+  confidence: number | null
+}
+
+export interface FormCheckComparisonResult {
+  outcome: CompareOutcome
+  comparedDays: number
+  comparedItems: number
+  differenceCount: number
+  formTotalHours: number | null
+  erpTotalHours: number | null
+  items: CompareItem[]
+  summaryRows: CompareSummaryRow[]
+  needsManualReview: boolean
+}
+
+export interface ErpAttendanceDay {
+  date: string
+  hours: number | null
+  orderCode: string | null
+  orderName: string | null
+  manualDigBm: number | null
+  penetrationKs: number | null
+  advance: number | null
+  note: string | null
+}
+
 /** Stav workflow – připraveno pro rozšíření o porovnání a ukládání. */
 export interface FormCheckWorkflowState {
   phase: FormCheckPhase
@@ -81,7 +143,7 @@ export interface FormCheckWorkflowState {
   /** Fáze 3: výsledek OCR */
   ocrResult: FormCheckOcrResult | null
   /** Fáze 4+: výsledek porovnání s docházkou */
-  comparisonResult: unknown | null
+  comparisonResult: FormCheckComparisonResult | null
 }
 
 export const INITIAL_FORM_CHECK_STATE: FormCheckWorkflowState = {

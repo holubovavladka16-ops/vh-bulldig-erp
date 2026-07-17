@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { FormCheckCaptureScreen } from '@/components/formCheck/FormCheckCaptureScreen'
+import { FormCheckCompareProcessing } from '@/components/formCheck/FormCheckCompareProcessing'
+import { FormCheckCompareScreen } from '@/components/formCheck/FormCheckCompareScreen'
 import { FormCheckConfirmScreen } from '@/components/formCheck/FormCheckConfirmScreen'
 import { FormCheckErrorPanel } from '@/components/formCheck/FormCheckErrorPanel'
 import {
@@ -13,30 +15,38 @@ import {
 } from '@/components/formCheck/FormCheckOcrResultScreen'
 import { FormCheckOcrProcessing } from '@/components/formCheck/FormCheckOcrProcessing'
 import { QrScannerView } from '@/components/formCheck/QrScannerView'
+import { useAuth } from '@/context/AuthContext'
+import { fetchWorkerMonthlyAttendanceForCompare } from '@/lib/formCheck/attendance'
+import { compareFormWithAttendance } from '@/lib/formCheck/compare'
 import { fetchFormOcrContext, resolveFormByQrPayload } from '@/lib/formCheck/api'
 import { extractFormCheckFromImage } from '@/lib/formCheck/ocr'
+import { saveFormCheckRecord } from '@/lib/formCheck/records'
 import { uploadFormCheckScan } from '@/lib/formCheck/storage'
 import {
   createInitialFormCheckState,
   transitionBackToConfirm,
+  transitionCompareComplete,
+  transitionCompareError,
   transitionOcrComplete,
   transitionOcrError,
   transitionRetakeCapture,
   transitionToCapture,
-  transitionToCompare,
   transitionToConfirm,
   transitionToError,
   transitionToOcr,
+  transitionToResult,
   transitionToScan,
 } from '@/lib/formCheck/workflow'
 import type { FormCheckWorkflowState } from '@/types/formCheck'
 
 export function FormCheckModulePage() {
+  const { user } = useAuth()
   const [state, setState] = useState<FormCheckWorkflowState>(createInitialFormCheckState)
   const [resolving, setResolving] = useState(false)
   const [continuing, setContinuing] = useState(false)
   const [ocrProcessing, setOcrProcessing] = useState(false)
-  const [confirmingOcr, setConfirmingOcr] = useState(false)
+  const [compareProcessing, setCompareProcessing] = useState(false)
+  const [confirmingCompare, setConfirmingCompare] = useState(false)
 
   const handleScan = useCallback(async (payload: string) => {
     setResolving(true)
@@ -119,6 +129,58 @@ export function FormCheckModulePage() {
     []
   )
 
+  const runComparePipeline = useCallback(
+    async (workflow: FormCheckWorkflowState) => {
+      const context = workflow.context
+      const ocrResult = workflow.ocrResult
+
+      if (!context?.workerId) {
+        setState((prev) =>
+          transitionCompareError(prev, {
+            code: 'no_worker',
+            message: 'Chybí zaměstnanec pro porovnání s docházkou.',
+          })
+        )
+        return
+      }
+
+      if (!ocrResult) {
+        setState((prev) =>
+          transitionCompareError(prev, {
+            code: 'ocr_failed',
+            message: 'Chybí výsledek OCR pro porovnání.',
+          })
+        )
+        return
+      }
+
+      setCompareProcessing(true)
+
+      try {
+        const erpDays = await fetchWorkerMonthlyAttendanceForCompare(
+          context.workerId,
+          context.month,
+          context.year
+        )
+
+        const comparisonResult = compareFormWithAttendance(ocrResult, erpDays)
+        setState((prev) => transitionCompareComplete(prev, comparisonResult))
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Porovnání s docházkou se nezdařilo.'
+        setState((prev) =>
+          transitionCompareError(prev, {
+            code: 'compare_failed',
+            message,
+          })
+        )
+      } finally {
+        setCompareProcessing(false)
+      }
+    },
+    []
+  )
+
   const handleCaptured = useCallback(
     (file: File, previewUrl: string) => {
       setState((prev) => {
@@ -134,27 +196,64 @@ export function FormCheckModulePage() {
     setState((prev) => transitionRetakeCapture(prev))
   }, [])
 
-  const handleOcrConfirm = useCallback(async () => {
-    setConfirmingOcr(true)
-    try {
-      setState((prev) => transitionToCompare(prev))
-    } finally {
-      setConfirmingOcr(false)
+  const handleOcrConfirm = useCallback(() => {
+    setState((prev) => {
+      void runComparePipeline(prev)
+      return { ...prev, phase: 'compare', error: null }
+    })
+  }, [runComparePipeline])
+
+  const handleConfirmCheck = useCallback(async () => {
+    if (!state.context?.workerId || !state.ocrResult || !state.comparisonResult || !user?.id) {
+      setState((prev) =>
+        transitionCompareError(prev, {
+          code: 'compare_failed',
+          message: 'Chybí data pro uložení výsledku kontroly.',
+        })
+      )
+      return
     }
-  }, [])
+
+    setConfirmingCompare(true)
+    try {
+      await saveFormCheckRecord({
+        formId: state.context.formId,
+        workerId: state.context.workerId,
+        month: state.context.month,
+        year: state.context.year,
+        outcome: state.comparisonResult.outcome,
+        differenceCount: state.comparisonResult.differenceCount,
+        ocrResult: state.ocrResult,
+        comparisonResult: state.comparisonResult,
+        photoPath: state.capturedImageStoragePath,
+        checkedBy: user.id,
+      })
+      setState((prev) => transitionToResult(prev))
+    } catch (err) {
+      setState((prev) =>
+        transitionCompareError(prev, {
+          code: 'compare_failed',
+          message: err instanceof Error ? err.message : 'Uložení výsledku kontroly se nezdařilo.',
+        })
+      )
+    } finally {
+      setConfirmingCompare(false)
+    }
+  }, [state, user?.id])
 
   const isScanPhase = state.phase === 'scan'
   const isCapturePhase = state.phase === 'capture' && state.context
   const isOcrPhase = state.phase === 'ocr' && state.context
+  const isComparePhase = state.phase === 'compare' && state.context
 
   return (
     <AppLayout>
       <PageHeader
         title="Kontrola formuláře"
-        description="Naskenujte QR kód, vyfoťte formulář a zkontrolujte rozpoznané údaje z OCR."
+        description="Naskenujte QR kód, vyfoťte formulář, ověřte OCR a porovnejte údaje s docházkou v ERP."
       />
 
-      <div className="mx-auto max-w-4xl space-y-4">
+      <div className="mx-auto max-w-5xl space-y-4">
         {state.error && isScanPhase && (
           <FormCheckErrorPanel error={state.error} onDismiss={handleDismissError} />
         )}
@@ -205,22 +304,46 @@ export function FormCheckModulePage() {
             context={state.context}
             result={state.ocrResult}
             previewUrl={state.capturedImagePreviewUrl}
-            confirming={confirmingOcr}
             onConfirm={handleOcrConfirm}
             onRetake={handleRetakeCapture}
             onCancel={handleCancel}
           />
         )}
 
-        {state.phase === 'compare' && state.context && (
-          <Card>
+        {isComparePhase && compareProcessing && <FormCheckCompareProcessing />}
+
+        {isComparePhase && !compareProcessing && state.error && (
+          <FormCheckErrorPanel
+            error={state.error}
+            onDismiss={() => setState((prev) => ({ ...prev, error: null }))}
+          />
+        )}
+
+        {isComparePhase &&
+          !compareProcessing &&
+          !state.error &&
+          state.comparisonResult &&
+          state.context && (
+            <FormCheckCompareScreen
+              context={state.context}
+              result={state.comparisonResult}
+              previewUrl={state.capturedImagePreviewUrl}
+              saving={confirmingCompare}
+              onConfirm={handleConfirmCheck}
+              onRetake={handleRetakeCapture}
+              onCancel={handleCancel}
+            />
+          )}
+
+        {state.phase === 'result' && state.context && (
+          <Card className="border-green-500/30 bg-green-500/10">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-400" />
               <div>
-                <h3 className="font-semibold text-theme-primary">OCR potvrzeno</h3>
+                <h3 className="font-semibold text-theme-primary">Kontrola uložena</h3>
                 <p className="mt-2 text-sm text-theme-secondary">
-                  Výsledek OCR pro formulář {state.context.formNumber} byl potvrzen. Porovnání s
-                  docházkou bude dostupné v další fázi – zatím se nic nezapisuje do docházky.
+                  Výsledek kontroly formuláře {state.context.formNumber} byl uložen. Docházka v ERP
+                  nebyla změněna.
                 </p>
                 <Button variant="secondary" className="mt-6" onClick={handleCancel}>
                   Nové skenování

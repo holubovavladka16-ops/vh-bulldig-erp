@@ -1,4 +1,4 @@
-import type { FormCheckContext, FormCheckError, FormCheckOcrResult, FormCheckWorkflowState } from '@/types/formCheck'
+import type { FormCheckContext, FormCheckError, FormCheckOcrResult, FormCheckWorkflowState, FormCheckComparisonResult } from '@/types/formCheck'
 import { INITIAL_FORM_CHECK_STATE } from '@/types/formCheck'
 
 export function createInitialFormCheckState(): FormCheckWorkflowState {
@@ -42,6 +42,7 @@ export function transitionToCapture(state: FormCheckWorkflowState): FormCheckWor
     capturedImagePreviewUrl: null,
     capturedImageStoragePath: null,
     ocrResult: null,
+    comparisonResult: null,
     error: null,
   }
 }
@@ -68,6 +69,7 @@ export function transitionBackToConfirm(state: FormCheckWorkflowState): FormChec
     capturedImagePreviewUrl: null,
     capturedImageStoragePath: null,
     ocrResult: null,
+    comparisonResult: null,
     error: null,
   }
 }
@@ -81,6 +83,7 @@ export function transitionRetakeCapture(state: FormCheckWorkflowState): FormChec
     capturedImagePreviewUrl: null,
     capturedImageStoragePath: null,
     ocrResult: null,
+    comparisonResult: null,
     error: null,
   }
 }
@@ -94,6 +97,7 @@ export function transitionToOcr(state: FormCheckWorkflowState, previewUrl: strin
     capturedImagePreviewUrl: previewUrl,
     capturedImageStoragePath: null,
     ocrResult: null,
+    comparisonResult: null,
     error: null,
   }
 }
@@ -136,7 +140,33 @@ export function transitionToCompare(state: FormCheckWorkflowState): FormCheckWor
   }
 }
 
-/** Fáze 5: přechod na výsledek / uložení. */
+/** Fáze 4: úspěšné dokončení porovnání. */
+export function transitionCompareComplete(
+  state: FormCheckWorkflowState,
+  comparisonResult: FormCheckComparisonResult
+): FormCheckWorkflowState {
+  if (!state.context) return state
+  return {
+    ...state,
+    phase: 'compare',
+    comparisonResult,
+    error: null,
+  }
+}
+
+/** Fáze 4: chyba při porovnání. */
+export function transitionCompareError(
+  state: FormCheckWorkflowState,
+  error: FormCheckError
+): FormCheckWorkflowState {
+  return {
+    ...state,
+    phase: 'compare',
+    error,
+  }
+}
+
+/** Fáze 5: potvrzení a uložení kontroly. */
 export function transitionToResult(state: FormCheckWorkflowState): FormCheckWorkflowState {
   if (!state.context) return state
   return {
