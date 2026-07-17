@@ -16,7 +16,7 @@ function loadEnvFile(filename) {
     if (idx === -1) continue
     const key = trimmed.slice(0, idx).trim()
     const value = trimmed.slice(idx + 1).trim()
-    if (!process.env[key]) process.env[key] = value
+    if (!process.env[key]?.trim()) process.env[key] = value
   }
 }
 
