@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css'
 import '@/styles/photoMap.css'
 import type { GpsPhoto } from '@/types/photos'
 import { formatDate } from '@/constants/workers'
-import { formatPhotoAddress, getOrderDisplayName } from '@/lib/photos/photoDisplay'
+import { formatPhotoAddress, getOrderDisplayName, hasPhotoGps } from '@/lib/photos/photoDisplay'
 
 const CZECH_CENTER: L.LatLngExpression = [49.8175, 15.473]
 const MARKER_COLOR = '#06b6d4'
@@ -77,14 +77,16 @@ export function PhotoMapView({
     markersRef.current.forEach((marker) => marker.remove())
     markersRef.current = []
 
-    if (photos.length === 0) {
+    const mappablePhotos = photos.filter(hasPhotoGps)
+
+    if (mappablePhotos.length === 0) {
       map.setView(CZECH_CENTER, 7)
       return
     }
 
     const bounds = L.latLngBounds([])
 
-    photos.forEach((photo) => {
+    mappablePhotos.forEach((photo) => {
       const latlng = L.latLng(photo.gps_lat, photo.gps_lng)
       bounds.extend(latlng)
 
@@ -109,7 +111,7 @@ export function PhotoMapView({
 
     if (bounds.isValid()) {
       if (selectedPhotoId && flyToSelected) {
-        const selected = photos.find((p) => p.id === selectedPhotoId)
+        const selected = mappablePhotos.find((p) => p.id === selectedPhotoId)
         if (selected) {
           map.flyTo([selected.gps_lat, selected.gps_lng], Math.max(map.getZoom(), 16), { duration: 0.6 })
         }

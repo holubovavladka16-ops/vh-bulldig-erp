@@ -24,9 +24,12 @@ function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
     captured_at: row.captured_at,
     captured_date: row.captured_date,
     captured_time: row.captured_time,
-    gps_lat: Number(row.gps_lat),
-    gps_lng: Number(row.gps_lng),
+    gps_lat: row.gps_lat != null ? Number(row.gps_lat) : null,
+    gps_lng: row.gps_lng != null ? Number(row.gps_lng) : null,
     gps_accuracy: row.gps_accuracy != null ? Number(row.gps_accuracy) : null,
+    gps_obtained_at: row.gps_obtained_at ?? null,
+    gps_source: row.gps_source ?? null,
+    gps_from_cache: row.gps_from_cache ?? null,
     device_heading: row.device_heading != null ? Number(row.device_heading) : null,
     address_full: row.address_full,
     street: row.street,
@@ -73,11 +76,12 @@ export async function downloadGpsPhoto(filePath: string, fileName: string): Prom
   URL.revokeObjectURL(objectUrl)
 }
 
-export async function fetchGpsPhotos(filters: GpsPhotoFilters = {}): Promise<GpsPhoto[]> {
+export async function fetchGpsPhotos(filters: GpsPhotoFilters = {}, limit = 200): Promise<GpsPhoto[]> {
   let query = supabase
     .from('gps_photos')
     .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
     .order('captured_at', { ascending: false })
+    .limit(limit)
 
   if (filters.orderId) query = query.eq('order_id', filters.orderId)
   if (filters.workerId) query = query.eq('worker_id', filters.workerId)
@@ -150,7 +154,9 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
   let constructionPointId = input.construction_point_id ?? null
   let sortOrder = 0
 
-  if (constructionPointId) {
+  const hasGps = input.gps_lat != null && input.gps_lng != null
+
+  if (hasGps && constructionPointId) {
     const { data: maxRow, error: maxError } = await supabase
       .from('gps_photos')
       .select('sort_order')
@@ -160,11 +166,11 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
       .maybeSingle()
     if (maxError) throw new Error(maxError.message)
     sortOrder = ((maxRow as { sort_order: number } | null)?.sort_order ?? -1) + 1
-  } else {
+  } else if (hasGps) {
     const point = await createConstructionPoint({
       order_id: input.order_id ?? null,
-      gps_lat: input.gps_lat,
-      gps_lng: input.gps_lng,
+      gps_lat: input.gps_lat!,
+      gps_lng: input.gps_lng!,
       gps_accuracy: input.gps_accuracy,
       address_full: input.address_full,
       street: input.street,
@@ -188,6 +194,9 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
       gps_lat: input.gps_lat,
       gps_lng: input.gps_lng,
       gps_accuracy: input.gps_accuracy,
+      gps_obtained_at: input.gps_obtained_at ?? null,
+      gps_source: input.gps_source ?? null,
+      gps_from_cache: input.gps_from_cache ?? false,
       device_heading: input.device_heading ?? null,
       address_full: input.address_full,
       street: input.street,

@@ -30,7 +30,7 @@ export function GpsWalkMeasurementPanel({
 
   const gpsReady =
     gps.position != null &&
-    (gps.phase === 'ready' || gps.phase === 'relaxed')
+    (gps.phase === 'precise' || gps.phase === 'acceptable' || gps.phase === 'low')
 
   function startGpsLocate() {
     setGpsEnabled(true)
@@ -93,6 +93,9 @@ export function GpsWalkMeasurementPanel({
             address={gps.address}
             addressLoading={gps.addressLoading}
             error={gps.error}
+            quality={gps.quality}
+            positionFromCache={gps.positionFromCache}
+            refining={gps.refining}
             onAcceptRelaxed={gps.acceptRelaxedAccuracy}
             onContinueSearching={gps.continueSearching}
           />

@@ -1,18 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { GPS_TARGET_ACCURACY_METERS, reverseGeocode } from '@/lib/photos/geocoding'
+import { reverseGeocode } from '@/lib/photos/geocoding'
 import { geocodeFallbackAddress } from '@/lib/photos/photoDisplay'
 import {
-  type GpsPositionState,
-  startGpsWatch,
-} from '@/lib/photos/gpsWatch'
+  classifyGpsAccuracy,
+  formatAccuracyMeters,
+  gpsAccuracyQualityLabel,
+  type GpsAccuracyQuality,
+  type GpsCaptureMetadata,
+  toCaptureMetadata,
+} from '@/lib/photos/gpsCapture'
+import { type GpsPositionState, startGpsWatch } from '@/lib/photos/gpsWatch'
 import type { GeocodedAddress } from '@/types/photos'
 
 export type GpsPreflightPhase =
   | 'initializing'
-  | 'waiting'
-  | 'ready'
-  | 'timeout_prompt'
-  | 'relaxed'
+  | 'searching'
+  | 'precise'
+  | 'acceptable'
+  | 'low'
+  | 'unavailable'
+  | 'denied'
 
 const GEOCODE_DEBOUNCE_MS = 1500
 const GEOCODE_MIN_MOVE_M = 8
@@ -29,17 +36,40 @@ function distanceMeters(a: GpsPositionState, b: GpsPositionState): number {
   return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
+function phaseFromQuality(quality: GpsAccuracyQuality, hasPosition: boolean): GpsPreflightPhase {
+  if (!hasPosition) return 'unavailable'
+  switch (quality) {
+    case 'precise':
+      return 'precise'
+    case 'acceptable':
+      return 'acceptable'
+    case 'low':
+      return 'low'
+    default:
+      return 'unavailable'
+  }
+}
+
 export function useGpsPreflight(enabled: boolean) {
   const [phase, setPhase] = useState<GpsPreflightPhase>('initializing')
   const [position, setPosition] = useState<GpsPositionState | null>(null)
+  const [positionFromCache, setPositionFromCache] = useState(false)
   const [address, setAddress] = useState<GeocodedAddress | null>(null)
   const [addressLoading, setAddressLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [refining, setRefining] = useState(false)
 
-  const resetTimeoutRef = useRef<(() => void) | null>(null)
+  const stopRef = useRef<(() => void) | null>(null)
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastGeocodedRef = useRef<GpsPositionState | null>(null)
   const geocodeGenerationRef = useRef(0)
+  const hasPositionRef = useRef(false)
+
+  const quality = classifyGpsAccuracy(position?.accuracy)
+  const metadata: GpsCaptureMetadata = toCaptureMetadata(position, {
+    fromCache: positionFromCache,
+    source: positionFromCache ? 'cache' : position ? 'high_accuracy' : 'unavailable',
+  })
 
   const geocodeForPosition = useCallback(async (pos: GpsPositionState) => {
     const generation = ++geocodeGenerationRef.current
@@ -73,79 +103,104 @@ export function useGpsPreflight(enabled: boolean) {
     [geocodeForPosition]
   )
 
-  useEffect(() => {
-    if (!enabled) {
-      setPhase('initializing')
-      setPosition(null)
-      setAddress(null)
-      setAddressLoading(false)
-      setError(null)
-      return
-    }
-
-    setPhase('initializing')
-    setPosition(null)
-    setAddress(null)
-    setAddressLoading(false)
+  const startWatch = useCallback(() => {
+    stopRef.current?.()
+    setRefining(true)
     setError(null)
-    lastGeocodedRef.current = null
-    geocodeGenerationRef.current += 1
+    setPhase('searching')
 
     const session = startGpsWatch({
-      onUpdate: (state) => {
+      onCachedPosition: (state) => {
+        hasPositionRef.current = true
         setPosition(state)
-        setError(null)
+        setPositionFromCache(true)
+        setPhase(phaseFromQuality(classifyGpsAccuracy(state.accuracy), true))
         scheduleGeocode(state)
-
-        if (state.accuracy <= GPS_TARGET_ACCURACY_METERS) {
-          setPhase('ready')
-        } else {
-          setPhase((current) =>
-            current === 'relaxed' || current === 'timeout_prompt' ? current : 'waiting'
-          )
-        }
       },
-      onTargetReached: () => {
-        setPhase('ready')
+      onUpdate: (state) => {
+        hasPositionRef.current = true
+        setPosition(state)
+        setPositionFromCache(false)
+        const q = classifyGpsAccuracy(state.accuracy)
+        setPhase(phaseFromQuality(q, true))
+        scheduleGeocode(state)
+      },
+      onTargetReached: (state) => {
+        hasPositionRef.current = true
+        setPosition(state)
+        setPositionFromCache(false)
+        setPhase('precise')
+        scheduleGeocode(state)
+        setRefining(false)
       },
       onTimeout: (state) => {
-        setPosition(state)
-        scheduleGeocode(state)
-        setPhase('timeout_prompt')
+        if (state) {
+          hasPositionRef.current = true
+          setPosition(state)
+          setPositionFromCache(false)
+          setPhase(phaseFromQuality(classifyGpsAccuracy(state.accuracy), true))
+          scheduleGeocode(state)
+        } else if (!hasPositionRef.current) {
+          setPhase('unavailable')
+        }
+        setRefining(false)
       },
       onError: (message) => {
         setError(message)
-        setPhase('initializing')
+        setPhase(message.includes('zamítnut') ? 'denied' : 'unavailable')
+        setRefining(false)
       },
     })
 
-    resetTimeoutRef.current = session.resetTimeout
+    stopRef.current = session.stop
+  }, [scheduleGeocode])
+
+  useEffect(() => {
+    if (!enabled) {
+      stopRef.current?.()
+      stopRef.current = null
+      hasPositionRef.current = false
+      setPhase('initializing')
+      setPosition(null)
+      setPositionFromCache(false)
+      setAddress(null)
+      setAddressLoading(false)
+      setError(null)
+      setRefining(false)
+      return
+    }
+
+    startWatch()
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        startWatch()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
-      session.stop()
-      resetTimeoutRef.current = null
+      stopRef.current?.()
+      stopRef.current = null
+      document.removeEventListener('visibilitychange', handleVisibility)
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current)
     }
-  }, [enabled, scheduleGeocode])
+  }, [enabled, startWatch])
 
-  const acceptRelaxedAccuracy = useCallback(() => {
-    setPhase('relaxed')
+  const refineAccuracy = useCallback(() => {
+    startWatch()
+  }, [startWatch])
+
+  const acceptLowAccuracy = useCallback(() => {
     setError(null)
   }, [])
 
-  const continueSearching = useCallback(() => {
-    setPhase('waiting')
-    setError(null)
-    resetTimeoutRef.current?.()
-  }, [])
+  /** Focení je vždy povoleno – GPS se zpřesňuje na pozadí. */
+  const canCapture = true
 
-  const hasLocation = position != null
-  const hasAddress = address != null && !addressLoading
-  const accuracyReady = position != null && position.accuracy <= GPS_TARGET_ACCURACY_METERS
-  const canCapture =
-    hasLocation &&
-    hasAddress &&
-    (phase === 'ready' || phase === 'relaxed')
+  const showLowAccuracyWarning = quality === 'low' && position != null
+  const showUnavailableWarning = phase === 'unavailable' || phase === 'denied'
 
   return {
     phase,
@@ -154,8 +209,17 @@ export function useGpsPreflight(enabled: boolean) {
     addressLoading,
     error,
     canCapture,
-    accuracyReady,
-    acceptRelaxedAccuracy,
-    continueSearching,
+    quality,
+    qualityLabel: gpsAccuracyQualityLabel(quality),
+    accuracyLabel: formatAccuracyMeters(position?.accuracy),
+    metadata,
+    positionFromCache,
+    refining,
+    showLowAccuracyWarning,
+    showUnavailableWarning,
+    acceptRelaxedAccuracy: acceptLowAccuracy,
+    continueSearching: refineAccuracy,
+    refineAccuracy,
+    accuracyReady: quality === 'precise',
   }
 }

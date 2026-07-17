@@ -1,8 +1,17 @@
 import type { GeocodedAddress } from '@/types/photos'
 import { geocodeFallbackAddress } from '@/lib/photos/photoDisplay'
-import { GPS_MAX_WAIT_MS } from '@/lib/photos/gpsWatch'
+import {
+  GPS_ACCEPTABLE_MAX_METERS,
+  GPS_CAPTURE_TIMEOUT_MS,
+  GPS_PRECISE_MAX_METERS,
+} from '@/lib/photos/gpsCapture'
 
-export { GPS_MAX_WAIT_MS }
+export const GPS_MAX_WAIT_MS = GPS_CAPTURE_TIMEOUT_MS
+
+/** @deprecated Použijte GPS_PRECISE_MAX_METERS z gpsCapture */
+export const GPS_TARGET_ACCURACY_METERS = GPS_PRECISE_MAX_METERS
+
+export { GPS_PRECISE_MAX_METERS, GPS_ACCEPTABLE_MAX_METERS }
 
 interface NominatimAddress {
   road?: string
@@ -14,9 +23,6 @@ interface NominatimAddress {
   postcode?: string
   country?: string
 }
-
-/** Požadovaná přesnost GPS pro fotodokumentaci (metry). */
-export const GPS_TARGET_ACCURACY_METERS = 2
 
 const GPS_CAPTURE_MAX_WAIT_MS = GPS_MAX_WAIT_MS
 
@@ -149,15 +155,8 @@ export function captureHighAccuracyPosition(onProgress?: GpsCaptureProgress): Pr
     }
 
     const timeoutId = setTimeout(() => {
-      if (best && best.coords.accuracy <= GPS_TARGET_ACCURACY_METERS) {
-        finish(best)
-        return
-      }
       if (best) {
-        fail(
-          `GPS přesnost ±${Math.round(best.coords.accuracy)} m nedosahuje požadovaných ±${GPS_TARGET_ACCURACY_METERS} m. ` +
-            'Přesuňte se na volné prostranství, zapněte přesnou polohu a zkuste znovu.'
-        )
+        finish(best)
         return
       }
       fail('Polohu se nepodařilo získat. Povolte GPS v prohlížeči a v nastavení telefonu.')
@@ -170,7 +169,7 @@ export function captureHighAccuracyPosition(onProgress?: GpsCaptureProgress): Pr
         }
         onProgress?.(position.coords.accuracy)
 
-        if (position.coords.accuracy <= GPS_TARGET_ACCURACY_METERS) {
+        if (position.coords.accuracy <= GPS_PRECISE_MAX_METERS) {
           finish(position)
         }
       },
@@ -179,8 +178,8 @@ export function captureHighAccuracyPosition(onProgress?: GpsCaptureProgress): Pr
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: GPS_CAPTURE_MAX_WAIT_MS,
+        maximumAge: 15_000,
+        timeout: GPS_CAPTURE_TIMEOUT_MS,
       }
     )
   })

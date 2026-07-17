@@ -39,6 +39,7 @@ import {
   formatGpsCoordinatesCompact,
   formatPhotoAddress,
   getOrderDisplayName,
+  hasPhotoGps,
 } from '@/lib/photos/photoDisplay'
 import type { GpsPhoto } from '@/types/photos'
 
@@ -71,6 +72,7 @@ export function PhotoDocumentView({
   const { settings: company } = useCompanySettings()
   const sharePhoto = { ...photo, note: note || photo.note }
   const shareText = buildPhotoShareText(sharePhoto)
+  const hasGps = hasPhotoGps(photo)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const orderName = getOrderDisplayName(photo)
   const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
@@ -133,7 +135,9 @@ export function PhotoDocumentView({
           className="absolute right-2 top-2 overflow-hidden rounded-lg border border-[var(--accent-primary)]/50 shadow-lg sm:right-3 sm:top-3"
           title="Otevřít mapu místa pořízení"
         >
-          <img src={mapThumb} alt="Mapa polohy" className="h-16 w-24 object-cover sm:h-20 sm:w-28" />
+          {mapThumb ? (
+            <img src={mapThumb} alt="Mapa polohy" className="h-16 w-24 object-cover sm:h-20 sm:w-28" />
+          ) : null}
         </a>
 
         <div className="absolute bottom-3 left-3 max-w-[85%] rounded-xl border border-[var(--accent-primary)]/60 bg-black/75 px-3 py-2 backdrop-blur-sm">
@@ -198,7 +202,7 @@ export function PhotoDocumentView({
           GPS: {coords}
           {photo.gps_accuracy != null && ` · ±${Math.round(photo.gps_accuracy)} m`}
         </p>
-        {!compact && (
+        {!compact && hasGps && (
           <div className="mt-3">
             <PhotoMiniMap lat={photo.gps_lat} lng={photo.gps_lng} height={140} />
           </div>

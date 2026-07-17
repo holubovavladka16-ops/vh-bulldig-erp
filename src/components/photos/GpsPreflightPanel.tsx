@@ -1,6 +1,11 @@
-import { Loader2, Satellite } from 'lucide-react'
+import { Loader2, Satellite, Target } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
+import {
+  GPS_ACCEPTABLE_MAX_METERS,
+  formatAccuracyMeters,
+  gpsAccuracyQualityLabel,
+  type GpsAccuracyQuality,
+} from '@/lib/photos/gpsCapture'
 import { formatDeviceOrientation, getDeviceOrientation } from '@/lib/photos/gpsWatch'
 import type { GpsPreflightPhase } from '@/hooks/useGpsPreflight'
 import type { GeocodedAddress } from '@/types/photos'
@@ -12,6 +17,9 @@ interface GpsPreflightPanelProps {
   address: GeocodedAddress | null
   addressLoading: boolean
   error: string | null
+  quality?: GpsAccuracyQuality
+  positionFromCache?: boolean
+  refining?: boolean
   onAcceptRelaxed: () => void
   onContinueSearching: () => void
 }
@@ -22,63 +30,55 @@ export function GpsPreflightPanel({
   address,
   addressLoading,
   error,
+  quality,
+  positionFromCache = false,
+  refining = false,
   onAcceptRelaxed,
   onContinueSearching,
 }: GpsPreflightPanelProps) {
   const orientation = formatDeviceOrientation(getDeviceOrientation())
-  const accuracy = position?.accuracy
-  const accuracyLabel =
-    accuracy != null ? `±${accuracy < 10 ? accuracy.toFixed(1) : Math.round(accuracy)} m` : '—'
-
-  const showWaitingMessage =
-    phase === 'initializing' ||
-    phase === 'waiting' ||
-    (phase === 'timeout_prompt' && !position)
+  const accuracyLabel = formatAccuracyMeters(position?.accuracy)
+  const qualityLabel = quality ? gpsAccuracyQualityLabel(quality) : '—'
+  const isSearching = refining || phase === 'initializing' || phase === 'searching'
+  const gpsReady = position != null && (phase === 'precise' || phase === 'acceptable' || phase === 'low')
 
   return (
     <div className="mb-6 space-y-4 rounded-xl border border-[var(--border-glass)] p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-theme-primary">
         <Satellite className="h-4 w-4 text-accent" />
-        {phase === 'ready' ? (
-          <span className="text-emerald-400">✅ GPS připravena</span>
-        ) : phase === 'relaxed' ? (
-          <span className="text-amber-300">📷 Focení povoleno (snížená přesnost)</span>
-        ) : showWaitingMessage ? (
+        {isSearching ? (
           <span className="flex items-center gap-2 text-theme-secondary">
-            {(phase === 'initializing' || addressLoading) && (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            )}
-            🛰 Hledám polohu…
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Zpřesňuji polohu…
           </span>
+        ) : phase === 'precise' ? (
+          <span className="text-emerald-400">{qualityLabel}</span>
+        ) : phase === 'acceptable' ? (
+          <span className="text-cyan-300">{qualityLabel}</span>
+        ) : phase === 'low' ? (
+          <span className="text-amber-300">{qualityLabel}</span>
+        ) : phase === 'denied' ? (
+          <span className="text-red-300">Přístup k poloze zamítnut</span>
         ) : (
-          <span className="text-theme-secondary">🛰 Sleduji polohu…</span>
+          <span className="text-theme-secondary">GPS nedostupná</span>
         )}
       </div>
-
-      {phase === 'waiting' && position && (
-        <p className="text-sm text-theme-secondary">Čekám na přesnější GPS…</p>
-      )}
 
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-xs text-theme-muted">Přesnost GPS</dt>
-          <dd
-            className={`font-medium ${
-              accuracy != null && accuracy <= GPS_TARGET_ACCURACY_METERS
-                ? 'text-emerald-400'
-                : 'text-theme-primary'
-            }`}
-          >
-            {accuracyLabel}
-            {accuracy != null && accuracy <= GPS_TARGET_ACCURACY_METERS && ' ✓'}
-          </dd>
+          <dd className="font-medium text-theme-primary">{accuracyLabel}</dd>
         </div>
         <div>
           <dt className="text-xs text-theme-muted">Souřadnice</dt>
           <dd className="font-mono text-xs text-theme-primary">
-            {position
-              ? `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`
-              : '—'}
+            {position ? `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}` : '—'}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs text-theme-muted">Zdroj polohy</dt>
+          <dd className="text-theme-primary">
+            {positionFromCache ? 'Cache / poslední známá poloha' : position ? 'GPS zařízení' : '—'}
           </dd>
         </div>
         <div className="sm:col-span-2">
@@ -100,24 +100,31 @@ export function GpsPreflightPanel({
         </div>
       </dl>
 
-      {phase === 'timeout_prompt' && position && (
+      {quality === 'low' && position && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-          <p className="font-medium">
-            Přesnost ±{GPS_TARGET_ACCURACY_METERS} m se nepodařilo získat.
+          <p>
+            Přesnost {accuracyLabel} je nad {GPS_ACCEPTABLE_MAX_METERS} m.
           </p>
-          <p className="mt-2">
-            Aktuální přesnost je {accuracyLabel}.
-          </p>
-          <p className="mt-2">Chcete fotografii uložit i s touto přesností?</p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button type="button" size="sm" onClick={onAcceptRelaxed}>
-              Uložit
+            <Button type="button" size="sm" onClick={onContinueSearching}>
+              <Target className="h-4 w-4" />
+              Zkusit zpřesnit
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={onContinueSearching}>
-              Pokračovat v hledání GPS
+            <Button type="button" variant="secondary" size="sm" onClick={onAcceptRelaxed}>
+              Pokračovat
             </Button>
           </div>
         </div>
+      )}
+
+      {!position && !error && (
+        <p className="text-xs text-amber-700">
+          GPS zatím není k dispozici. Měření pokračuje na pozadí (max. 5 s).
+        </p>
+      )}
+
+      {gpsReady && quality !== 'low' && (
+        <p className="text-xs text-emerald-400">Poloha je připravena k použití.</p>
       )}
 
       {error && (

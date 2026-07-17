@@ -1,6 +1,10 @@
-import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
+import {
+  GPS_CAPTURE_TIMEOUT_MS,
+  readCachedGpsPosition,
+  writeCachedGpsPosition,
+} from '@/lib/photos/gpsCapture'
 
-export const GPS_MAX_WAIT_MS = 30_000
+export { GPS_CAPTURE_TIMEOUT_MS as GPS_MAX_WAIT_MS }
 
 export interface GpsPositionState {
   lat: number
@@ -12,9 +16,11 @@ export interface GpsPositionState {
 
 export interface StartGpsWatchOptions {
   onUpdate: (state: GpsPositionState) => void
-  onTargetReached: (state: GpsPositionState) => void
-  onTimeout: (state: GpsPositionState) => void
+  onTargetReached?: (state: GpsPositionState) => void
+  onTimeout: (state: GpsPositionState | null) => void
   onError: (message: string) => void
+  /** Okamžitě vrátí poslední známou polohu z cache (localStorage). */
+  onCachedPosition?: (state: GpsPositionState) => void
 }
 
 function toState(position: GeolocationPosition): GpsPositionState {
@@ -27,12 +33,15 @@ function toState(position: GeolocationPosition): GpsPositionState {
   }
 }
 
-/** Průběžné sledování GPS – aktualizace v reálném čase, cíl ±2 m, timeout 30 s. */
+/**
+ * Průběžné sledování GPS – nejdřív cache, pak high-accuracy, timeout 5 s.
+ * Focení nikdy neblokuje – volající rozhodne, jak výsledek použít.
+ */
 export function startGpsWatch(options: StartGpsWatchOptions): {
   stop: () => void
   resetTimeout: () => void
 } {
-  const { onUpdate, onTargetReached, onTimeout, onError } = options
+  const { onUpdate, onTargetReached, onTimeout, onError, onCachedPosition } = options
 
   if (!navigator.geolocation) {
     onError('GPS není v prohlížeči dostupné.')
@@ -46,6 +55,24 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
   let timeoutFired = false
   let stopped = false
 
+  const cached = readCachedGpsPosition()
+  if (cached) {
+    onCachedPosition?.(cached)
+    onUpdate(cached)
+    best = {
+      coords: {
+        latitude: cached.lat,
+        longitude: cached.lng,
+        accuracy: cached.accuracy,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: cached.heading,
+        speed: null,
+      },
+      timestamp: cached.timestamp,
+    } as GeolocationPosition
+  }
+
   const clearAll = () => {
     if (watchId != null) navigator.geolocation.clearWatch(watchId)
     if (timeoutId != null) clearTimeout(timeoutId)
@@ -56,15 +83,36 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
   const fireTimeout = () => {
     if (stopped || targetReached || timeoutFired) return
     timeoutFired = true
-    if (best) onTimeout(toState(best))
-    else onError('Polohu se nepodařilo získat. Povolte GPS v prohlížeči a v nastavení telefonu.')
+    if (best) {
+      const state = toState(best)
+      writeCachedGpsPosition(state)
+      onTimeout(state)
+    } else {
+      onTimeout(null)
+    }
   }
 
   const scheduleTimeout = () => {
     if (timeoutId != null) clearTimeout(timeoutId)
     timeoutFired = false
-    timeoutId = setTimeout(fireTimeout, GPS_MAX_WAIT_MS)
+    timeoutId = setTimeout(fireTimeout, GPS_CAPTURE_TIMEOUT_MS)
   }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      if (stopped) return
+      if (!best || position.coords.accuracy < best.coords.accuracy) {
+        best = position
+      }
+      const state = toState(position)
+      writeCachedGpsPosition(state)
+      onUpdate(state)
+    },
+    () => {
+      // Tiché selhání – pokračujeme watchPosition
+    },
+    { enableHighAccuracy: false, maximumAge: 120_000, timeout: 3000 }
+  )
 
   watchId = navigator.geolocation.watchPosition(
     (position) => {
@@ -75,9 +123,10 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
       }
 
       const state = toState(position)
+      writeCachedGpsPosition(state)
       onUpdate(state)
 
-      if (!targetReached && position.coords.accuracy <= GPS_TARGET_ACCURACY_METERS) {
+      if (!targetReached && onTargetReached && position.coords.accuracy <= 5) {
         targetReached = true
         if (timeoutId != null) clearTimeout(timeoutId)
         onTargetReached(state)
@@ -85,12 +134,23 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
     },
     (error) => {
       if (stopped) return
-      onError(error.message || 'Polohu se nepodařilo získat. Povolte GPS.')
+      if (best) {
+        onUpdate(toState(best))
+        return
+      }
+      const code = error.code
+      if (code === error.PERMISSION_DENIED) {
+        onError('Přístup k poloze byl zamítnut. Povolte GPS v prohlížeči a v nastavení telefonu.')
+      } else if (code === error.POSITION_UNAVAILABLE) {
+        onError('GPS signál není dostupný. Zkuste se přesunout blíže k oknu nebo ven.')
+      } else {
+        onError(error.message || 'Polohu se nepodařilo získat.')
+      }
     },
     {
       enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: GPS_MAX_WAIT_MS,
+      maximumAge: 15_000,
+      timeout: GPS_CAPTURE_TIMEOUT_MS,
     }
   )
 

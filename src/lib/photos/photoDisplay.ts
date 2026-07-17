@@ -3,12 +3,18 @@ import { parseDateParts } from '@/lib/dates'
 
 export const ADDRESS_GEOCODE_FAILED = 'Adresa se nepodařila načíst, souřadnice jsou uloženy.'
 
-export function formatGpsCoordinates(lat: number, lng: number): string {
+export function formatGpsCoordinates(lat: number | null | undefined, lng: number | null | undefined): string {
+  if (lat == null || lng == null) return 'GPS nedostupná'
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`
 }
 
-export function formatGpsCoordinatesCompact(lat: number, lng: number): string {
+export function formatGpsCoordinatesCompact(lat: number | null | undefined, lng: number | null | undefined): string {
+  if (lat == null || lng == null) return 'GPS nedostupná'
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+}
+
+export function hasPhotoGps(photo: GpsPhoto): photo is GpsPhoto & { gps_lat: number; gps_lng: number } {
+  return photo.gps_lat != null && photo.gps_lng != null && Number.isFinite(photo.gps_lat) && Number.isFinite(photo.gps_lng)
 }
 
 export function isLikelyCoordinateAddress(value: string): boolean {
@@ -53,7 +59,12 @@ export function getPhotoAddressDetails(
   return { geocoded, structured }
 }
 
-export function formatGpsLocationLabel(lat: number, lng: number, accuracy?: number | null): string {
+export function formatGpsLocationLabel(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+  accuracy?: number | null
+): string {
+  if (lat == null || lng == null) return 'GPS nedostupná'
   const base = formatGpsCoordinatesCompact(lat, lng)
   if (accuracy != null && accuracy > 0) {
     return `${base} (±${Math.round(accuracy)} m)`

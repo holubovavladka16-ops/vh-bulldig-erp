@@ -10,13 +10,17 @@ export function buildPhotoShareText(photo: GpsPhoto): string {
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const streetViewUrl = getStreetViewUrl(photo.gps_lat, photo.gps_lng)
   const orderName = photo.order_name?.trim() || 'Obecné staveniště'
+  const gpsLine =
+    photo.gps_lat != null && photo.gps_lng != null
+      ? `GPS: ${photo.gps_lat.toFixed(5)}, ${photo.gps_lng.toFixed(5)}`
+      : 'GPS: nedostupná'
 
   return [
     `Fotodokumentace VH Bulldig – ${orderName}`,
     '',
     `Datum: ${formatDate(photo.captured_date)}`,
     `Čas: ${photo.captured_time.slice(0, 8)}`,
-    `GPS: ${photo.gps_lat.toFixed(5)}, ${photo.gps_lng.toFixed(5)}`,
+    gpsLine,
     photo.gps_accuracy != null ? `Přesnost: ±${Math.round(photo.gps_accuracy)} m` : '',
     `Adresa: ${photo.address_full || '—'}`,
     photo.note ? `Popis prací: ${photo.note}` : '',

@@ -18,7 +18,7 @@ const SystemHealthContext = createContext<SystemHealthContextType | undefined>(u
 
 export function SystemHealthProvider({ children }: { children: ReactNode }) {
   const [report, setReport] = useState<SystemHealthReport | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   const recheck = useCallback(async () => {
     setLoading(true)
@@ -32,7 +32,17 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    void recheck()
+    const runDeferred = () => {
+      void recheck()
+    }
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(runDeferred, { timeout: 4000 })
+      return () => window.cancelIdleCallback(idleId)
+    }
+
+    const timeoutId = globalThis.setTimeout(runDeferred, 1500)
+    return () => globalThis.clearTimeout(timeoutId)
   }, [recheck])
 
   return (

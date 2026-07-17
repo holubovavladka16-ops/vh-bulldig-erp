@@ -2,7 +2,7 @@
 -- VH Bulldig ERP - All Migrations
 -- Project: khhalcjgvqoyskkjlkyg
 -- Run in Supabase Dashboard -> SQL Editor -> New query
--- Generated: 2026-07-17 05:40
+-- Generated: 2026-07-17 18:30
 -- =============================================================================
 
 
@@ -9247,5 +9247,116 @@ $$;
 
 GRANT EXECUTE ON FUNCTION build_paper_worker_snapshot(workers) TO authenticated;
 GRANT EXECUTE ON FUNCTION create_paper_monthly_replacement_form(UUID, SMALLINT, SMALLINT, UUID) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- =============================================================================
+-- MIGRATION: 059_kontrola_formulare.sql
+-- =============================================================================
+
+-- Modul: Kontrola formuláře (Fáze 1 – QR skenování)
+
+INSERT INTO erp_modules (id, label, path, icon, sort_order, is_implemented, module_version)
+VALUES (
+  'kontrola-formulare',
+  'Kontrola formuláře',
+  '/kontrola-formulare',
+  'ScanLine',
+  7,
+  true,
+  '1.0.0'
+)
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  path = EXCLUDED.path,
+  icon = EXCLUDED.icon,
+  is_implemented = true,
+  module_version = EXCLUDED.module_version;
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- =============================================================================
+-- MIGRATION: 060_form_check_records.sql
+-- =============================================================================
+
+-- Modul: Kontrola formuláře – Fáze 4 (záznamy porovnání s docházkou)
+
+DO $$ BEGIN
+  CREATE TYPE form_check_outcome AS ENUM ('match', 'mismatch', 'manual_review');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS form_check_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  form_id UUID NOT NULL REFERENCES paper_monthly_forms(id) ON DELETE CASCADE,
+  worker_id UUID NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+  month SMALLINT NOT NULL CHECK (month BETWEEN 1 AND 12),
+  year SMALLINT NOT NULL CHECK (year >= 2020),
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  outcome form_check_outcome NOT NULL,
+  difference_count INTEGER NOT NULL DEFAULT 0,
+  ocr_result JSONB NOT NULL DEFAULT '{}'::jsonb,
+  comparison_result JSONB NOT NULL DEFAULT '{}'::jsonb,
+  photo_path TEXT,
+  checked_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_form_check_records_form ON form_check_records(form_id);
+CREATE INDEX IF NOT EXISTS idx_form_check_records_worker_period ON form_check_records(worker_id, year, month);
+CREATE INDEX IF NOT EXISTS idx_form_check_records_checked_at ON form_check_records(checked_at DESC);
+
+ALTER TABLE form_check_records ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  CREATE POLICY "Admin čte záznamy kontroly formuláře"
+  ON form_check_records FOR SELECT
+  USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "Admin zapisuje záznamy kontroly formuláře"
+  ON form_check_records FOR INSERT
+  WITH CHECK (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+GRANT SELECT, INSERT ON form_check_records TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- =============================================================================
+-- MIGRATION: 061_form_check_phase5.sql
+-- =============================================================================
+
+-- Modul: Kontrola formuláře – Fáze 5 (rozšíření záznamů kontroly)
+
+ALTER TABLE form_check_records
+  ADD COLUMN IF NOT EXISTS ocr_confidence NUMERIC(5, 2),
+  ADD COLUMN IF NOT EXISTS form_number TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_form_check_records_outcome ON form_check_records(outcome);
+CREATE INDEX IF NOT EXISTS idx_form_check_records_checked_by ON form_check_records(checked_by);
+
+NOTIFY pgrst, 'reload schema';
+
+-- =============================================================================
+-- MIGRATION: 063_gps_photo_metadata.sql
+-- =============================================================================
+
+ALTER TABLE gps_photos
+  ALTER COLUMN gps_lat DROP NOT NULL,
+  ALTER COLUMN gps_lng DROP NOT NULL;
+
+ALTER TABLE gps_photos
+  ADD COLUMN IF NOT EXISTS gps_obtained_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS gps_source TEXT,
+  ADD COLUMN IF NOT EXISTS gps_from_cache BOOLEAN NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS idx_gps_photos_captured_at ON gps_photos(captured_at DESC);
 
 NOTIFY pgrst, 'reload schema';

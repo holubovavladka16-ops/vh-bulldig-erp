@@ -16,6 +16,17 @@ export default defineConfig({
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]',
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('react-dom') || id.includes('/react/')) return 'vendor-react'
+          if (id.includes('react-router')) return 'vendor-router'
+          if (id.includes('@supabase')) return 'vendor-supabase'
+          if (id.includes('leaflet')) return 'vendor-maps'
+          if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf'
+          if (id.includes('@zxing')) return 'vendor-zxing'
+          if (id.includes('framer-motion')) return 'vendor-motion'
+          if (id.includes('lucide-react')) return 'vendor-icons'
+        },
       },
     },
   },

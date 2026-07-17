@@ -20,7 +20,8 @@ import { getDeviceOrientation } from '@/lib/photos/gpsWatch'
 import { geocodeFallbackAddress, formatGpsCoordinatesCompact } from '@/lib/photos/photoDisplay'
 import { createGpsPhoto } from '@/lib/photos/api'
 import { fetchJobOrders } from '@/lib/orders/api'
-import type { GpsPositionState } from '@/lib/photos/gpsWatch'
+import type { GpsCaptureMetadata } from '@/lib/photos/gpsCapture'
+import { toCaptureMetadata } from '@/lib/photos/gpsCapture'
 import type { GeocodedAddress } from '@/types/photos'
 
 type CapturePhase = 'camera' | 'save'
@@ -28,7 +29,7 @@ type CapturePhase = 'camera' | 'save'
 interface CapturedSnapshot {
   file: File
   previewUrl: string
-  position: GpsPositionState
+  gps: GpsCaptureMetadata
   address: GeocodedAddress
   capturedAt: Date
   deviceHeading: number | null
@@ -70,10 +71,10 @@ export function PhotoCaptureFlow({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const gps = useGpsPreflight(active && phase === 'camera')
+  const gps = useGpsPreflight(active)
   const camera = useCameraStream({ enabled: active && phase === 'camera' })
 
-  const canCapture = gps.canCapture && !saving
+  const canTakePhoto = camera.isActive && !saving
 
   useEffect(() => {
     if (!active) return
@@ -101,21 +102,31 @@ export function PhotoCaptureFlow({
   if (!active) return null
 
   async function takeSnapshot(file: File) {
-    if (!gps.position) {
-      setError('GPS poloha není připravena. Počkejte na zaměření.')
-      return
-    }
+    const currentPosition = gps.position
+    const gpsMeta = toCaptureMetadata(currentPosition, {
+      fromCache: gps.positionFromCache,
+      source: gps.positionFromCache ? 'cache' : currentPosition ? 'high_accuracy' : 'unavailable',
+    })
 
-    const resolvedAddress = gps.address ?? geocodeFallbackAddress(gps.position.lat, gps.position.lng)
+    const resolvedAddress = currentPosition
+      ? gps.address ?? geocodeFallbackAddress(currentPosition.lat, currentPosition.lng)
+      : {
+          address_full: 'GPS nedostupná',
+          street: '',
+          city: '',
+          postal_code: '',
+          country: '',
+        }
+
     const previewUrl = URL.createObjectURL(file)
 
     setSnapshot({
       file,
       previewUrl,
-      position: { ...gps.position },
+      gps: gpsMeta,
       address: resolvedAddress,
       capturedAt: new Date(),
-      deviceHeading: getDeviceOrientation() ?? gps.position.heading ?? null,
+      deviceHeading: getDeviceOrientation() ?? currentPosition?.heading ?? null,
     })
     setPhase('save')
     setError('')
@@ -123,7 +134,7 @@ export function PhotoCaptureFlow({
   }
 
   async function handleCameraCapture() {
-    if (!canCapture) return
+    if (!canTakePhoto) return
     const file = await camera.captureFrame()
     if (!file) {
       setError('Snímek se nepodařilo pořídit. Zkuste znovu nebo použijte Galerie.')
@@ -145,6 +156,26 @@ export function PhotoCaptureFlow({
     setError('')
   }
 
+  function resolveGpsForSave(): GpsCaptureMetadata {
+    if (!snapshot) {
+      return toCaptureMetadata(null)
+    }
+
+    const latest = toCaptureMetadata(gps.position, {
+      fromCache: gps.positionFromCache,
+      source: gps.positionFromCache ? 'cache' : gps.position ? 'high_accuracy' : 'unavailable',
+    })
+
+    const snapshotAccuracy = snapshot.gps.accuracy ?? Number.POSITIVE_INFINITY
+    const latestAccuracy = latest.accuracy ?? Number.POSITIVE_INFINITY
+
+    if (latest.lat != null && latest.lng != null && latestAccuracy <= snapshotAccuracy) {
+      return latest
+    }
+
+    return snapshot.gps
+  }
+
   async function handleSave() {
     if (!snapshot) return
     if (!orderId) {
@@ -155,16 +186,25 @@ export function PhotoCaptureFlow({
     setSaving(true)
     setError('')
 
+    const gpsMeta = resolveGpsForSave()
+    const resolvedAddress =
+      gpsMeta.lat != null && gpsMeta.lng != null
+        ? gps.address ?? geocodeFallbackAddress(gpsMeta.lat, gpsMeta.lng)
+        : snapshot.address
+
     try {
       await createGpsPhoto(
         {
           file: snapshot.file,
           captured_at: snapshot.capturedAt,
-          gps_lat: snapshot.position.lat,
-          gps_lng: snapshot.position.lng,
-          gps_accuracy: snapshot.position.accuracy,
+          gps_lat: gpsMeta.lat,
+          gps_lng: gpsMeta.lng,
+          gps_accuracy: gpsMeta.accuracy,
+          gps_obtained_at: gpsMeta.obtainedAt,
+          gps_source: gpsMeta.source,
+          gps_from_cache: gpsMeta.fromCache,
           device_heading: snapshot.deviceHeading,
-          ...snapshot.address,
+          ...resolvedAddress,
           note,
           order_id: orderId,
           construction_point_id: constructionPointId ?? null,
@@ -191,7 +231,7 @@ export function PhotoCaptureFlow({
               <ArrowLeft className="h-4 w-4" />
               Galerie
             </Button>
-            <p className="text-sm text-theme-muted">GPS se zaměřuje před vyfocením</p>
+            <p className="text-sm text-theme-muted">GPS se zpřesňuje na pozadí – foto lze pořídit ihned</p>
           </div>
         )}
 
@@ -223,8 +263,11 @@ export function PhotoCaptureFlow({
                 address={gps.address}
                 addressLoading={gps.addressLoading}
                 error={gps.error}
-                onAcceptRelaxed={gps.acceptRelaxedAccuracy}
-                onContinueSearching={gps.continueSearching}
+                quality={gps.quality}
+                qualityLabel={gps.qualityLabel}
+                positionFromCache={gps.positionFromCache}
+                refining={gps.refining}
+                onRefine={gps.refineAccuracy}
               />
             </div>
           </div>
@@ -232,8 +275,8 @@ export function PhotoCaptureFlow({
           <div className="photo-camera-actions">
             <button
               type="button"
-              className={`photo-capture-btn photo-capture-btn--primary ${!canCapture || !camera.isActive ? 'photo-capture-btn--disabled' : ''}`}
-              disabled={!canCapture || !camera.isActive}
+              className={`photo-capture-btn photo-capture-btn--primary ${!canTakePhoto ? 'photo-capture-btn--disabled' : ''}`}
+              disabled={!canTakePhoto}
               onClick={() => void handleCameraCapture()}
             >
               <Camera className="h-6 w-6" />
@@ -241,7 +284,7 @@ export function PhotoCaptureFlow({
             </button>
 
             <label
-              className={`photo-capture-btn photo-capture-btn--secondary ${!canCapture ? 'photo-capture-btn--disabled' : ''}`}
+              className={`photo-capture-btn photo-capture-btn--secondary ${!canTakePhoto ? 'photo-capture-btn--disabled' : ''}`}
             >
               <ImagePlus className="h-5 w-5" />
               Galerie
@@ -249,16 +292,22 @@ export function PhotoCaptureFlow({
                 type="file"
                 accept="image/*"
                 className="hidden"
-                disabled={!canCapture}
+                disabled={!canTakePhoto}
                 onChange={handleGalleryInput}
               />
             </label>
           </div>
 
-          {!canCapture && (
-            <p className="mt-2 text-center text-xs text-amber-300">
+          {gps.refining && (
+            <p className="mt-2 text-center text-xs text-cyan-300">
               <Satellite className="mr-1 inline h-3.5 w-3.5" />
-              Tlačítko Vyfotit se aktivuje po načtení GPS polohy a adresy.
+              GPS se zpřesňuje na pozadí ({gps.accuracyLabel}).
+            </p>
+          )}
+
+          {gps.showLowAccuracyWarning && (
+            <p className="mt-2 text-center text-xs text-amber-300">
+              Nízká přesnost GPS – před uložením můžete polohu zpřesnit.
             </p>
           )}
 
@@ -339,13 +388,20 @@ export function PhotoCaptureFlow({
               <div>
                 <dt className="text-xs text-theme-muted">GPS souřadnice</dt>
                 <dd className="font-mono text-theme-primary">
-                  {formatGpsCoordinatesCompact(snapshot.position.lat, snapshot.position.lng)}
+                  {snapshot.gps.lat != null && snapshot.gps.lng != null
+                    ? formatGpsCoordinatesCompact(snapshot.gps.lat, snapshot.gps.lng)
+                    : 'GPS nedostupná'}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-theme-muted">Přesnost GPS</dt>
                 <dd className="text-theme-primary">
-                  {formatGpsAccuracy(snapshot.position.accuracy)}
+                  {snapshot.gps.accuracy != null
+                    ? formatGpsAccuracy(snapshot.gps.accuracy)
+                    : '—'}
+                  {snapshot.gps.quality !== 'unavailable' && (
+                    <span className="ml-2 text-xs text-theme-muted">({gps.qualityLabel})</span>
+                  )}
                 </dd>
               </div>
               <div className="flex items-start gap-2">

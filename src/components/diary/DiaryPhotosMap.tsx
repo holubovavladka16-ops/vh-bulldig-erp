@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PhotoMapView } from '@/components/photos/PhotoMapView'
+import { formatGpsCoordinatesCompact } from '@/lib/photos/photoDisplay'
 import type { GpsPhoto } from '@/types/photos'
 
 interface DiaryPhotosMapProps {
@@ -32,7 +33,8 @@ export function DiaryPhotosMap({ photos, className = '' }: DiaryPhotosMapProps) 
       />
       {selected && (
         <p className="text-xs text-theme-muted">
-          Vybraná poloha: {selected.address_full || `${selected.gps_lat.toFixed(5)}, ${selected.gps_lng.toFixed(5)}`}
+          Vybraná poloha:{' '}
+          {selected.address_full || formatGpsCoordinatesCompact(selected.gps_lat, selected.gps_lng)}
         </p>
       )}
     </div>

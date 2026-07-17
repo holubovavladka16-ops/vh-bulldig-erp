@@ -13,6 +13,7 @@ import {
   formatGpsLocationLabel,
   getOrderDisplayName,
   getPhotoAddressDetails,
+  hasPhotoGps,
 } from '@/lib/photos/photoDisplay'
 import type { GpsPhoto } from '@/types/photos'
 
@@ -23,6 +24,7 @@ interface DiaryPhotoLocationPanelProps {
 
 export function DiaryPhotoLocationPanel({ photo, showMeta = true }: DiaryPhotoLocationPanelProps) {
   const { geocoded, structured } = getPhotoAddressDetails(photo)
+  const hasGps = hasPhotoGps(photo)
   const coords = formatGpsLocationLabel(photo.gps_lat, photo.gps_lng, photo.gps_accuracy)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const mapyUrl = getMapyCzUrl(photo.gps_lat, photo.gps_lng)
@@ -45,7 +47,9 @@ export function DiaryPhotoLocationPanel({ photo, showMeta = true }: DiaryPhotoLo
           title="Mapa s polohou (špendlík)"
           className="absolute right-2 top-2 overflow-hidden rounded-lg border border-[var(--accent-primary)]/50 shadow-lg"
         >
-          <img src={mapThumb} alt="Mapa – špendlík" className="h-20 w-28 object-cover" />
+          {mapThumb ? (
+            <img src={mapThumb} alt="Mapa – špendlík" className="h-20 w-28 object-cover" />
+          ) : null}
         </a>
         <div className="absolute bottom-2 left-2 max-w-[90%] rounded-lg border border-emerald-500/40 bg-black/75 px-2.5 py-1.5 backdrop-blur-sm">
           <p className="truncate text-[10px] font-bold uppercase text-amber-300">{getOrderDisplayName(photo)}</p>
@@ -56,7 +60,7 @@ export function DiaryPhotoLocationPanel({ photo, showMeta = true }: DiaryPhotoLo
         </div>
       </div>
 
-      <PhotoMiniMap lat={photo.gps_lat} lng={photo.gps_lng} height={150} />
+      {hasGps && <PhotoMiniMap lat={photo.gps_lat} lng={photo.gps_lng} height={150} />}
 
       <div className="space-y-2 text-sm">
         <div>

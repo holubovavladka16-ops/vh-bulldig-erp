@@ -5,9 +5,12 @@ export interface GpsPhoto {
   captured_at: string
   captured_date: string
   captured_time: string
-  gps_lat: number
-  gps_lng: number
+  gps_lat: number | null
+  gps_lng: number | null
   gps_accuracy: number | null
+  gps_obtained_at?: string | null
+  gps_source?: string | null
+  gps_from_cache?: boolean | null
   device_heading: number | null
   address_full: string
   street: string
@@ -42,9 +45,12 @@ export interface GpsPhotoHistoryEntry {
 
 export interface GpsPhotoCreateInput {
   file: File
-  gps_lat: number
-  gps_lng: number
+  gps_lat: number | null
+  gps_lng: number | null
   gps_accuracy: number | null
+  gps_obtained_at?: string | null
+  gps_source?: string | null
+  gps_from_cache?: boolean
   device_heading?: number | null
   address_full: string
   street: string

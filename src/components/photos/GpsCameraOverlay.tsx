@@ -1,5 +1,9 @@
-import { Loader2, MapPin, Satellite } from 'lucide-react'
-import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
+import { Loader2, MapPin, Satellite, Target } from 'lucide-react'
+import {
+  GPS_ACCEPTABLE_MAX_METERS,
+  formatAccuracyMeters,
+  type GpsAccuracyQuality,
+} from '@/lib/photos/gpsCapture'
 import type { GpsPreflightPhase } from '@/hooks/useGpsPreflight'
 import type { GeocodedAddress } from '@/types/photos'
 import type { GpsPositionState } from '@/lib/photos/gpsWatch'
@@ -11,8 +15,11 @@ interface GpsCameraOverlayProps {
   address: GeocodedAddress | null
   addressLoading: boolean
   error: string | null
-  onAcceptRelaxed: () => void
-  onContinueSearching: () => void
+  quality: GpsAccuracyQuality
+  qualityLabel: string
+  positionFromCache: boolean
+  refining: boolean
+  onRefine: () => void
 }
 
 export function GpsCameraOverlay({
@@ -21,30 +28,33 @@ export function GpsCameraOverlay({
   address,
   addressLoading,
   error,
-  onAcceptRelaxed,
-  onContinueSearching,
+  quality,
+  qualityLabel,
+  positionFromCache,
+  refining,
+  onRefine,
 }: GpsCameraOverlayProps) {
-  const accuracy = position?.accuracy
-  const accuracyLabel =
-    accuracy != null ? `±${accuracy < 10 ? accuracy.toFixed(1) : Math.round(accuracy)} m` : '—'
-
-  const gpsReady = phase === 'ready' || phase === 'relaxed'
-  const isSearching = phase === 'initializing' || phase === 'waiting' || addressLoading
+  const accuracyLabel = formatAccuracyMeters(position?.accuracy)
+  const isSearching = refining || phase === 'initializing' || phase === 'searching'
 
   return (
     <div className="pointer-events-auto space-y-2">
       <div className="rounded-xl border border-white/20 bg-black/70 px-3 py-2.5 backdrop-blur-md">
         <div className="flex items-center gap-2 text-xs font-medium text-white">
           <Satellite className="h-3.5 w-3.5 text-cyan-400" />
-          {gpsReady ? (
-            <span className="text-emerald-400">GPS připravena k focení</span>
-          ) : isSearching ? (
+          {isSearching ? (
             <span className="flex items-center gap-1.5 text-amber-200">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Zaměřuji polohu…
+              Zpřesňuji polohu…
             </span>
+          ) : quality === 'precise' ? (
+            <span className="text-emerald-400">{qualityLabel}</span>
+          ) : quality === 'acceptable' ? (
+            <span className="text-cyan-200">{qualityLabel}</span>
+          ) : quality === 'low' ? (
+            <span className="text-amber-300">{qualityLabel}</span>
           ) : (
-            <span className="text-white/80">Sleduji GPS…</span>
+            <span className="text-white/80">GPS nedostupná – foto lze pořídit</span>
           )}
         </div>
 
@@ -52,21 +62,19 @@ export function GpsCameraOverlay({
           <div>
             <dt className="text-white/50">Souřadnice</dt>
             <dd className="font-mono text-white">
-              {position
-                ? `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`
-                : '—'}
+              {position ? `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}` : '—'}
             </dd>
           </div>
           <div>
             <dt className="text-white/50">Přesnost</dt>
-            <dd
-              className={
-                accuracy != null && accuracy <= GPS_TARGET_ACCURACY_METERS
-                  ? 'text-emerald-400'
-                  : 'text-white'
-              }
-            >
+            <dd className={quality === 'precise' ? 'text-emerald-400' : quality === 'acceptable' ? 'text-cyan-200' : 'text-white'}>
               {accuracyLabel}
+            </dd>
+          </div>
+          <div className="col-span-2">
+            <dt className="text-white/50">Zdroj</dt>
+            <dd className="text-white/90">
+              {positionFromCache ? 'Cache / poslední známá poloha' : position ? 'GPS zařízení' : '—'}
             </dd>
           </div>
           <div className="col-span-2">
@@ -81,45 +89,34 @@ export function GpsCameraOverlay({
                   Načítám…
                 </span>
               ) : (
-                address?.address_full || '—'
+                address?.address_full || (position ? '—' : 'GPS nedostupná')
               )}
             </dd>
           </div>
         </dl>
       </div>
 
-      <LiveLocationMiniMap
-        lat={position?.lat ?? null}
-        lng={position?.lng ?? null}
-        accuracy={position?.accuracy}
-        height={110}
-      />
+      {position && (
+        <LiveLocationMiniMap lat={position.lat} lng={position.lng} accuracy={position.accuracy} height={110} />
+      )}
 
-      {phase === 'timeout_prompt' && position && (
+      {quality === 'low' && position && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-900/80 px-3 py-2 text-xs text-amber-100 backdrop-blur-md">
-          <p>Přesnost ±{GPS_TARGET_ACCURACY_METERS} m se nepodařilo. Aktuální: {accuracyLabel}.</p>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={onAcceptRelaxed}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white"
-            >
-              Focení povolit
-            </button>
-            <button
-              type="button"
-              onClick={onContinueSearching}
-              className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white"
-            >
-              Hledat dál
-            </button>
-          </div>
+          <p>Přesnost {accuracyLabel} je nad {GPS_ACCEPTABLE_MAX_METERS} m. Focení je povoleno.</p>
+          <button type="button" onClick={onRefine} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white">
+            <Target className="h-3.5 w-3.5" />
+            Zkusit zpřesnit
+          </button>
         </div>
       )}
 
       {error && (
-        <p className="rounded-lg border border-red-500/40 bg-red-900/70 px-3 py-2 text-xs text-red-200 backdrop-blur-md">
-          {error}
+        <p className="rounded-lg border border-red-500/40 bg-red-900/70 px-3 py-2 text-xs text-red-200 backdrop-blur-md">{error}</p>
+      )}
+
+      {!position && !error && (
+        <p className="rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-white/80 backdrop-blur-md">
+          Foto lze pořídit i bez GPS. Poloha se doplní, pokud bude dostupná před uložením.
         </p>
       )}
     </div>
