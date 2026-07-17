@@ -65,6 +65,7 @@ export type ModuleId =
   | 'denni-formulare'
   | 'zakazky'
   | 'vykazy'
+  | 'papierove-vykazy'
   | 'vyplatni-pasky'
   | 'denik'
   | 'ekonomika'
