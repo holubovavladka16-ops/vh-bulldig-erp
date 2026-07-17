@@ -1,5 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import { buildPaperMonthlyFormPdfBlob, getPaperFormPdfFilename } from '@/lib/paperForms/pdf'
+import {
+  buildBulkBlankPaperFormsPdfBlob,
+  getBulkBlankPaperFormsPdfFilename,
+} from '@/lib/paperForms/pdfBulk'
 import { downloadPdfBlob, openPdfBlobInNewTab } from '@/lib/print/pdfShare'
 import type { CompanySettings } from '@/types'
 import type {
@@ -311,9 +315,6 @@ export async function printPaperMonthlyFormPdf(
 ): Promise<PaperMonthlyForm> {
   const [form, lines] = await Promise.all([fetchPaperForm(formId), fetchPaperFormLines(formId)])
   if (!form) throw new Error('Formulář nenalezen')
-  if (!form.worker_snapshot && !form.worker_id) {
-    throw new Error('Nejdříve přiřaďte zaměstnance, aby se do PDF doplnily údaje z karty.')
-  }
   const blob = await buildPaperMonthlyFormPdfBlob(form, lines, company)
   const filename = getPaperFormPdfFilename(form)
   if (!openPdfBlobInNewTab(blob)) {
@@ -321,6 +322,40 @@ export async function printPaperMonthlyFormPdf(
   }
   await markPaperFormPrinted(form.id)
   return form
+}
+
+export async function createAndPrintBulkBlankPaperForms(
+  month: number,
+  year: number,
+  count: number,
+  company: CompanySettings,
+  supervisorId?: string | null
+): Promise<string[]> {
+  if (count < 1 || count > 50) {
+    throw new Error('Počet formulářů musí být mezi 1 a 50')
+  }
+
+  const formIds: string[] = []
+  for (let i = 0; i < count; i++) {
+    formIds.push(await createPaperMonthlyForm(month, year, supervisorId ?? null))
+  }
+
+  const items = await Promise.all(
+    formIds.map(async (id) => {
+      const [form, lines] = await Promise.all([fetchPaperForm(id), fetchPaperFormLines(id)])
+      if (!form) throw new Error(`Formulář ${id} nenalezen`)
+      return { form, lines }
+    })
+  )
+
+  const blob = await buildBulkBlankPaperFormsPdfBlob(items, company)
+  const filename = getBulkBlankPaperFormsPdfFilename(month, year, count)
+  if (!openPdfBlobInNewTab(blob)) {
+    downloadPdfBlob(blob, filename)
+  }
+
+  await Promise.all(formIds.map((id) => markPaperFormPrinted(id)))
+  return formIds
 }
 
 export async function cancelPaperMonthlyForm(formId: string, reason?: string): Promise<void> {

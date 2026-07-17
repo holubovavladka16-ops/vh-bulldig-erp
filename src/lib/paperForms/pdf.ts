@@ -178,14 +178,12 @@ function buildMonthRows(form: PaperMonthlyForm, lines: PaperFormLine[]) {
   })
 }
 
-export async function buildPaperMonthlyFormPdfBlob(
+export async function drawPaperMonthlyFormPage(
+  doc: jsPDF,
   form: PaperMonthlyForm,
   lines: PaperFormLine[],
   company: CompanySettings
-): Promise<Blob> {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
-  await ensurePdfFonts(doc)
-
+): Promise<void> {
   doc.setFillColor(255, 255, 255)
   doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
   drawRegistrationMarks(doc)
@@ -310,7 +308,16 @@ export async function buildPaperMonthlyFormPdfBlob(
   doc.setFont(FONT_FAMILY, 'normal')
   doc.setFontSize(7.5)
   doc.text(form.form_number, qrX - 32, qrY + 12)
+}
 
+export async function buildPaperMonthlyFormPdfBlob(
+  form: PaperMonthlyForm,
+  lines: PaperFormLine[],
+  company: CompanySettings
+): Promise<Blob> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
+  await ensurePdfFonts(doc)
+  await drawPaperMonthlyFormPage(doc, form, lines, company)
   const blob = doc.output('blob')
   assertValidPdfBlob(blob)
   return blob

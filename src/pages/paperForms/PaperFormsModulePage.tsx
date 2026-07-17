@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FileStack, Plus, ScanLine } from 'lucide-react'
+import { FileStack, Plus, ScanLine, Copy } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/Select'
 import { DataTable, DataTableCell, DataTableRow } from '@/components/ui/DataTable'
 import { StatusBadge } from '@/components/ui/Badge'
 import { PaperFormCreateModal } from '@/components/paperForms/PaperFormCreateModal'
+import { PaperFormBulkCreateModal } from '@/components/paperForms/PaperFormBulkCreateModal'
 import { fetchPaperForms, type PaperFormFilters } from '@/lib/paperForms/api'
 import { fetchWorkers } from '@/lib/workers/api'
 import { PAPER_FORM_STATUS_LABELS, PAPER_FORM_STATUS_VARIANT, PAPER_FORM_STATUS_FILTERS, MONTH_NAMES, formatPaperPeriod } from '@/constants/paperForms'
@@ -29,6 +30,7 @@ export function PaperFormsModulePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
+  const [bulkCreateOpen, setBulkCreateOpen] = useState(false)
 
   useEffect(() => {
     fetchWorkers('aktivni').then((list) =>
@@ -72,10 +74,16 @@ export function PaperFormsModulePage() {
         title="Papírové měsíční výkazy"
         description="Inteligentní papírový formulář pro zaměstnance bez mobilu — QR, OCR, docházka, výkazy a mzdy."
         action={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Nový formulář
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Varianta 1 – formulář pro konkrétního zaměstnance
+            </Button>
+            <Button variant="secondary" onClick={() => setBulkCreateOpen(true)}>
+              <Copy className="h-4 w-4" />
+              Varianta 2 – hromadný tisk prázdných formulářů
+            </Button>
+          </div>
         }
       />
 
@@ -129,12 +137,19 @@ export function PaperFormsModulePage() {
           <FileStack className="mx-auto mb-4 h-12 w-12 text-theme-muted" />
           <h2 className="text-lg font-semibold text-theme-primary">Zatím žádné papírové formuláře</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-theme-secondary">
-            Vytvořte nový měsíční formulář výběrem zaměstnance a měsíce. PDF se vygeneruje automaticky.
+            Vytvořte formulář pro konkrétního zaměstnance (Varianta 1) nebo vytiskněte hromadně prázdné formuláře
+            (Varianta 2).
           </p>
-          <Button className="mt-6" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Nový formulář
-          </Button>
+          <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Varianta 1 – konkrétní zaměstnanec
+            </Button>
+            <Button variant="secondary" onClick={() => setBulkCreateOpen(true)}>
+              <Copy className="h-4 w-4" />
+              Varianta 2 – hromadný tisk
+            </Button>
+          </div>
         </Card>
       ) : (
         <DataTable
@@ -184,6 +199,15 @@ export function PaperFormsModulePage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false)
+          load()
+        }}
+      />
+
+      <PaperFormBulkCreateModal
+        open={bulkCreateOpen}
+        onClose={() => setBulkCreateOpen(false)}
+        onCreated={() => {
+          setBulkCreateOpen(false)
           load()
         }}
       />

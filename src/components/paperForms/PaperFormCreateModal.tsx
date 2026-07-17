@@ -147,7 +147,7 @@ export function PaperFormCreateModal({ open, onClose, onCreated, preselectedWork
         <div className="modal-panel modal-panel-md glass-panel neon-border flex max-h-[100dvh] flex-col overflow-hidden sm:max-h-[92vh]">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-glass)] pb-4">
             <h2 id="paper-form-create-title" className="text-lg font-semibold text-theme-primary sm:text-xl">
-              Nový formulář
+              Varianta 1 — konkrétní zaměstnanec
             </h2>
             <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-white/5" aria-label="Zavřít">
               <X className="h-5 w-5" />
