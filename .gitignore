@@ -32,3 +32,4 @@ Thumbs.db
 .local-stack/
 .vercel
 tmp/
+backups/
