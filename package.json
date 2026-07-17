@@ -30,6 +30,8 @@
     "verify-portal-performance": "node scripts/verify-portal-performance.mjs",
     "verify-admin-attendance": "node scripts/verify-admin-attendance.mjs",
     "verify-paper-forms": "node scripts/verify-paper-forms.mjs",
+    "apply-paper-migrations": "node scripts/apply-paper-migrations-053-058.mjs",
+    "test-paper-form-pdf": "node scripts/test-paper-form-pdf.mjs",
     "verify-gemini-ai": "node scripts/verify-gemini-ai.mjs",
     "verify-all-modules": "node scripts/verify-all-modules.mjs",
     "verify-full-regression": "node scripts/verify-full-regression.mjs",
