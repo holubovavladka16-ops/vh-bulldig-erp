@@ -1,6 +1,10 @@
 import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
 
+/** Výchozí timeout pro výkopy a jiné moduly (s). */
 export const GPS_MAX_WAIT_MS = 30_000
+
+/** Timeout pro fotodokumentaci – max. čekání na nejlepší polohu (s). */
+export const GPS_PHOTO_MAX_WAIT_MS = 5_000
 
 export interface GpsPositionState {
   lat: number
@@ -10,11 +14,24 @@ export interface GpsPositionState {
   timestamp: number
 }
 
+export interface GpsTimingMetrics {
+  /** Čas do první GPS opravy (ms), null pokud žádná. */
+  firstFixMs: number | null
+  /** Čas do dosažení cílové přesnosti (ms), null pokud nedosaženo. */
+  targetReachedMs: number | null
+  /** Čas do vypršení timeoutu / ustálení polohy (ms). */
+  settledMs: number | null
+  /** Přesnost při ustálení (m). */
+  settledAccuracy: number | null
+}
+
 export interface StartGpsWatchOptions {
   onUpdate: (state: GpsPositionState) => void
   onTargetReached: (state: GpsPositionState) => void
   onTimeout: (state: GpsPositionState) => void
   onError: (message: string) => void
+  /** Vlastní timeout v ms (výchozí GPS_MAX_WAIT_MS). */
+  maxWaitMs?: number
 }
 
 function toState(position: GeolocationPosition): GpsPositionState {
@@ -27,16 +44,28 @@ function toState(position: GeolocationPosition): GpsPositionState {
   }
 }
 
-/** Průběžné sledování GPS – aktualizace v reálném čase, cíl ±2 m, timeout 30 s. */
+/** Průběžné sledování GPS – aktualizace v reálném čase, cíl ±2 m, konfigurovatelný timeout. */
 export function startGpsWatch(options: StartGpsWatchOptions): {
   stop: () => void
   resetTimeout: () => void
+  getBestPosition: () => GpsPositionState | null
+  getTiming: () => GpsTimingMetrics
 } {
-  const { onUpdate, onTargetReached, onTimeout, onError } = options
+  const { onUpdate, onTargetReached, onTimeout, onError, maxWaitMs = GPS_MAX_WAIT_MS } = options
 
   if (!navigator.geolocation) {
     onError('GPS není v prohlížeči dostupné.')
-    return { stop: () => undefined, resetTimeout: () => undefined }
+    return {
+      stop: () => undefined,
+      resetTimeout: () => undefined,
+      getBestPosition: () => null,
+      getTiming: () => ({
+        firstFixMs: null,
+        targetReachedMs: null,
+        settledMs: null,
+        settledAccuracy: null,
+      }),
+    }
   }
 
   let watchId: number | null = null
@@ -45,6 +74,10 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
   let targetReached = false
   let timeoutFired = false
   let stopped = false
+  const startedAt = Date.now()
+  let firstFixMs: number | null = null
+  let targetReachedMs: number | null = null
+  let settledMs: number | null = null
 
   const clearAll = () => {
     if (watchId != null) navigator.geolocation.clearWatch(watchId)
@@ -56,6 +89,7 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
   const fireTimeout = () => {
     if (stopped || targetReached || timeoutFired) return
     timeoutFired = true
+    settledMs = Date.now() - startedAt
     if (best) onTimeout(toState(best))
     else onError('Polohu se nepodařilo získat. Povolte GPS v prohlížeči a v nastavení telefonu.')
   }
@@ -63,12 +97,16 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
   const scheduleTimeout = () => {
     if (timeoutId != null) clearTimeout(timeoutId)
     timeoutFired = false
-    timeoutId = setTimeout(fireTimeout, GPS_MAX_WAIT_MS)
+    timeoutId = setTimeout(fireTimeout, maxWaitMs)
   }
 
   watchId = navigator.geolocation.watchPosition(
     (position) => {
       if (stopped) return
+
+      if (firstFixMs == null) {
+        firstFixMs = Date.now() - startedAt
+      }
 
       if (!best || position.coords.accuracy < best.coords.accuracy) {
         best = position
@@ -79,6 +117,8 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
 
       if (!targetReached && position.coords.accuracy <= GPS_TARGET_ACCURACY_METERS) {
         targetReached = true
+        targetReachedMs = Date.now() - startedAt
+        settledMs = targetReachedMs
         if (timeoutId != null) clearTimeout(timeoutId)
         onTargetReached(state)
       }
@@ -90,7 +130,7 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
     {
       enableHighAccuracy: true,
       maximumAge: 0,
-      timeout: GPS_MAX_WAIT_MS,
+      timeout: maxWaitMs,
     }
   )
 
@@ -105,6 +145,13 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
       if (stopped || targetReached) return
       scheduleTimeout()
     },
+    getBestPosition: () => (best ? toState(best) : null),
+    getTiming: () => ({
+      firstFixMs,
+      targetReachedMs,
+      settledMs,
+      settledAccuracy: best?.coords.accuracy ?? null,
+    }),
   }
 }
 

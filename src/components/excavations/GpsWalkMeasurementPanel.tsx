@@ -3,6 +3,7 @@ import { Flag, MapPin, Navigation } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { GpsPreflightPanel } from '@/components/photos/GpsPreflightPanel'
 import { useGpsPreflight } from '@/hooks/useGpsPreflight'
+import { GPS_MAX_WAIT_MS } from '@/lib/photos/gpsWatch'
 import { formatGpsAccuracy, formatGpsCoordinates } from '@/lib/excavations/geometry'
 import type { ExcavationPoint } from '@/types/excavations'
 
@@ -26,7 +27,10 @@ export function GpsWalkMeasurementPanel({
   const [gpsEnabled, setGpsEnabled] = useState(false)
   const [startPoint, setStartPoint] = useState<ExcavationPoint | null>(null)
 
-  const gps = useGpsPreflight(gpsEnabled)
+  const gps = useGpsPreflight(gpsEnabled, {
+    maxWaitMs: GPS_MAX_WAIT_MS,
+    autoAcceptOnTimeout: false,
+  })
 
   const gpsReady =
     gps.position != null &&

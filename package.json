@@ -32,7 +32,7 @@
     "verify-paper-forms": "node scripts/verify-paper-forms.mjs",
     "apply-paper-migrations": "node scripts/apply-paper-migrations-053-058.mjs",
     "test-paper-form-pdf": "node scripts/test-paper-form-pdf.mjs",
-    "verify-gemini-ai": "node scripts/verify-gemini-ai.mjs",
+    "verify-gps-photo-performance": "node scripts/verify-gps-photo-performance.mjs",
     "verify-all-modules": "node scripts/verify-all-modules.mjs",
     "verify-full-regression": "node scripts/verify-full-regression.mjs",
     "test": "vitest run",
