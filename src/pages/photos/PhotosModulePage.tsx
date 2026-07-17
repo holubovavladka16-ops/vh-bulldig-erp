@@ -68,7 +68,7 @@ export function PhotosModulePage() {
     <AppLayout>
       <PageHeader
         title="Fotodokumentace s GPS"
-        description="Nejdříve kamera a zaměření polohy, poté vyfocení a uložení. GPS, adresa a mapa jsou vidět už při focení."
+        description="Kamera ihned, GPS na pozadí (max. 5 s). Po vyfocení se uloží souřadnice, adresa a odkaz na mapu."
       />
 
       <div className="mb-4 flex flex-wrap gap-2">

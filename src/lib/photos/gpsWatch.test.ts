@@ -39,6 +39,9 @@ describe('startGpsWatch', () => {
           watchCallback = success
           return 1
         }),
+        getCurrentPosition: vi.fn((_success, error) => {
+          error?.()
+        }),
         clearWatch: vi.fn(),
       },
     })

@@ -94,42 +94,64 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
     else onError('Polohu se nepodařilo získat. Povolte GPS v prohlížeči a v nastavení telefonu.')
   }
 
+  const applyPosition = (position: GeolocationPosition) => {
+    if (stopped) return
+
+    if (firstFixMs == null) {
+      firstFixMs = Date.now() - startedAt
+    }
+
+    if (!best || position.coords.accuracy < best.coords.accuracy) {
+      best = position
+    }
+
+    const state = toState(position)
+    onUpdate(state)
+
+    if (!targetReached && position.coords.accuracy <= GPS_TARGET_ACCURACY_METERS) {
+      targetReached = true
+      targetReachedMs = Date.now() - startedAt
+      settledMs = targetReachedMs
+      if (timeoutId != null) clearTimeout(timeoutId)
+      onTargetReached(state)
+    }
+  }
+
   const scheduleTimeout = () => {
     if (timeoutId != null) clearTimeout(timeoutId)
     timeoutFired = false
     timeoutId = setTimeout(fireTimeout, maxWaitMs)
   }
 
-  watchId = navigator.geolocation.watchPosition(
-    (position) => {
-      if (stopped) return
-
-      if (firstFixMs == null) {
-        firstFixMs = Date.now() - startedAt
-      }
-
-      if (!best || position.coords.accuracy < best.coords.accuracy) {
-        best = position
-      }
-
-      const state = toState(position)
-      onUpdate(state)
-
-      if (!targetReached && position.coords.accuracy <= GPS_TARGET_ACCURACY_METERS) {
-        targetReached = true
-        targetReachedMs = Date.now() - startedAt
-        settledMs = targetReachedMs
-        if (timeoutId != null) clearTimeout(timeoutId)
-        onTargetReached(state)
-      }
+  // Rychlý hrubý fix – na mobilech často dorazí dřív než high-accuracy watch.
+  navigator.geolocation.getCurrentPosition(
+    (position) => applyPosition(position),
+    () => {
+      // Tiché selhání – pokračujeme watchPosition.
     },
+    { enableHighAccuracy: false, maximumAge: 120_000, timeout: 4_000 }
+  )
+
+  watchId = navigator.geolocation.watchPosition(
+    (position) => applyPosition(position),
     (error) => {
       if (stopped) return
+      // Timeout z watchPosition není fatální – pokračujeme v čekání na vlastní deadline.
+      if (error.code === error.TIMEOUT) return
+      if (best) return
+      if (error.code === error.PERMISSION_DENIED) {
+        onError('Přístup k poloze byl zamítnut. Povolte GPS v prohlížeči a v nastavení telefonu.')
+        return
+      }
+      if (error.code === error.POSITION_UNAVAILABLE) {
+        onError('GPS signál není dostupný. Zkuste se přesunout blíže k oknu nebo ven.')
+        return
+      }
       onError(error.message || 'Polohu se nepodařilo získat. Povolte GPS.')
     },
     {
       enableHighAccuracy: true,
-      maximumAge: 0,
+      maximumAge: 15_000,
       timeout: maxWaitMs,
     }
   )
