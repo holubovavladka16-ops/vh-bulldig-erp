@@ -33,17 +33,53 @@ export function transitionToError(
   }
 }
 
-/** Fáze 2: přechod na focení formuláře pro OCR. */
+/** Fáze 2: přechod na focení formuláře. */
 export function transitionToCapture(state: FormCheckWorkflowState): FormCheckWorkflowState {
   if (!state.context) return state
   return {
     ...state,
     phase: 'capture',
+    capturedImagePreviewUrl: null,
     error: null,
   }
 }
 
-/** Fáze 2: přechod na zpracování OCR. */
+/** Fáze 2: uložení pořízené fotografie do workflow (bez uploadu). */
+export function transitionCaptureComplete(
+  state: FormCheckWorkflowState,
+  previewUrl: string
+): FormCheckWorkflowState {
+  if (!state.context) return state
+  return {
+    ...state,
+    capturedImagePreviewUrl: previewUrl,
+    error: null,
+  }
+}
+
+/** Návrat z focení na potvrzovací obrazovku. */
+export function transitionBackToConfirm(state: FormCheckWorkflowState): FormCheckWorkflowState {
+  if (!state.context) return state
+  return {
+    ...state,
+    phase: 'confirm',
+    capturedImagePreviewUrl: null,
+    error: null,
+  }
+}
+
+/** Znovu otevřít focení (zrušit náhled). */
+export function transitionRetakeCapture(state: FormCheckWorkflowState): FormCheckWorkflowState {
+  if (!state.context) return state
+  return {
+    ...state,
+    phase: 'capture',
+    capturedImagePreviewUrl: null,
+    error: null,
+  }
+}
+
+/** Fáze 3: přechod na zpracování OCR. */
 export function transitionToOcr(state: FormCheckWorkflowState): FormCheckWorkflowState {
   if (!state.context) return state
   return {
@@ -53,7 +89,7 @@ export function transitionToOcr(state: FormCheckWorkflowState): FormCheckWorkflo
   }
 }
 
-/** Fáze 3: přechod na porovnání s docházkou. */
+/** Fáze 4: přechod na porovnání s docházkou. */
 export function transitionToCompare(state: FormCheckWorkflowState): FormCheckWorkflowState {
   if (!state.context) return state
   return {
@@ -63,7 +99,7 @@ export function transitionToCompare(state: FormCheckWorkflowState): FormCheckWor
   }
 }
 
-/** Fáze 4: přechod na výsledek / uložení. */
+/** Fáze 5: přechod na výsledek / uložení. */
 export function transitionToResult(state: FormCheckWorkflowState): FormCheckWorkflowState {
   if (!state.context) return state
   return {

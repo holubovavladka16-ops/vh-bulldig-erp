@@ -41,8 +41,8 @@ export interface FormCheckWorkflowState {
   phase: FormCheckPhase
   context: FormCheckContext | null
   error: FormCheckError | null
-  /** Fáze 2+: cesta k naskenované fotografii formuláře */
-  capturedImagePath: string | null
+  /** Fáze 2: náhled pořízené fotografie formuláře (lokální blob URL) */
+  capturedImagePreviewUrl: string | null
   /** Fáze 2+: výsledek OCR */
   ocrResult: unknown | null
   /** Fáze 3+: výsledek porovnání s docházkou */
@@ -53,7 +53,7 @@ export const INITIAL_FORM_CHECK_STATE: FormCheckWorkflowState = {
   phase: 'scan',
   context: null,
   error: null,
-  capturedImagePath: null,
+  capturedImagePreviewUrl: null,
   ocrResult: null,
   comparisonResult: null,
 }

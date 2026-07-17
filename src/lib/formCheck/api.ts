@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { formatPaperPeriod } from '@/constants/paperForms'
 import type { FormCheckContext, FormCheckError } from '@/types/formCheck'
-import type { PaperFormResolved } from '@/types/paperForms'
+import type { PaperFormResolved, PaperMonthlyForm } from '@/types/paperForms'
 
 const QR_FORM_ID_PATTERN = /^(PMF-[A-Z0-9]{4,12}|PM-\d{4}-\d{3,6})$/i
 
@@ -15,18 +15,22 @@ export function normalizeQrPayload(raw: string): string {
   return raw.trim()
 }
 
-function mapResolvedToContext(resolved: PaperFormResolved): FormCheckContext {
+function mapFormRowToContext(row: PaperMonthlyForm): FormCheckContext {
+  const workerName = row.worker_snapshot
+    ? `${row.worker_snapshot.last_name} ${row.worker_snapshot.first_name}`
+    : null
+
   return {
-    formId: resolved.id,
-    publicId: resolved.public_id,
-    formNumber: resolved.form_number,
-    workerId: resolved.worker_id,
-    workerName: resolved.worker_name,
-    month: resolved.month,
-    year: resolved.year,
-    periodLabel: formatPaperPeriod(resolved.month, resolved.year),
-    status: resolved.status,
-    needsWorkerAssignment: Boolean(resolved.needs_worker_assignment),
+    formId: row.id,
+    publicId: row.public_id,
+    formNumber: row.form_number,
+    workerId: row.worker_id,
+    workerName,
+    month: row.month,
+    year: row.year,
+    periodLabel: formatPaperPeriod(row.month, row.year),
+    status: row.status,
+    needsWorkerAssignment: row.worker_id === null,
   }
 }
 
@@ -38,8 +42,70 @@ export function buildFormCheckError(
 }
 
 /**
- * Vyhledá formulář podle obsahu QR kódu (public_id nebo form_number).
- * Nevyhazuje výjimku – vrací buď kontext, nebo chybu.
+ * Načte formulář z databáze podle čísla formuláře (form_number).
+ */
+export async function fetchFormByFormNumber(
+  formNumber: string
+): Promise<{ context: FormCheckContext } | { error: FormCheckError }> {
+  const normalized = formNumber.trim()
+
+  if (!normalized) {
+    return {
+      error: buildFormCheckError('form_not_found', 'Chybí číslo formuláře.'),
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('paper_monthly_forms')
+      .select('*')
+      .ilike('form_number', normalized)
+      .maybeSingle()
+
+    if (error) {
+      return {
+        error: buildFormCheckError(
+          'resolve_failed',
+          error.message || 'Nepodařilo se načíst formulář z databáze.'
+        ),
+      }
+    }
+
+    if (!data) {
+      return {
+        error: buildFormCheckError(
+          'form_not_found',
+          `Formulář „${normalized}" nebyl nalezen v databázi.`
+        ),
+      }
+    }
+
+    const context = mapFormRowToContext(data as PaperMonthlyForm)
+
+    if (context.needsWorkerAssignment || !context.workerId || !context.workerName) {
+      return {
+        error: buildFormCheckError(
+          'no_worker',
+          'Formulář nemá přiřazeného zaměstnance. Nejprve přiřaďte zaměstnance v modulu Papírové měsíční výkazy.'
+        ),
+      }
+    }
+
+    return { context }
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : 'Neočekávaná chyba při načítání formuláře. Zkuste to prosím znovu.'
+    return {
+      error: buildFormCheckError('unknown', message),
+    }
+  }
+}
+
+/**
+ * Vyhledá formulář podle obsahu QR kódu (public_id nebo form_number),
+ * poté načte aktuální data z databáze podle form_number.
  */
 export async function resolveFormByQrPayload(
   rawPayload: string
@@ -90,18 +156,12 @@ export async function resolveFormByQrPayload(
       }
     }
 
-    const context = mapResolvedToContext(resolved)
-
-    if (context.needsWorkerAssignment || !context.workerId || !context.workerName) {
-      return {
-        error: buildFormCheckError(
-          'no_worker',
-          'Formulář nemá přiřazeného zaměstnance. Nejprve přiřaďte zaměstnance v modulu Papírové měsíční výkazy.'
-        ),
-      }
+    const dbResult = await fetchFormByFormNumber(resolved.form_number)
+    if ('error' in dbResult) {
+      return dbResult
     }
 
-    return { context }
+    return dbResult
   } catch (err) {
     const message =
       err instanceof Error
