@@ -32,7 +32,7 @@ const url = process.env.VITE_SUPABASE_URL
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY
 const adminEmail = process.env.INITIAL_ADMIN_EMAIL ?? process.env.VITE_INITIAL_ADMIN_EMAIL
 const adminPassword = process.env.INITIAL_ADMIN_PASSWORD
-const productionUrl = (process.env.PRODUCTION_URL ?? 'https://erp.vhbulldig.cz').replace(/\/$/, '')
+const productionUrl = (process.env.PRODUCTION_URL ?? 'https://vh-bulldig-erp.vercel.app').replace(/\/$/, '')
 
 const results = []
 let failed = false
@@ -141,6 +141,18 @@ console.log('=== E2E KONTROLA FORMULÁŘE (PRODUKCE) ===\n')
 console.log(`Backend: ${url}`)
 console.log(`Frontend: ${productionUrl}\n`)
 
+async function applyMigrationsViaApi(token) {
+  const res = await fetch(`${productionUrl}/api/admin-apply-form-check-migrations`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
+  const payload = await res.json().catch(() => ({}))
+  return { ok: res.ok, status: res.status, payload }
+}
+
 let token
 let userId
 
@@ -156,6 +168,23 @@ let userId
   token = data.session.access_token
   userId = data.user.id
   pass('Přihlášení administrátora', adminEmail)
+}
+
+{
+  const migrationRes = await applyMigrationsViaApi(token)
+  if (migrationRes.ok && migrationRes.payload?.ok) {
+    pass(
+      'Aplikace migrací 060–061',
+      migrationRes.payload.alreadyApplied
+        ? 'již aplikováno'
+        : (migrationRes.payload.applied ?? []).join(', ')
+    )
+  } else {
+    fail(
+      'Aplikace migrací 060–061',
+      `${migrationRes.status} ${JSON.stringify(migrationRes.payload).slice(0, 300)}`
+    )
+  }
 }
 
 {
