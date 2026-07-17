@@ -172,3 +172,27 @@ export async function resolveFormByQrPayload(
     }
   }
 }
+
+/** Načte legendu zakázek a metadata formuláře pro OCR. */
+export async function fetchFormOcrContext(formId: string) {
+  const { data, error } = await supabase
+    .from('paper_monthly_forms')
+    .select('order_legend, month, year, worker_snapshot')
+    .eq('id', formId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('Formulář nebyl nalezen')
+
+  const row = data as Pick<PaperMonthlyForm, 'order_legend' | 'month' | 'year' | 'worker_snapshot'>
+  const workerName = row.worker_snapshot
+    ? `${row.worker_snapshot.last_name} ${row.worker_snapshot.first_name}`
+    : null
+
+  return {
+    orderLegend: Array.isArray(row.order_legend) ? row.order_legend : [],
+    month: row.month,
+    year: row.year,
+    workerName,
+  }
+}

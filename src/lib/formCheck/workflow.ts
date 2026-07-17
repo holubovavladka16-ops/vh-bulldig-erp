@@ -1,4 +1,4 @@
-import type { FormCheckContext, FormCheckError, FormCheckWorkflowState } from '@/types/formCheck'
+import type { FormCheckContext, FormCheckError, FormCheckOcrResult, FormCheckWorkflowState } from '@/types/formCheck'
 import { INITIAL_FORM_CHECK_STATE } from '@/types/formCheck'
 
 export function createInitialFormCheckState(): FormCheckWorkflowState {
@@ -40,6 +40,8 @@ export function transitionToCapture(state: FormCheckWorkflowState): FormCheckWor
     ...state,
     phase: 'capture',
     capturedImagePreviewUrl: null,
+    capturedImageStoragePath: null,
+    ocrResult: null,
     error: null,
   }
 }
@@ -64,28 +66,63 @@ export function transitionBackToConfirm(state: FormCheckWorkflowState): FormChec
     ...state,
     phase: 'confirm',
     capturedImagePreviewUrl: null,
+    capturedImageStoragePath: null,
+    ocrResult: null,
     error: null,
   }
 }
 
-/** Znovu otevřít focení (zrušit náhled). */
+/** Znovu otevřít focení (zrušit náhled / OCR). */
 export function transitionRetakeCapture(state: FormCheckWorkflowState): FormCheckWorkflowState {
   if (!state.context) return state
   return {
     ...state,
     phase: 'capture',
     capturedImagePreviewUrl: null,
+    capturedImageStoragePath: null,
+    ocrResult: null,
     error: null,
   }
 }
 
 /** Fáze 3: přechod na zpracování OCR. */
-export function transitionToOcr(state: FormCheckWorkflowState): FormCheckWorkflowState {
+export function transitionToOcr(state: FormCheckWorkflowState, previewUrl: string): FormCheckWorkflowState {
   if (!state.context) return state
   return {
     ...state,
     phase: 'ocr',
+    capturedImagePreviewUrl: previewUrl,
+    capturedImageStoragePath: null,
+    ocrResult: null,
     error: null,
+  }
+}
+
+/** Fáze 3: úspěšné dokončení OCR. */
+export function transitionOcrComplete(
+  state: FormCheckWorkflowState,
+  ocrResult: FormCheckOcrResult,
+  storagePath: string
+): FormCheckWorkflowState {
+  if (!state.context) return state
+  return {
+    ...state,
+    phase: 'ocr',
+    capturedImageStoragePath: storagePath,
+    ocrResult: { ...ocrResult, storagePath },
+    error: null,
+  }
+}
+
+/** Fáze 3: chyba při OCR nebo uploadu. */
+export function transitionOcrError(
+  state: FormCheckWorkflowState,
+  error: FormCheckError
+): FormCheckWorkflowState {
+  return {
+    ...state,
+    phase: 'ocr',
+    error,
   }
 }
 
