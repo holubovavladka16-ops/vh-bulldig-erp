@@ -127,7 +127,16 @@
   object-fit: cover;
 }
 
+.photo-camera-video--hidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .photo-camera-placeholder {
+  position: absolute;
+  inset: 0;
   display: flex;
   height: 100%;
   min-height: 280px;

@@ -1,7 +1,18 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { registerSW } from 'virtual:pwa-register'
 import { App } from './App'
 import './index.css'
+
+registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    // autoUpdate: nový SW se aktivuje automaticky (skipWaiting + clientsClaim)
+  },
+  onOfflineReady() {
+    // Aplikace je připravena pro offline režim
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
