@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Download, Printer, UserPlus } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -32,9 +32,17 @@ import type { PaperFormAiLine, PaperFormLine, PaperFormStatus, PaperMonthlyForm 
 
 type TabId = 'prehled' | 'priradit' | 'tisk' | 'import' | 'revize' | 'archiv'
 
+const TAB_IDS: TabId[] = ['prehled', 'priradit', 'tisk', 'import', 'revize', 'archiv']
+
+function parseTabParam(value: string | null): TabId | null {
+  if (!value) return null
+  return TAB_IDS.includes(value as TabId) ? (value as TabId) : null
+}
+
 export function PaperFormDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { settings: companySettings } = useCompanySettings()
   const company = companySettings ?? { ...DEFAULT_COMPANY_SETTINGS, id: '', updated_at: '', updated_by: null }
@@ -44,7 +52,7 @@ export function PaperFormDetailPage() {
   const [workers, setWorkers] = useState<{ value: string; label: string }[]>([])
   const [orders, setOrders] = useState<{ value: string; label: string; code: string }[]>([])
   const [selectedWorker, setSelectedWorker] = useState('')
-  const [tab, setTab] = useState<TabId>('prehled')
+  const [tab, setTab] = useState<TabId>(() => parseTabParam(searchParams.get('tab')) ?? 'prehled')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')

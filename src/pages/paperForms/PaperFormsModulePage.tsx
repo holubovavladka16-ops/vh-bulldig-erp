@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FileStack, Plus, ScanLine } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -23,6 +23,7 @@ const MONTH_OPTIONS = [
 ]
 
 export function PaperFormsModulePage() {
+  const navigate = useNavigate()
   const [forms, setForms] = useState<PaperFormListItem[]>([])
   const [workers, setWorkers] = useState<{ value: string; label: string }[]>([])
   const [filters, setFilters] = useState<PaperFormFilters>({})
@@ -185,7 +186,7 @@ export function PaperFormsModulePage() {
         onCreated={(id) => {
           setCreateOpen(false)
           load()
-          window.location.href = `/vykazy/papierove/${id}`
+          navigate(`/vykazy/papierove/${id}?tab=tisk`)
         }}
       />
     </AppLayout>
