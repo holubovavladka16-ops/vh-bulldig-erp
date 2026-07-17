@@ -55,7 +55,16 @@ const tableTop = headerTop + 36
 const tableBottom = 297 - M.bottom - footerH - qrZoneH
 const headerRowH = 6.2
 const rowH = (tableBottom - tableTop - headerRowH) / 31
-const cols = [5, 11, 16, 7, 7, 10, 22, 14, 9, CONTENT_W - 101]
+const cols = [5, 11, 41, 7, 7, 24, 48, 32, 9, 12]
+
+if (cols.reduce((a, b) => a + b, 0) !== CONTENT_W) {
+  console.error(`CHYBA: Součet šířek sloupců (${cols.reduce((a, b) => a + b, 0)}) ≠ CONTENT_W (${CONTENT_W})`)
+  failed = true
+}
+if (cols[cols.length - 1] > 20) {
+  console.error(`CHYBA: Sloupec Podpis je příliš široký (${cols[cols.length - 1]} mm)`)
+  failed = true
+}
 
 const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
 doc.setFillColor(255, 255, 255)
