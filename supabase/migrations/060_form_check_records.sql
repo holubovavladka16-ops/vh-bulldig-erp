@@ -27,13 +27,19 @@ CREATE INDEX IF NOT EXISTS idx_form_check_records_checked_at ON form_check_recor
 
 ALTER TABLE form_check_records ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admin čte záznamy kontroly formuláře"
+DO $$ BEGIN
+  CREATE POLICY "Admin čte záznamy kontroly formuláře"
   ON form_check_records FOR SELECT
   USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin zapisuje záznamy kontroly formuláře"
+DO $$ BEGIN
+  CREATE POLICY "Admin zapisuje záznamy kontroly formuláře"
   ON form_check_records FOR INSERT
   WITH CHECK (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 GRANT SELECT, INSERT ON form_check_records TO authenticated;
 

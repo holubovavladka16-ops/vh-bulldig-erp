@@ -38,5 +38,5 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           INITIAL_ADMIN_EMAIL: ${{ secrets.INITIAL_ADMIN_EMAIL }}
           INITIAL_ADMIN_PASSWORD: ${{ secrets.INITIAL_ADMIN_PASSWORD }}
-          PRODUCTION_URL: https://erp.vhbulldig.cz
+          PRODUCTION_URL: https://vh-bulldig-erp.vercel.app
         run: node scripts/verify-form-check-production.mjs
