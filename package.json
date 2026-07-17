@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
+    "@zxing/browser": "^0.2.1",
     "jspdf": "^3.0.4",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.475.0",

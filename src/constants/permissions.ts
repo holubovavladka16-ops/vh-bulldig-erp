@@ -27,6 +27,7 @@ export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   zakazky: ['administrator'],
   vykazy: ['administrator'],
   'papierove-vykazy': ['administrator'],
+  'kontrola-formulare': ['administrator'],
   'vyplatni-pasky': ['administrator'],
   denik: ['administrator'],
   ekonomika: ['administrator'],
