@@ -64,6 +64,36 @@ const MIGRATIONS = [
   { name: '061_form_check_phase5.sql', sql: MIGRATION_061 },
 ]
 
+async function applyMigrationsViaManagementApi(projectRef) {
+  const token = process.env.SUPABASE_ACCESS_TOKEN
+  if (!token) return null
+
+  const applied = []
+  for (const migration of MIGRATIONS) {
+    const response = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query: migration.sql }),
+    })
+
+    const body = await response.text()
+    if (!response.ok) {
+      const normalized = body.toLowerCase()
+      if (normalized.includes('already exists') || normalized.includes('duplicate_object')) {
+        applied.push(`${migration.name} (skip)`)
+        continue
+      }
+      throw new Error(`MGMT_API_${migration.name}: ${response.status} ${body.slice(0, 300)}`)
+    }
+    applied.push(migration.name)
+  }
+
+  return applied
+}
+
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -231,18 +261,37 @@ export default async function handler(req, res) {
       }
 
       const columns = await tableColumns(client)
-      return res.status(200).json({ ok: true, applied, columns })
+      return res.status(200).json({ ok: true, applied, columns, method: 'pg' })
     } finally {
       await client.end().catch(() => {})
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error'
-    if (message === 'SUPABASE_DB_PASSWORD_MISSING') {
+
+    if (message === 'SUPABASE_DB_PASSWORD_MISSING' || message.startsWith('DB_CONNECT_FAILED')) {
+      try {
+        const { url: supabaseUrl } = getSupabaseConfig()
+        const projectRef = getProjectRef(supabaseUrl)
+        const applied = await applyMigrationsViaManagementApi(projectRef)
+        if (applied) {
+          return res.status(200).json({ ok: true, applied, method: 'management_api' })
+        }
+      } catch (mgmtError) {
+        const mgmtMessage = mgmtError instanceof Error ? mgmtError.message : String(mgmtError)
+        return res.status(503).json({
+          error:
+            'Nelze připojit k databázi ani použít Management API. Nastavte SUPABASE_DB_PASSWORD, POSTGRES_URL nebo SUPABASE_ACCESS_TOKEN na Vercelu.',
+          detail: `${message} | ${mgmtMessage}`,
+        })
+      }
+
       return res.status(503).json({
         error:
-          'Na Vercelu chybí SUPABASE_DB_PASSWORD nebo POSTGRES_URL/DATABASE_URL. Nastavte je v Environment Variables projektu.',
+          'Na Vercelu chybí SUPABASE_DB_PASSWORD, POSTGRES_URL/DATABASE_URL nebo SUPABASE_ACCESS_TOKEN.',
+        detail: message,
       })
     }
+
     return res.status(500).json({ error: message })
   }
 }
