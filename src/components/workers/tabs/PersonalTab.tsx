@@ -14,6 +14,7 @@ import { fetchActiveJobOrders } from '@/lib/orders/api'
 import type { Worker, EmploymentType } from '@/types/workers'
 import { EMPLOYMENT_TYPE_LABELS, WORKER_STATUS_LABELS, formatDate } from '@/constants/workers'
 import { DateInput } from '@/components/ui/DateInput'
+import { PaperFormWorkerCard } from '@/components/paperForms/PaperFormWorkerCard'
 
 interface PersonalTabProps {
   worker: Worker
@@ -297,6 +298,7 @@ export function PersonalTab({ worker, isAdmin, onUpdate }: PersonalTabProps) {
           </div>
         </Card>
       </div>
+      {isAdmin && <PaperFormWorkerCard workerId={worker.id} isAdmin={isAdmin} />}
     </div>
   )
 }

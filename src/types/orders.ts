@@ -13,6 +13,7 @@ export interface JobOrder {
   start_date: string
   end_date: string
   order_number: string | null
+  short_code: string | null
   investor: string | null
   client_name: string | null
   contact_person: string | null

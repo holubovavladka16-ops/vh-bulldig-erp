@@ -29,6 +29,8 @@ import { ReceiptsModulePage } from '@/pages/receipts/ReceiptsModulePage'
 import { ContractsModulePage } from '@/pages/contracts/ContractsModulePage'
 import { ProfitOverviewPage } from '@/pages/profit/ProfitOverviewPage'
 import { DailyFormsModulePage } from '@/pages/dailyForms/DailyFormsModulePage'
+import { PaperFormsModulePage } from '@/pages/paperForms/PaperFormsModulePage'
+import { PaperFormDetailPage } from '@/pages/paperForms/PaperFormDetailPage'
 import { FUTURE_MODULES } from '@/constants/modules'
 
 const placeholderModules = FUTURE_MODULES.filter(
@@ -38,6 +40,7 @@ const placeholderModules = FUTURE_MODULES.filter(
       'delnici',
       'dochazka',
       'vykazy',
+      'papierove-vykazy',
       'vyplatni-pasky',
       'zakazky',
       'ekonomika',
@@ -112,6 +115,22 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="vykazy">
             <ReportsModulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vykazy/papierove"
+        element={
+          <ProtectedRoute requiredModule="papierove-vykazy">
+            <PaperFormsModulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vykazy/papierove/:id"
+        element={
+          <ProtectedRoute requiredModule="papierove-vykazy">
+            <PaperFormDetailPage />
           </ProtectedRoute>
         }
       />
