@@ -21,7 +21,7 @@ export function SettingsHubPage() {
     <AppLayout title="Nastavení">
       <PageHeader
         title="Nastavení systému"
-        description="Správa společnosti, profilu, rolí uživatelů a aplikace."
+        description="Správa společnosti, profilu, rolí uživatelů, aplikace a záloh dat."
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -54,6 +54,7 @@ function getSettingsDescription(id: string): string {
     'nastaveni-profil': 'Osobní profil administrátora a kontaktní údaje',
     'nastaveni-opravneni': 'Správa rolí uživatelů v systému',
     'nastaveni-aplikace': 'Vzhled, režim, notifikace a automatické ukládání',
+    'nastaveni-data': 'Export do Excelu, záloha databáze a vymazání testovacích dat',
   }
   return descriptions[id] ?? ''
 }

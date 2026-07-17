@@ -10,6 +10,7 @@ import { CompanySettingsPage } from '@/pages/settings/CompanySettingsPage'
 import { ProfileSettingsPage } from '@/pages/settings/ProfileSettingsPage'
 import { PermissionsSettingsPage } from '@/pages/settings/PermissionsSettingsPage'
 import { AppSettingsPage } from '@/pages/settings/AppSettingsPage'
+import { DataBackupSettingsPage } from '@/pages/settings/DataBackupSettingsPage'
 import { WorkersListPage } from '@/pages/workers/WorkersListPage'
 import { WorkerDetailPage } from '@/pages/workers/WorkerDetailPage'
 import { WorkerDetailRedirect } from '@/pages/workers/WorkerDetailRedirect'
@@ -316,6 +317,15 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="nastaveni-aplikace">
             <AppSettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/nastaveni/data"
+        element={
+          <ProtectedRoute requiredModule="nastaveni-data">
+            <DataBackupSettingsPage />
           </ProtectedRoute>
         }
       />

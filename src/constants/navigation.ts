@@ -34,4 +34,12 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
     icon: 'SlidersHorizontal',
     module: 'nastaveni-aplikace',
   },
+  {
+    id: 'nastaveni-data',
+    label: 'Data a zálohy',
+    path: '/nastaveni/data',
+    icon: 'Database',
+    module: 'nastaveni-data',
+    adminOnly: true,
+  },
 ]

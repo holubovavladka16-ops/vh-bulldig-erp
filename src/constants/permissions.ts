@@ -43,6 +43,7 @@ export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   'nastaveni-profil': ['administrator'],
   'nastaveni-opravneni': ['administrator'],
   'nastaveni-aplikace': ['administrator'],
+  'nastaveni-data': ['administrator'],
 }
 
 export function hasModuleAccess(role: UserRole, module: ModuleId): boolean {

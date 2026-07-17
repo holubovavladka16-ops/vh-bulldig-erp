@@ -22,6 +22,7 @@ import {
   SlidersHorizontal,
   Receipt,
   ScanLine,
+  Database,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -49,6 +50,7 @@ const iconMap: Record<string, LucideIcon> = {
   SlidersHorizontal,
   Receipt,
   ScanLine,
+  Database,
 }
 
 interface NavIconProps {

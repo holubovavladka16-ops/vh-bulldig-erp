@@ -39,7 +39,9 @@
     "verify-worker-save": "node scripts/local-stack/verify-worker-save.mjs",
     "verify-e2e": "node scripts/local-stack/verify-e2e.mjs",
     "production-data-cleanup": "node scripts/production-data-cleanup.mjs",
-    "production-data-cleanup-api": "node scripts/production-data-cleanup-api.mjs"
+    "production-data-cleanup-api": "node scripts/production-data-cleanup-api.mjs",
+    "test": "vitest run",
+    "test-data-backup": "vitest run src/lib/settings/dataBackup.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -69,6 +71,7 @@
     "tailwindcss": "^4.0.9",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^4.1.10"
   }
 }
