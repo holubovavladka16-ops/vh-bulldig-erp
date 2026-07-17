@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { GpsPreflightPanel } from '@/components/photos/GpsPreflightPanel'
 import { useGpsPreflight } from '@/hooks/useGpsPreflight'
+import { GPS_MAX_WAIT_MS } from '@/lib/photos/gpsWatch'
 import { forwardGeocode } from '@/lib/photos/geocoding'
 
 export interface MapStartFocus {
@@ -28,7 +29,10 @@ export function ExcavationStartPanel({ disabled, onMapReady }: ExcavationStartPa
   const [addressSearching, setAddressSearching] = useState(false)
   const [addressError, setAddressError] = useState('')
 
-  const gps = useGpsPreflight(gpsEnabled)
+  const gps = useGpsPreflight(gpsEnabled, {
+    maxWaitMs: GPS_MAX_WAIT_MS,
+    autoAcceptOnTimeout: false,
+  })
 
   const gpsReady =
     gps.position != null &&
