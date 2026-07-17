@@ -32,6 +32,8 @@ import { DailyFormsModulePage } from '@/pages/dailyForms/DailyFormsModulePage'
 import { PaperFormsModulePage } from '@/pages/paperForms/PaperFormsModulePage'
 import { PaperFormDetailPage } from '@/pages/paperForms/PaperFormDetailPage'
 import { FormCheckModulePage } from '@/pages/formCheck/FormCheckModulePage'
+import { FormCheckHistoryPage } from '@/pages/formCheck/FormCheckHistoryPage'
+import { FormCheckDetailPage } from '@/pages/formCheck/FormCheckDetailPage'
 import { FUTURE_MODULES } from '@/constants/modules'
 
 const placeholderModules = FUTURE_MODULES.filter(
@@ -143,6 +145,22 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="kontrola-formulare">
             <FormCheckModulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kontrola-formulare/historie"
+        element={
+          <ProtectedRoute requiredModule="kontrola-formulare">
+            <FormCheckHistoryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kontrola-formulare/historie/:id"
+        element={
+          <ProtectedRoute requiredModule="kontrola-formulare">
+            <FormCheckDetailPage />
           </ProtectedRoute>
         }
       />

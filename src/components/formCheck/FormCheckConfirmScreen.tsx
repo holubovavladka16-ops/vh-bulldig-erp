@@ -1,6 +1,8 @@
-import { Calendar, FileText, User } from 'lucide-react'
+import { Calendar, FileText, Tag, User } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { StatusBadge } from '@/components/ui/Badge'
+import { PAPER_FORM_STATUS_LABELS, PAPER_FORM_STATUS_VARIANT } from '@/constants/paperForms'
 import type { FormCheckContext } from '@/types/formCheck'
 
 interface FormCheckConfirmScreenProps {
@@ -47,6 +49,19 @@ export function FormCheckConfirmScreen({
           <div>
             <dt className="text-xs uppercase tracking-wide text-theme-secondary">Měsíc</dt>
             <dd className="mt-1 text-base font-medium text-theme-primary">{context.periodLabel}</dd>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--border-glass)] bg-white/5 px-4 py-3">
+          <Tag className="mt-0.5 h-5 w-5 shrink-0 text-theme-secondary" />
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-theme-secondary">Stav formuláře</dt>
+            <dd className="mt-2">
+              <StatusBadge
+                label={PAPER_FORM_STATUS_LABELS[context.status]}
+                variant={PAPER_FORM_STATUS_VARIANT[context.status]}
+              />
+            </dd>
           </div>
         </div>
       </dl>
