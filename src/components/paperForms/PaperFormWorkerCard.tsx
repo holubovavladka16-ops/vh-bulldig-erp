@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, FileStack, Printer, XCircle } from 'lucide-react'
+import { AlertTriangle, FilePlus2, FileStack, Printer, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { StatusBadge } from '@/components/ui/Badge'
-import { PaperFormDuplicateDialog } from '@/components/paperForms/PaperFormDuplicateDialog'
+import { PaperFormCreateModal } from '@/components/paperForms/PaperFormCreateModal'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
-import { useAuth } from '@/context/AuthContext'
 import {
-  DuplicateActivePaperFormError,
   cancelPaperMonthlyForm,
-  createPaperMonthlyFormForWorker,
-  createPaperMonthlyReplacementForm,
-  fetchPaperForm,
   fetchWorkerActivePaperForm,
   printPaperMonthlyFormPdf,
   type WorkerActivePaperForm,
@@ -33,7 +28,6 @@ interface PaperFormWorkerCardProps {
 
 export function PaperFormWorkerCard({ workerId, isAdmin }: PaperFormWorkerCardProps) {
   const navigate = useNavigate()
-  const { user } = useAuth()
   const { settings: companySettings } = useCompanySettings()
   const company = companySettings ?? { ...DEFAULT_COMPANY_SETTINGS, id: '', updated_at: '', updated_by: null }
 
@@ -44,8 +38,7 @@ export function PaperFormWorkerCard({ workerId, isAdmin }: PaperFormWorkerCardPr
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [duplicateFormId, setDuplicateFormId] = useState<string | null>(null)
-  const [duplicateFormNumber, setDuplicateFormNumber] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const uiStatus = useMemo(
     () => mapWorkerPaperFormStatus(activeForm?.status as PaperFormStatus | undefined),
@@ -70,59 +63,14 @@ export function PaperFormWorkerCard({ workerId, isAdmin }: PaperFormWorkerCardPr
     load()
   }, [load])
 
-  async function openDuplicateDialog(existingFormId: string) {
-    setDuplicateFormId(existingFormId)
-    try {
-      const existing = await fetchPaperForm(existingFormId)
-      setDuplicateFormNumber(existing?.form_number ?? null)
-    } catch {
-      setDuplicateFormNumber(null)
-    }
-  }
-
   async function handlePrintExisting(formId: string) {
     setBusy(true)
     setError('')
     try {
       await printPaperMonthlyFormPdf(formId, company)
-      setDuplicateFormId(null)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Tisk se nezdařil')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleCreateAndPrint() {
-    if (!isAdmin) return
-    setBusy(true)
-    setError('')
-    setDuplicateFormId(null)
-    try {
-      const formId = await createPaperMonthlyFormForWorker(workerId, month, year, user?.id ?? null)
-      await handlePrintExisting(formId)
-    } catch (err) {
-      if (err instanceof DuplicateActivePaperFormError) {
-        await openDuplicateDialog(err.existingFormId)
-        return
-      }
-      setError(err instanceof Error ? err.message : 'Vytvoření formuláře se nezdařilo')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleCreateReplacement() {
-    if (!isAdmin || !duplicateFormId) return
-    setBusy(true)
-    setError('')
-    try {
-      const formId = await createPaperMonthlyReplacementForm(workerId, month, year, user?.id ?? null)
-      setDuplicateFormId(null)
-      await handlePrintExisting(formId)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Vytvoření náhradního formuláře se nezdařilo')
     } finally {
       setBusy(false)
     }
@@ -188,14 +136,17 @@ export function PaperFormWorkerCard({ workerId, isAdmin }: PaperFormWorkerCardPr
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                loading={busy}
-                onClick={() => (activeForm ? handlePrintExisting(activeForm.id) : handleCreateAndPrint())}
-              >
-                <Printer className="h-4 w-4" />
-                {activeForm ? 'Vytisknout znovu' : 'Vytisknout měsíční formulář'}
-              </Button>
+              {activeForm ? (
+                <Button size="sm" loading={busy} onClick={() => void handlePrintExisting(activeForm.id)}>
+                  <Printer className="h-4 w-4" />
+                  Vytisknout znovu
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <FilePlus2 className="h-4 w-4" />
+                  Nový formulář
+                </Button>
+              )}
               {activeForm && uiStatus === 'waiting' && (
                 <Button size="sm" variant="danger" loading={busy} onClick={handleCancel}>
                   <XCircle className="h-4 w-4" />
@@ -218,18 +169,14 @@ export function PaperFormWorkerCard({ workerId, isAdmin }: PaperFormWorkerCardPr
         {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
       </Card>
 
-      <PaperFormDuplicateDialog
-        open={Boolean(duplicateFormId)}
-        formNumber={duplicateFormNumber}
-        loading={busy}
-        onOpenExisting={() => {
-          if (duplicateFormId) navigate(`/vykazy/papierove/${duplicateFormId}`)
+      <PaperFormCreateModal
+        open={createOpen}
+        preselectedWorkerId={workerId}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setCreateOpen(false)
+          void load()
         }}
-        onReprint={() => {
-          if (duplicateFormId) void handlePrintExisting(duplicateFormId)
-        }}
-        onCreateReplacement={() => void handleCreateReplacement()}
-        onCancel={() => setDuplicateFormId(null)}
       />
     </>
   )

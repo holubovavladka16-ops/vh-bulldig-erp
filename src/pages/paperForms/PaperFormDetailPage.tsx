@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Check, Download, Printer, UserPlus } from 'lucide-react'
+import { ArrowLeft, Check, Download, Printer } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { Select } from '@/components/ui/Select'
 import { StatusBadge } from '@/components/ui/Badge'
 import { PaperFormDuplicateDialog } from '@/components/paperForms/PaperFormDuplicateDialog'
 import { useAuth } from '@/context/AuthContext'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import {
-  DuplicateActivePaperFormError,
-  assignPaperFormWorker,
   commitPaperMonthlyForm,
   createPaperMonthlyReplacementForm,
   fetchPaperForm,
@@ -30,9 +27,9 @@ import { PAPER_FORM_STATUS_LABELS, PAPER_FORM_STATUS_VARIANT, formatPaperPeriod 
 import { DEFAULT_COMPANY_SETTINGS } from '@/types'
 import type { PaperFormAiLine, PaperFormLine, PaperFormStatus, PaperMonthlyForm } from '@/types/paperForms'
 
-type TabId = 'prehled' | 'priradit' | 'tisk' | 'import' | 'revize' | 'archiv'
+type TabId = 'prehled' | 'tisk' | 'import' | 'revize' | 'archiv'
 
-const TAB_IDS: TabId[] = ['prehled', 'priradit', 'tisk', 'import', 'revize', 'archiv']
+const TAB_IDS: TabId[] = ['prehled', 'tisk', 'import', 'revize', 'archiv']
 
 function parseTabParam(value: string | null): TabId | null {
   if (!value) return null
@@ -51,8 +48,11 @@ export function PaperFormDetailPage() {
   const [lines, setLines] = useState<PaperFormLine[]>([])
   const [workers, setWorkers] = useState<{ value: string; label: string }[]>([])
   const [orders, setOrders] = useState<{ value: string; label: string; code: string }[]>([])
-  const [selectedWorker, setSelectedWorker] = useState('')
-  const [tab, setTab] = useState<TabId>(() => parseTabParam(searchParams.get('tab')) ?? 'prehled')
+  const [tab, setTab] = useState<TabId>(() => {
+    const raw = searchParams.get('tab')
+    if (raw === 'priradit') return 'prehled'
+    return parseTabParam(raw) ?? 'prehled'
+  })
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -68,7 +68,6 @@ export function PaperFormDetailPage() {
       const [f, l] = await Promise.all([fetchPaperForm(id), fetchPaperFormLines(id)])
       setForm(f)
       setLines(l)
-      if (f?.worker_id) setSelectedWorker(f.worker_id)
       if (f?.scanned_photo_path) {
         setScanUrl(await getPaperFormScanUrl(f.scanned_photo_path))
       }
@@ -110,28 +109,6 @@ export function PaperFormDetailPage() {
     }
   }
 
-  async function handleAssign() {
-    if (!form || !selectedWorker) return
-    setBusy(true)
-    setError('')
-    setDuplicateFormId(null)
-    try {
-      await assignPaperFormWorker(form.id, selectedWorker)
-      const printed = await printPaperMonthlyFormPdf(form.id, company)
-      setForm(printed)
-      setLines(await fetchPaperFormLines(form.id))
-      setTab('tisk')
-    } catch (err) {
-      if (err instanceof DuplicateActivePaperFormError) {
-        await openDuplicateDialog(err.existingFormId)
-        return
-      }
-      setError(err instanceof Error ? err.message : 'Přiřazení se nezdařilo')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function handlePrint() {
     if (!form) return
     setBusy(true)
@@ -148,12 +125,12 @@ export function PaperFormDetailPage() {
   }
 
   async function handleCreateReplacementFromDuplicate() {
-    if (!form || !selectedWorker || !duplicateFormId) return
+    if (!form || !form.worker_id || !duplicateFormId) return
     setBusy(true)
     setError('')
     try {
       const newFormId = await createPaperMonthlyReplacementForm(
-        selectedWorker,
+        form.worker_id,
         form.month,
         form.year,
         user?.id ?? null
@@ -253,7 +230,6 @@ export function PaperFormDetailPage() {
 
   const tabs: { id: TabId; label: string }[] = [
     { id: 'prehled', label: 'Přehled' },
-    { id: 'priradit', label: 'Přiřadit zaměstnance' },
     { id: 'tisk', label: 'Tisk' },
     { id: 'import', label: 'Import' },
     { id: 'revize', label: 'Revize' },
@@ -313,19 +289,6 @@ export function PaperFormDetailPage() {
             <Button variant="secondary" size="sm" onClick={() => void handleStatusChange('distributed')}>Rozdané</Button>
             <Button variant="secondary" size="sm" onClick={() => void handleStatusChange('returned')}>Vrácené</Button>
           </div>
-        </Card>
-      )}
-
-      {tab === 'priradit' && (
-        <Card>
-          <p className="mb-4 text-sm text-theme-secondary">
-            Přiřazení lze provést zde nebo při prvním načtení QR. Každý den má vlastní zakázku.
-          </p>
-          <Select label="Zaměstnanec" options={workers} value={selectedWorker} onChange={(e) => setSelectedWorker(e.target.value)} />
-          <Button className="mt-4" onClick={handleAssign} loading={busy} disabled={!selectedWorker}>
-            <UserPlus className="h-4 w-4" />
-            Přiřadit zaměstnance
-          </Button>
         </Card>
       )}
 

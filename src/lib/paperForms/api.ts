@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { buildPaperMonthlyFormPdfBlob, getPaperFormPdfFilename } from '@/lib/paperForms/pdf'
-import { downloadPdfBlob } from '@/lib/print/pdfShare'
+import { downloadPdfBlob, openPdfBlobInNewTab } from '@/lib/print/pdfShare'
 import type { CompanySettings } from '@/types'
 import type {
   PaperFormAiLine,
@@ -315,7 +315,10 @@ export async function printPaperMonthlyFormPdf(
     throw new Error('Nejdříve přiřaďte zaměstnance, aby se do PDF doplnily údaje z karty.')
   }
   const blob = await buildPaperMonthlyFormPdfBlob(form, lines, company)
-  downloadPdfBlob(blob, getPaperFormPdfFilename(form))
+  const filename = getPaperFormPdfFilename(form)
+  if (!openPdfBlobInNewTab(blob)) {
+    downloadPdfBlob(blob, filename)
+  }
   await markPaperFormPrinted(form.id)
   return form
 }

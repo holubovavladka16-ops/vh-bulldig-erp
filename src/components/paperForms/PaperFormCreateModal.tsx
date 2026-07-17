@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FilePlus2, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { PaperFormDuplicateDialog } from '@/components/paperForms/PaperFormDuplicateDialog'
 import { useAuth } from '@/context/AuthContext'
@@ -22,9 +21,10 @@ interface PaperFormCreateModalProps {
   open: boolean
   onClose: () => void
   onCreated: (formId: string) => void
+  preselectedWorkerId?: string
 }
 
-export function PaperFormCreateModal({ open, onClose, onCreated }: PaperFormCreateModalProps) {
+export function PaperFormCreateModal({ open, onClose, onCreated, preselectedWorkerId }: PaperFormCreateModalProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { settings: companySettings } = useCompanySettings()
@@ -34,15 +34,14 @@ export function PaperFormCreateModal({ open, onClose, onCreated }: PaperFormCrea
   const [workers, setWorkers] = useState<{ value: string; label: string }[]>([])
   const [workerId, setWorkerId] = useState('')
   const [month, setMonth] = useState(String(now.getMonth() + 1))
-  const [year, setYear] = useState(String(now.getFullYear()))
+  const yearNumber = now.getFullYear()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [duplicateFormId, setDuplicateFormId] = useState<string | null>(null)
   const [duplicateFormNumber, setDuplicateFormNumber] = useState<string | null>(null)
 
   const monthNumber = Number(month)
-  const yearNumber = Number(year)
-  const canSubmit = Boolean(workerId && month && year && monthNumber >= 1 && monthNumber <= 12 && yearNumber >= 2020)
+  const canSubmit = Boolean(workerId && month && monthNumber >= 1 && monthNumber <= 12)
 
   useEffect(() => {
     if (!open) return
@@ -53,14 +52,15 @@ export function PaperFormCreateModal({ open, onClose, onCreated }: PaperFormCrea
 
   useEffect(() => {
     if (!open) {
-      setWorkerId('')
+      setWorkerId(preselectedWorkerId ?? '')
       setMonth(String(new Date().getMonth() + 1))
-      setYear(String(new Date().getFullYear()))
       setError('')
       setDuplicateFormId(null)
       setDuplicateFormNumber(null)
+    } else if (preselectedWorkerId) {
+      setWorkerId(preselectedWorkerId)
     }
-  }, [open])
+  }, [open, preselectedWorkerId])
 
   if (!open) return null
 
@@ -82,7 +82,7 @@ export function PaperFormCreateModal({ open, onClose, onCreated }: PaperFormCrea
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!canSubmit) {
-      setError('Vyplňte měsíc, rok a zaměstnance')
+      setError('Vyberte zaměstnance a měsíc')
       return
     }
 
@@ -147,7 +147,7 @@ export function PaperFormCreateModal({ open, onClose, onCreated }: PaperFormCrea
         <div className="modal-panel modal-panel-md glass-panel neon-border flex max-h-[100dvh] flex-col overflow-hidden sm:max-h-[92vh]">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-glass)] pb-4">
             <h2 id="paper-form-create-title" className="text-lg font-semibold text-theme-primary sm:text-xl">
-              Nový papírový formulář
+              Nový formulář
             </h2>
             <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-white/5" aria-label="Zavřít">
               <X className="h-5 w-5" />
@@ -156,8 +156,7 @@ export function PaperFormCreateModal({ open, onClose, onCreated }: PaperFormCrea
 
           <div className="flex-1 overflow-y-auto py-4 scrollbar-premium">
             <p className="mb-4 text-sm text-theme-secondary">
-              Vyberte zaměstnance, měsíc a rok. Po vytvoření se formulář uloží a automaticky vygeneruje PDF ke stažení
-              nebo náhledu.
+              Vyberte zaměstnance a měsíc. Systém automaticky načte údaje z osobní karty, uloží formulář a otevře PDF.
             </p>
 
             <form id="paper-form-create" onSubmit={handleSubmit} className="space-y-4">
@@ -166,26 +165,16 @@ export function PaperFormCreateModal({ open, onClose, onCreated }: PaperFormCrea
                 options={[{ value: '', label: '— Vyberte zaměstnance —' }, ...workers]}
                 value={workerId}
                 onChange={(e) => setWorkerId(e.target.value)}
+                disabled={Boolean(preselectedWorkerId)}
                 required
               />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Select
-                  label="Měsíc *"
-                  options={MONTH_NAMES.map((label, i) => ({ value: String(i + 1), label }))}
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  required
-                />
-                <Input
-                  label="Rok *"
-                  type="number"
-                  min={2020}
-                  max={2100}
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  required
-                />
-              </div>
+              <Select
+                label={`Měsíc * (rok ${yearNumber})`}
+                options={MONTH_NAMES.map((label, i) => ({ value: String(i + 1), label }))}
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                required
+              />
               {error && <p className="text-sm text-red-400">{error}</p>}
             </form>
           </div>

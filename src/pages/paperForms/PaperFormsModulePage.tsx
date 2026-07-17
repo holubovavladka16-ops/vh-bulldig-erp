@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { FileStack, Plus, ScanLine } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -23,7 +23,6 @@ const MONTH_OPTIONS = [
 ]
 
 export function PaperFormsModulePage() {
-  const navigate = useNavigate()
   const [forms, setForms] = useState<PaperFormListItem[]>([])
   const [workers, setWorkers] = useState<{ value: string; label: string }[]>([])
   const [filters, setFilters] = useState<PaperFormFilters>({})
@@ -130,7 +129,7 @@ export function PaperFormsModulePage() {
           <FileStack className="mx-auto mb-4 h-12 w-12 text-theme-muted" />
           <h2 className="text-lg font-semibold text-theme-primary">Zatím žádné papírové formuláře</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-theme-secondary">
-            Vytvořte nový měsíční formulář, přiřaďte zaměstnance, vytiskněte ho a po vyplnění importujte přes QR kód.
+            Vytvořte nový měsíční formulář výběrem zaměstnance a měsíce. PDF se vygeneruje automaticky.
           </p>
           <Button className="mt-6" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -183,10 +182,9 @@ export function PaperFormsModulePage() {
       <PaperFormCreateModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(id) => {
+        onCreated={() => {
           setCreateOpen(false)
           load()
-          navigate(`/vykazy/papierove/${id}?tab=tisk`)
         }}
       />
     </AppLayout>
