@@ -55,14 +55,10 @@ const tableTop = headerTop + 36
 const tableBottom = 297 - M.bottom - footerH - qrZoneH
 const headerRowH = 6.2
 const rowH = (tableBottom - tableTop - headerRowH) / 31
-const cols = [5, 11, 41, 7, 7, 24, 48, 32, 9, 12]
+const cols = [5, 11, 71, 7, 7, 15, 15, 15, 20, 30]
 
 if (cols.reduce((a, b) => a + b, 0) !== CONTENT_W) {
   console.error(`CHYBA: Součet šířek sloupců (${cols.reduce((a, b) => a + b, 0)}) ≠ CONTENT_W (${CONTENT_W})`)
-  failed = true
-}
-if (cols[cols.length - 1] > 20) {
-  console.error(`CHYBA: Sloupec Podpis je příliš široký (${cols[cols.length - 1]} mm)`)
   failed = true
 }
 

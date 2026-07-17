@@ -55,14 +55,14 @@ const QR_SIZE = 20
 export const PAPER_FORM_TABLE_COLUMNS = [
   { key: 'den', label: 'Den', w: 5 },
   { key: 'datum', label: 'Datum', w: 11 },
-  { key: 'zakazka', label: 'Zakázka', w: 41 },
+  { key: 'zakazka', label: 'Zakázka', w: 71 },
   { key: 'od', label: 'Od', w: 7 },
   { key: 'do', label: 'Do', w: 7 },
-  { key: 'hodiny', label: 'Celkem\nhodin', w: 24 },
-  { key: 'vykop', label: 'Ruční výkop\nhloubka 50–70 cm\n(bm)', w: 48 },
-  { key: 'pruraz', label: 'Průraz do\nobjektu (ks)', w: 32 },
-  { key: 'zaloha', label: 'Záloha\n(Kč)', w: 9 },
-  { key: 'podpis', label: 'Podpis', w: 12 },
+  { key: 'hodiny', label: 'Celkem\nhodin', w: 15 },
+  { key: 'vykop', label: 'Ruční výkop\nhloubka 50–70 cm\n(bm)', w: 15 },
+  { key: 'pruraz', label: 'Průraz do\nobjektu (ks)', w: 15 },
+  { key: 'zaloha', label: 'Záloha\n(Kč)', w: 20 },
+  { key: 'podpis', label: 'Podpis', w: 30 },
 ] as const
 
 const TABLE_WIDTH = PAPER_FORM_TABLE_COLUMNS.reduce((sum, col) => sum + col.w, 0)
