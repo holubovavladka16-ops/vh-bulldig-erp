@@ -343,7 +343,7 @@ if (form) {
   const attRes = await rest(
     token,
     'GET',
-    `worker_attendance_records?select=attendance_date,hours,order_id,daily_advance,note,meters,pieces&worker_id=eq.${form.worker_id}&attendance_date=gte.${dateFrom}&attendance_date=lte.${dateTo}&limit=5`
+    `worker_attendance_records?select=attendance_date,hours,order_id,note&worker_id=eq.${form.worker_id}&attendance_date=gte.${dateFrom}&attendance_date=lte.${dateTo}&limit=5`
   )
   if (!attRes.ok) {
     fail('Načtení docházky', JSON.stringify(attRes.data).slice(0, 200))
@@ -359,9 +359,9 @@ if (form) {
           orderCode: null,
           orderName: null,
           performanceHours: row.hours ?? null,
-          manualDigBm: row.meters ?? null,
-          penetrationKs: row.pieces ?? null,
-          dailyAdvance: row.daily_advance ?? null,
+          manualDigBm: null,
+          penetrationKs: null,
+          dailyAdvance: null,
           note: row.note ?? '',
           confidence: 0.95,
         },
@@ -377,9 +377,9 @@ if (ocrResult) {
     hours: row.hours ?? null,
     orderCode: null,
     orderName: null,
-    manualDigBm: row.meters ?? null,
-    penetrationKs: row.pieces ?? null,
-    advance: row.daily_advance ?? null,
+    manualDigBm: null,
+    penetrationKs: null,
+    advance: null,
     note: row.note ?? null,
   }))
   comparisonResult = compareFormWithAttendance(ocrResult, erpDays)

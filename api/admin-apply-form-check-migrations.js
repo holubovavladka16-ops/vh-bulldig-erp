@@ -105,13 +105,52 @@ function buildConnectionCandidates(projectRef, dbPassword) {
   return [...new Set(candidates.filter(Boolean))]
 }
 
+function getDbPassword() {
+  if (process.env.SUPABASE_DB_PASSWORD) {
+    return process.env.SUPABASE_DB_PASSWORD
+  }
+
+  for (const key of ['POSTGRES_URL', 'DATABASE_URL', 'SUPABASE_DB_URL', 'SUPABASE_DB_DIRECT_URL']) {
+    const value = process.env[key]
+    if (!value) continue
+    try {
+      const parsed = new URL(value)
+      if (parsed.password) {
+        return decodeURIComponent(parsed.password)
+      }
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  return null
+}
+
 async function connectDb(projectRef) {
-  const dbPassword = process.env.SUPABASE_DB_PASSWORD
+  const errors = []
+
+  for (const key of ['POSTGRES_URL', 'DATABASE_URL', 'SUPABASE_DB_URL', 'SUPABASE_DB_DIRECT_URL']) {
+    const url = process.env[key]
+    if (!url) continue
+    const client = new pg.Client({
+      connectionString: url,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 15000,
+    })
+    try {
+      await client.connect()
+      return client
+    } catch (error) {
+      errors.push(`${key}: ${error.message}`)
+      await client.end().catch(() => {})
+    }
+  }
+
+  const dbPassword = getDbPassword()
   if (!dbPassword) {
     throw new Error('SUPABASE_DB_PASSWORD_MISSING')
   }
 
-  const errors = []
   for (const url of buildConnectionCandidates(projectRef, dbPassword)) {
     const client = new pg.Client({
       connectionString: url,
@@ -200,7 +239,8 @@ export default async function handler(req, res) {
     const message = err instanceof Error ? err.message : 'Internal error'
     if (message === 'SUPABASE_DB_PASSWORD_MISSING') {
       return res.status(503).json({
-        error: 'Na Vercelu chybí SUPABASE_DB_PASSWORD. Nastavte ho v Environment Variables projektu.',
+        error:
+          'Na Vercelu chybí SUPABASE_DB_PASSWORD nebo POSTGRES_URL/DATABASE_URL. Nastavte je v Environment Variables projektu.',
       })
     }
     return res.status(500).json({ error: message })
