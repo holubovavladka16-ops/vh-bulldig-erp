@@ -39,7 +39,16 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
-        run: node scripts/production-data-cleanup.mjs --audit
+          INITIAL_ADMIN_EMAIL: ${{ secrets.INITIAL_ADMIN_EMAIL }}
+          INITIAL_ADMIN_PASSWORD: ${{ secrets.INITIAL_ADMIN_PASSWORD }}
+        run: |
+          set -a && [ -f .env.production ] && . ./.env.production && set +a
+          if [ -n "$SUPABASE_DB_PASSWORD" ]; then
+            node scripts/production-data-cleanup.mjs --audit
+          else
+            echo "SUPABASE_DB_PASSWORD není nastaven – audit přes REST API"
+            node scripts/production-data-cleanup-api.mjs --audit
+          fi
 
       - name: Execute production data cleanup
         env:
@@ -51,11 +60,17 @@ jobs:
           INITIAL_ADMIN_PASSWORD: ${{ secrets.INITIAL_ADMIN_PASSWORD }}
           PRODUCTION_CLEANUP_CONFIRM: 'YES'
         run: |
+          set -a && [ -f .env.production ] && . ./.env.production && set +a
           ARGS="--execute"
           if [ "${{ github.event.inputs.smoke_test || 'true' }}" = "true" ]; then
             ARGS="$ARGS --smoke-test"
           fi
-          node scripts/production-data-cleanup.mjs $ARGS
+          if [ -n "$SUPABASE_DB_PASSWORD" ]; then
+            node scripts/production-data-cleanup.mjs $ARGS
+          else
+            echo "SUPABASE_DB_PASSWORD není nastaven – mazání přes REST API"
+            node scripts/production-data-cleanup-api.mjs $ARGS
+          fi
 
       - name: Upload backup artifact
         if: always()
@@ -73,6 +88,7 @@ jobs:
           INITIAL_ADMIN_EMAIL: ${{ secrets.INITIAL_ADMIN_EMAIL }}
           INITIAL_ADMIN_PASSWORD: ${{ secrets.INITIAL_ADMIN_PASSWORD }}
         run: |
+          set -a && [ -f .env.production ] && . ./.env.production && set +a
           npm run verify-all-modules
           npm run verify-paper-forms
 
@@ -81,5 +97,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
+          set -a && [ -f .env.production ] && . ./.env.production && set +a
           npm run lint
           npm run build

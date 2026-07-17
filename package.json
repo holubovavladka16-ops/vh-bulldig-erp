@@ -38,7 +38,8 @@
     "deploy-notify-login": "node scripts/deploy-notify-login.mjs",
     "verify-worker-save": "node scripts/local-stack/verify-worker-save.mjs",
     "verify-e2e": "node scripts/local-stack/verify-e2e.mjs",
-    "production-data-cleanup": "node scripts/production-data-cleanup.mjs"
+    "production-data-cleanup": "node scripts/production-data-cleanup.mjs",
+    "production-data-cleanup-api": "node scripts/production-data-cleanup-api.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
