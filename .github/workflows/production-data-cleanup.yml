@@ -1,0 +1,85 @@
+name: Production Data Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      smoke_test:
+        description: 'Spustit smoke test po vyčištění'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/production-data-cleanup.mjs'
+      - '.github/workflows/production-data-cleanup.yml'
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit production data (pre-cleanup)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+        run: node scripts/production-data-cleanup.mjs --audit
+
+      - name: Execute production data cleanup
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+          INITIAL_ADMIN_EMAIL: ${{ secrets.INITIAL_ADMIN_EMAIL }}
+          INITIAL_ADMIN_PASSWORD: ${{ secrets.INITIAL_ADMIN_PASSWORD }}
+          PRODUCTION_CLEANUP_CONFIRM: 'YES'
+        run: |
+          ARGS="--execute"
+          if [ "${{ github.event.inputs.smoke_test || 'true' }}" = "true" ]; then
+            ARGS="$ARGS --smoke-test"
+          fi
+          node scripts/production-data-cleanup.mjs $ARGS
+
+      - name: Upload backup artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-cleanup-backup-${{ github.run_id }}
+          path: backups/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Verify modules after cleanup
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          INITIAL_ADMIN_EMAIL: ${{ secrets.INITIAL_ADMIN_EMAIL }}
+          INITIAL_ADMIN_PASSWORD: ${{ secrets.INITIAL_ADMIN_PASSWORD }}
+        run: |
+          npm run verify-all-modules
+          npm run verify-paper-forms
+
+      - name: Build and lint
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          npm run lint
+          npm run build
