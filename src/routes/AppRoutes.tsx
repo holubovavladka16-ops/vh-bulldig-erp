@@ -31,6 +31,7 @@ import { ProfitOverviewPage } from '@/pages/profit/ProfitOverviewPage'
 import { DailyFormsModulePage } from '@/pages/dailyForms/DailyFormsModulePage'
 import { PaperFormsModulePage } from '@/pages/paperForms/PaperFormsModulePage'
 import { PaperFormDetailPage } from '@/pages/paperForms/PaperFormDetailPage'
+import { FormCheckModulePage } from '@/pages/formCheck/FormCheckModulePage'
 import { FUTURE_MODULES } from '@/constants/modules'
 
 const placeholderModules = FUTURE_MODULES.filter(
@@ -41,6 +42,7 @@ const placeholderModules = FUTURE_MODULES.filter(
       'dochazka',
       'vykazy',
       'papierove-vykazy',
+      'kontrola-formulare',
       'vyplatni-pasky',
       'zakazky',
       'ekonomika',
@@ -132,6 +134,15 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="papierove-vykazy">
             <PaperFormDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/kontrola-formulare"
+        element={
+          <ProtectedRoute requiredModule="kontrola-formulare">
+            <FormCheckModulePage />
           </ProtectedRoute>
         }
       />
