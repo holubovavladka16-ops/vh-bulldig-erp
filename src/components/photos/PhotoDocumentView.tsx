@@ -23,12 +23,7 @@ import {
   getStaticMapImageUrl,
   getStreetViewUrl,
 } from '@/lib/photos/mapLinks'
-import {
-  buildPhotoShareText,
-  getEmailShareUrl,
-  getMessengerShareUrl,
-  getWhatsAppShareUrl,
-} from '@/lib/photos/share'
+import { shareGpsPhoto } from '@/lib/photos/sharePayload'
 import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
 import { logGpsPhotoShare } from '@/lib/photos/api'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
@@ -70,7 +65,6 @@ export function PhotoDocumentView({
 }: PhotoDocumentViewProps) {
   const { settings: company } = useCompanySettings()
   const sharePhoto = { ...photo, note: note || photo.note }
-  const shareText = buildPhotoShareText(sharePhoto)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const orderName = getOrderDisplayName(photo)
   const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
@@ -96,22 +90,19 @@ export function PhotoDocumentView({
     void logShare('pdf_tisk')
   }
 
-  async function handleNativeShare() {
-    const payload = {
-      title: `Fotodokumentace – ${orderName}`,
-      text: shareText,
-      url: mapUrl,
-    }
+  async function handleShare(channel: 'whatsapp' | 'messenger' | 'email' | 'native') {
     try {
-      if (navigator.share) {
-        await navigator.share(payload)
-        await logShare('native_share')
-        return
+      const result = await shareGpsPhoto(sharePhoto, channel)
+      if (result.outcome === 'cancelled') return
+      if (result.outcome === 'copied') {
+        window.alert('Zpráva a odkaz byly zkopírovány do schránky. Přiložte staženou fotografii ke sdílení.')
       }
-      await navigator.clipboard.writeText(`${shareText}\n\n${mapUrl}`)
-      await logShare('clipboard')
-    } catch {
-      // uživatel zrušil sdílení
+      if (result.outcome === 'downloaded' || result.outcome === 'opened') {
+        window.alert('Fotografie s údaji byla stažena. Přiložte ji ke zprávě nebo e-mailu.')
+      }
+      await logShare(channel === 'native' ? 'native_share' : channel)
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Sdílení fotografie se nezdařilo.')
     }
   }
 
@@ -259,30 +250,29 @@ export function PhotoDocumentView({
               Sdílení (WhatsApp / Messenger / e-mail):
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <ShareLink
-                href={getWhatsAppShareUrl(shareText)}
-                onClick={() => logShare('whatsapp')}
+              <ShareButton
+                onClick={() => void handleShare('whatsapp')}
                 label="WhatsApp"
                 icon={<MessageCircle className="h-5 w-5" />}
                 className="border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
               />
-              <ShareLink
-                href={getEmailShareUrl(shareText)}
-                onClick={() => logShare('email')}
+              <ShareButton
+                onClick={() => void handleShare('email')}
                 label="E-mail"
                 icon={<Mail className="h-5 w-5" />}
                 className="border-sky-500/40 text-sky-300 hover:bg-sky-500/10"
               />
-              <ShareLink
-                href={getMessengerShareUrl(shareText, mapUrl)}
-                onClick={() => logShare('messenger')}
-                label="Messenger"
-                icon={<Send className="h-5 w-5" />}
-                className="border-blue-500/40 text-blue-300 hover:bg-blue-500/10"
-              />
               <button
                 type="button"
-                onClick={() => void handleNativeShare()}
+                onClick={() => void handleShare('messenger')}
+                className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl border border-blue-500/40 px-2 py-2 text-blue-300 transition hover:bg-blue-500/10"
+              >
+                <Send className="h-5 w-5" />
+                <span className="text-[10px] font-semibold uppercase">Messenger</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleShare('native')}
                 className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl border border-violet-500/40 px-2 py-2 text-violet-300 transition hover:bg-violet-500/10"
               >
                 <Share2 className="h-5 w-5" />
@@ -318,30 +308,26 @@ export function PhotoDocumentView({
   )
 }
 
-function ShareLink({
-  href,
+function ShareButton({
   onClick,
   label,
   icon,
   className,
 }: {
-  href: string
   onClick: () => void
   label: string
   icon: ReactNode
   className: string
 }) {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
       onClick={onClick}
       className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 transition ${className}`}
     >
       {icon}
       <span className="text-[10px] font-semibold uppercase">{label}</span>
-    </a>
+    </button>
   )
 }
 

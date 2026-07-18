@@ -4,6 +4,7 @@ import { parseDateParts } from '@/lib/dates'
 export const ADDRESS_GEOCODE_FAILED = 'Adresa se nepodařila načíst, souřadnice jsou uloženy.'
 export const ADDRESS_LOADING_LABEL = 'Adresa se načítá'
 export const ADDRESS_UNAVAILABLE_LABEL = 'Adresa nedostupná'
+export const ADDRESS_PENDING = 'Adresa se doplňuje'
 
 export function formatGpsCoordinates(lat: number, lng: number): string {
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`
@@ -92,11 +93,34 @@ export function getOrderDisplayName(photo: GpsPhoto): string {
   return photo.order_name?.trim() || 'OBECNÉ STAVENIŠTĚ'
 }
 
+export function getPhotoAuthorName(photo: Pick<GpsPhoto, 'creator_name' | 'worker_name'>): string {
+  return photo.creator_name?.trim() || photo.worker_name?.trim() || '—'
+}
+
+export function formatPhotoShareAddress(
+  photo: Pick<GpsPhoto, 'address_full' | 'gps_lat' | 'gps_lng' | 'street' | 'city' | 'postal_code'>
+): string {
+  const addr = photo.address_full?.trim()
+  if (addr && !isLikelyCoordinateAddress(addr)) {
+    return addr
+  }
+  const street = photo.street?.trim()
+  const city = photo.city?.trim()
+  if (street || city) {
+    const cityPart = [city, photo.postal_code?.trim() ? `(${photo.postal_code.trim()})` : ''].filter(Boolean).join(' ')
+    return [street, cityPart].filter(Boolean).join(', ')
+  }
+  if (!addr && !street && !city) {
+    return ADDRESS_PENDING
+  }
+  return formatPhotoAddress(photo)
+}
+
 export function geocodeFallbackAddress(lat?: number, lng?: number) {
   void lat
   void lng
   return {
-    address_full: ADDRESS_UNAVAILABLE_LABEL,
+    address_full: ADDRESS_GEOCODE_FAILED,
     street: '',
     city: '',
     postal_code: '',

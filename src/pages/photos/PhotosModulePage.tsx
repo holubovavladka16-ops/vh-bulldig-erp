@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Camera, LayoutGrid, Map } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -22,6 +23,7 @@ type GalleryView = 'list' | 'map'
 
 export function PhotosModulePage() {
   const { user, profile } = useAuth()
+  const [searchParams] = useSearchParams()
   const creatorName = profile?.full_name?.trim() || user?.email || '—'
 
   const [photos, setPhotos] = useState<GpsPhoto[]>([])
@@ -58,6 +60,13 @@ export function PhotosModulePage() {
     const timeout = setTimeout(load, 250)
     return () => clearTimeout(timeout)
   }, [load])
+
+  useEffect(() => {
+    const photoId = searchParams.get('foto')?.trim()
+    if (!photoId) return
+    setSelectedPhotoId(photoId)
+    setPageView('gallery')
+  }, [searchParams])
 
   function handlePhotoCreated() {
     void load()
