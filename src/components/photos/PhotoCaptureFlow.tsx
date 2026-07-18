@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import {
   ArrowLeft,
   Camera,
@@ -72,13 +72,16 @@ export function PhotoCaptureFlow({
   const [note, setNote] = useState('')
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
   const [saving, setSaving] = useState(false)
+  const [capturing, setCapturing] = useState(false)
   const [error, setError] = useState('')
+  const capturingRef = useRef(false)
 
   const gps = useGpsPreflight(active && phase === 'camera')
   const camera = useCameraStream({ enabled: active && phase === 'camera' })
 
   const gpsReady = gps.canCapture && !saving
-  const canCapture = gpsReady && camera.canCapture
+  const cameraReady = camera.canCapture
+  const canShoot = gpsReady && cameraReady && !capturing
   const showGpsOverlay = !camera.needsUserStart
   const showNativeCamera =
     isTouchDevice() &&
@@ -139,13 +142,32 @@ export function PhotoCaptureFlow({
   }
 
   async function handleCameraCapture() {
-    if (!canCapture) return
-    const result = await camera.captureFrame()
-    if (!result.file) {
-      setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
+    if (capturingRef.current) return
+
+    if (!gps.position) {
+      setError('GPS poloha není připravena. Počkejte na zaměření.')
       return
     }
-    await takeSnapshot(result.file)
+    if (!gps.canCapture) {
+      setError('Počkejte na GPS zaměření nebo klepněte „Focení povolit“.')
+      return
+    }
+
+    capturingRef.current = true
+    setCapturing(true)
+    setError('')
+
+    try {
+      const result = await camera.captureFrame()
+      if (!result.file) {
+        setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
+        return
+      }
+      await takeSnapshot(result.file)
+    } finally {
+      capturingRef.current = false
+      setCapturing(false)
+    }
   }
 
   function handleGalleryInput(e: ChangeEvent<HTMLInputElement>) {
@@ -258,12 +280,21 @@ export function PhotoCaptureFlow({
 
             <button
               type="button"
-              className={`photo-capture-btn photo-capture-btn--primary ${!canCapture ? 'photo-capture-btn--disabled' : ''}`}
-              disabled={!canCapture}
+              className={`photo-capture-btn photo-capture-btn--primary ${!canShoot && !capturing ? 'photo-capture-btn--disabled' : ''} ${capturing ? 'photo-capture-btn--busy' : ''}`}
+              aria-disabled={capturing || undefined}
               onClick={() => void handleCameraCapture()}
             >
-              <Camera className="h-6 w-6" />
-              Vyfotit
+              {capturing ? (
+                <>
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  Pořizuji…
+                </>
+              ) : (
+                <>
+                  <Camera className="h-6 w-6" />
+                  Vyfotit
+                </>
+              )}
             </button>
 
             {showNativeCamera && (

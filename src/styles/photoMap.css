@@ -227,5 +227,11 @@
 .photo-capture-btn--disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.photo-capture-btn--busy,
+.photo-capture-btn[aria-disabled='true'] {
+  cursor: wait;
+  opacity: 0.75;
   pointer-events: none;
 }

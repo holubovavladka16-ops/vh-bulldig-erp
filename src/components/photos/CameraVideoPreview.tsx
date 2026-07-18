@@ -1,6 +1,7 @@
 import { Camera } from 'lucide-react'
 import type { CameraPhase, CameraStartupDiagnostics } from '@/hooks/useCameraStream'
 import { CameraDiagnosticsPanel } from '@/components/photos/CameraDiagnosticsPanel'
+import { isCameraDebugEnabled } from '@/lib/photos/cameraDebug'
 
 interface CameraVideoPreviewProps {
   setVideoRef: (el: HTMLVideoElement | null) => void
@@ -9,7 +10,7 @@ interface CameraVideoPreviewProps {
   errorMessage: string | null
   needsUserStart: boolean
   onStart: () => void
-  diagnostics: CameraStartupDiagnostics
+  diagnostics?: CameraStartupDiagnostics
 }
 
 /** Always-mounted <video> so MediaStream can attach before preview is ready (Android PWA). */
@@ -23,17 +24,20 @@ export function CameraVideoPreview({
   diagnostics,
 }: CameraVideoPreviewProps) {
   const showWaiting = !isStreamReady && !needsUserStart
+  const showDiagnostics = isCameraDebugEnabled() && diagnostics
 
   return (
     <>
       <video ref={setVideoRef} className="photo-camera-video" playsInline muted autoPlay />
 
-      <CameraDiagnosticsPanel
-        diagnostics={diagnostics}
-        phase={phase}
-        errorMessage={errorMessage}
-        overlay
-      />
+      {showDiagnostics && (
+        <CameraDiagnosticsPanel
+          diagnostics={diagnostics}
+          phase={phase}
+          errorMessage={errorMessage}
+          overlay
+        />
+      )}
 
       {needsUserStart && (
         <div className="photo-camera-start-overlay">
