@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import '@/styles/photoMap.css'
 import { CameraVideoPreview } from '@/components/photos/CameraVideoPreview'
+import { PhotoLocationPreview } from '@/components/photos/PhotoLocationPreview'
 import { GpsCameraOverlay } from '@/components/photos/GpsCameraOverlay'
 import { useGpsPreflight } from '@/hooks/useGpsPreflight'
 import { isTouchDevice, useCameraStream } from '@/hooks/useCameraStream'
@@ -373,14 +374,22 @@ export function PhotoCaptureFlow({
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl border border-[var(--border-glass)] bg-black/40">
-          <img
-            src={snapshot.previewUrl}
-            alt="Pořízená fotografie"
-            className="max-h-[360px] w-full object-contain"
-          />
-        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-3">
+            <div className="overflow-hidden rounded-2xl border border-[var(--border-glass)] bg-black/40">
+              <img
+                src={snapshot.previewUrl}
+                alt="Pořízená fotografie"
+                className="max-h-[360px] w-full object-contain"
+              />
+            </div>
+            <PhotoLocationPreview
+              lat={snapshot.position.lat}
+              lng={snapshot.position.lng}
+              address={snapshot.address.address_full}
+              accuracy={snapshot.position.accuracy}
+            />
+          </div>
 
         <div className="space-y-4">
           <Select
