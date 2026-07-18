@@ -1,5 +1,4 @@
-import { useRef } from 'react'
-import { Loader2, ScanLine } from 'lucide-react'
+import { Camera, Loader2, ScanLine } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { useCameraStream } from '@/hooks/useCameraStream'
 import { useQrScanner } from '@/hooks/useQrScanner'
@@ -20,35 +19,45 @@ export function QrScannerView({
   error,
   onDismissError,
 }: QrScannerViewProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null)
   const camera = useCameraStream({ enabled: active && !resolving, facingMode: 'environment' })
   const scanner = useQrScanner({
-    enabled: active && !resolving && camera.isActive,
+    enabled: active && !resolving && camera.canCapture,
     videoRef: camera.videoRef,
     onScan,
   })
 
   const displayError =
-    error?.message ?? camera.error ?? scanner.error ?? null
+    error?.message ?? camera.errorMessage ?? scanner.error ?? null
 
   return (
     <Card className="overflow-hidden" padding={false}>
       <div className="relative aspect-[3/4] w-full max-w-lg mx-auto bg-black/40 sm:aspect-[4/3]">
         <video
-          ref={(el) => {
-            videoRef.current = el
-            camera.videoRef.current = el
-          }}
+          ref={camera.setVideoRef}
           className="absolute inset-0 h-full w-full object-cover"
           playsInline
           muted
+          autoPlay
         />
 
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="h-48 w-48 rounded-2xl border-2 border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)] sm:h-56 sm:w-56" />
         </div>
 
-        {(camera.phase === 'starting' || resolving) && (
+        {camera.needsUserStart && (
+          <div className="photo-camera-start-overlay">
+            <button
+              type="button"
+              className="photo-capture-btn photo-capture-btn--primary"
+              onClick={() => void camera.start()}
+            >
+              <Camera className="h-6 w-6" />
+              Spustit kameru
+            </button>
+          </div>
+        )}
+
+        {(camera.phase === 'starting' || resolving) && !camera.needsUserStart && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/50">
             <Loader2 className="h-8 w-8 animate-spin text-white" />
             <p className="text-sm text-white/90">
@@ -57,7 +66,7 @@ export function QrScannerView({
           </div>
         )}
 
-        {scanner.scanning && camera.isActive && !resolving && (
+        {scanner.scanning && camera.canCapture && !resolving && (
           <div className="absolute bottom-4 left-0 right-0 flex justify-center">
             <span className="inline-flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-sm text-white">
               <ScanLine className="h-4 w-4" />

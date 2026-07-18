@@ -13,9 +13,10 @@ import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import '@/styles/photoMap.css'
+import { CameraVideoPreview } from '@/components/photos/CameraVideoPreview'
 import { GpsCameraOverlay } from '@/components/photos/GpsCameraOverlay'
 import { useGpsPreflight } from '@/hooks/useGpsPreflight'
-import { useCameraStream } from '@/hooks/useCameraStream'
+import { isTouchDevice, useCameraStream } from '@/hooks/useCameraStream'
 import { getDeviceOrientation } from '@/lib/photos/gpsWatch'
 import { geocodeFallbackAddress, formatGpsCoordinatesCompact } from '@/lib/photos/photoDisplay'
 import { createGpsPhoto } from '@/lib/photos/api'
@@ -45,6 +46,8 @@ export interface PhotoCaptureFlowProps {
   onCancel?: () => void
   /** Kompaktní režim bez horní navigace (uvnitř modalu). */
   compact?: boolean
+  /** Registrace start() pro spuštění kamery ze stejného user-gesture (např. tlačítko Focení). */
+  onRegisterCameraStart?: (start: () => Promise<void>) => void
 }
 
 function formatGpsAccuracy(accuracy: number): string {
@@ -61,6 +64,7 @@ export function PhotoCaptureFlow({
   onCreated,
   onCancel,
   compact = false,
+  onRegisterCameraStart,
 }: PhotoCaptureFlowProps) {
   const [phase, setPhase] = useState<CapturePhase>('camera')
   const [snapshot, setSnapshot] = useState<CapturedSnapshot | null>(null)
@@ -73,7 +77,19 @@ export function PhotoCaptureFlow({
   const gps = useGpsPreflight(active && phase === 'camera')
   const camera = useCameraStream({ enabled: active && phase === 'camera' })
 
-  const canCapture = gps.canCapture && !saving
+  const gpsReady = gps.canCapture && !saving
+  const canCapture = gpsReady && camera.canCapture
+  const showGpsOverlay = !camera.needsUserStart
+  const showNativeCamera =
+    isTouchDevice() &&
+    (camera.needsUserStart ||
+      camera.phase === 'denied' ||
+      camera.phase === 'unavailable' ||
+      (gpsReady && !camera.canCapture))
+
+  useEffect(() => {
+    onRegisterCameraStart?.(camera.start)
+  }, [camera.start, onRegisterCameraStart])
 
   useEffect(() => {
     if (!active) return
@@ -124,15 +140,21 @@ export function PhotoCaptureFlow({
 
   async function handleCameraCapture() {
     if (!canCapture) return
-    const file = await camera.captureFrame()
-    if (!file) {
-      setError('Snímek se nepodařilo pořídit. Zkuste znovu nebo použijte Galerie.')
+    const result = await camera.captureFrame()
+    if (!result.file) {
+      setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
       return
     }
-    await takeSnapshot(file)
+    await takeSnapshot(result.file)
   }
 
   function handleGalleryInput(e: ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0]
+    e.target.value = ''
+    if (selected) void takeSnapshot(selected)
+  }
+
+  function handleNativeCameraInput(e: ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     e.target.value = ''
     if (selected) void takeSnapshot(selected)
@@ -197,51 +219,69 @@ export function PhotoCaptureFlow({
 
         <div className="photo-camera-shell">
           <div className="photo-camera-viewport">
-            {camera.isActive ? (
-              <video
-                ref={camera.videoRef}
-                className="photo-camera-video"
-                playsInline
-                muted
-                autoPlay
-              />
-            ) : (
-              <div className="photo-camera-placeholder">
-                <Camera className="h-12 w-12 text-white/40" />
-                <p className="mt-3 text-sm text-white/70">
-                  {camera.phase === 'starting'
-                    ? 'Spouštím kameru…'
-                    : camera.error || 'Kamera se připravuje…'}
-                </p>
+            <CameraVideoPreview
+              setVideoRef={camera.setVideoRef}
+              phase={camera.phase}
+              isStreamReady={camera.isStreamReady}
+              errorMessage={camera.errorMessage}
+              needsUserStart={camera.needsUserStart}
+              onStart={() => void camera.start()}
+              diagnostics={camera.diagnostics}
+            />
+
+            {showGpsOverlay && (
+              <div className="photo-camera-overlay">
+                <GpsCameraOverlay
+                  phase={gps.phase}
+                  position={gps.position}
+                  address={gps.address}
+                  addressLoading={gps.addressLoading}
+                  error={gps.error}
+                  onAcceptRelaxed={gps.acceptRelaxedAccuracy}
+                  onContinueSearching={gps.continueSearching}
+                />
               </div>
             )}
-
-            <div className="photo-camera-overlay">
-              <GpsCameraOverlay
-                phase={gps.phase}
-                position={gps.position}
-                address={gps.address}
-                addressLoading={gps.addressLoading}
-                error={gps.error}
-                onAcceptRelaxed={gps.acceptRelaxedAccuracy}
-                onContinueSearching={gps.continueSearching}
-              />
-            </div>
           </div>
 
           <div className="photo-camera-actions">
+            {camera.needsUserStart && (
+              <button
+                type="button"
+                className="photo-capture-btn photo-capture-btn--primary"
+                onClick={() => void camera.start()}
+              >
+                <Camera className="h-6 w-6" />
+                Spustit kameru
+              </button>
+            )}
+
             <button
               type="button"
-              className={`photo-capture-btn photo-capture-btn--primary ${!canCapture || !camera.isActive ? 'photo-capture-btn--disabled' : ''}`}
-              disabled={!canCapture || !camera.isActive}
+              className={`photo-capture-btn photo-capture-btn--primary ${!canCapture ? 'photo-capture-btn--disabled' : ''}`}
+              disabled={!canCapture}
               onClick={() => void handleCameraCapture()}
             >
               <Camera className="h-6 w-6" />
               Vyfotit
             </button>
 
+            {showNativeCamera && (
+              <label className="photo-capture-btn photo-capture-btn--secondary">
+                <Camera className="h-5 w-5" />
+                Systémový fotoaparát
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleNativeCameraInput}
+                />
+              </label>
+            )}
+
             <label
-              className={`photo-capture-btn photo-capture-btn--secondary ${!canCapture ? 'photo-capture-btn--disabled' : ''}`}
+              className={`photo-capture-btn photo-capture-btn--secondary ${!gpsReady ? 'photo-capture-btn--disabled' : ''}`}
             >
               <ImagePlus className="h-5 w-5" />
               Galerie
@@ -249,21 +289,32 @@ export function PhotoCaptureFlow({
                 type="file"
                 accept="image/*"
                 className="hidden"
-                disabled={!canCapture}
+                disabled={!gpsReady}
                 onChange={handleGalleryInput}
               />
             </label>
           </div>
 
-          {!canCapture && (
+          {!gpsReady && (
             <p className="mt-2 text-center text-xs text-amber-300">
               <Satellite className="mr-1 inline h-3.5 w-3.5" />
               Tlačítko Vyfotit se aktivuje po načtení GPS polohy a adresy.
             </p>
           )}
 
-          {camera.error && camera.phase !== 'active' && (
-            <p className="mt-2 text-center text-xs text-theme-muted">{camera.error}</p>
+          {gpsReady && camera.phase === 'active' && !camera.isStreamReady && !camera.needsUserStart && (
+            <p className="mt-2 text-center text-xs text-amber-300">
+              Čekám na živý náhled kamery…
+            </p>
+          )}
+
+          {camera.errorMessage && (camera.phase === 'denied' || camera.phase === 'unavailable') && (
+            <div className="mt-2 space-y-1 text-center text-xs">
+              <p className="text-red-400">{camera.errorMessage}</p>
+              <button type="button" className="text-sky-400 underline" onClick={camera.retry}>
+                Zkusit kameru znovu
+              </button>
+            </div>
           )}
 
           {error && <p className="mt-2 text-center text-sm text-red-400">{error}</p>}
