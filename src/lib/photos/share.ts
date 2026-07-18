@@ -1,3 +1,8 @@
+import { fetchGpsPhotoBlob } from '@/lib/photos/api'
+import {
+  buildGpsPhotoShareFileName,
+  buildGpsPhotoShareImageFile,
+} from '@/lib/photos/photoShareImage'
 import {
   formatCaptureDateLabel,
   formatCaptureTime,
@@ -5,16 +10,14 @@ import {
   formatPhotoAddress,
   getOrderDisplayName,
 } from '@/lib/photos/photoDisplay'
-import { fetchGpsPhotoBlob } from '@/lib/photos/api'
 import { getGoogleMapsUrl } from '@/lib/photos/mapLinks'
 import type { GpsPhoto } from '@/types/photos'
 
-export type PhotoShareResult =
-  | 'shared'
-  | 'shared_file_only'
-  | 'shared_text_only'
-  | 'unsupported'
-  | 'cancelled'
+export type PhotoShareMode = 'document' | 'original'
+
+export type PhotoShareChannel = 'whatsapp' | 'messenger' | 'email' | 'other' | 'save'
+
+export type PhotoShareChannelResult = 'shared' | 'downloaded' | 'cancelled' | 'unsupported'
 
 const DEFAULT_ORDER_LABEL = 'OBECNÉ STAVENIŠTĚ'
 
@@ -24,7 +27,7 @@ export function hasPhotoOrderName(photo: GpsPhoto): boolean {
   return Boolean(name && name.toUpperCase() !== DEFAULT_ORDER_LABEL)
 }
 
-/** Text pro sdílení – fotka nahoře, metadata pod ní (WhatsApp, Messenger, Gmail). */
+/** Text pro e-mail / náhled – metadata jsou primárně v obraze. */
 export function buildPhotoShareText(photo: GpsPhoto): string {
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const address = formatPhotoAddress(photo)
@@ -32,7 +35,7 @@ export function buildPhotoShareText(photo: GpsPhoto): string {
   const timeLabel = formatCaptureTime(photo.captured_time)
   const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
 
-  const lines = [`📍 ${address}`, `🌍 ${coords}`, `🕒 ${dateLabel} ${timeLabel}`]
+  const lines = [`📍 ${address}`, `🌍 ${coords}`, `🕒 ${dateLabel}, ${timeLabel}`]
 
   if (hasPhotoOrderName(photo)) {
     lines.push(`🏗️ ${getOrderDisplayName(photo)}`)
@@ -41,17 +44,15 @@ export function buildPhotoShareText(photo: GpsPhoto): string {
   lines.push(`🔗 ${mapUrl}`)
 
   const note = photo.note?.trim()
-  if (note) {
-    lines.push('', note)
-  }
+  if (note) lines.push('', note)
 
   return lines.join('\n')
 }
 
 export function buildPhotoShareTitle(photo: GpsPhoto): string {
   return hasPhotoOrderName(photo)
-    ? `Fotodokumentace – ${getOrderDisplayName(photo)}`
-    : 'Fotodokumentace VH Bulldig'
+    ? `GPS fotodoklad – ${getOrderDisplayName(photo)}`
+    : 'GPS fotodoklad VH Bulldig'
 }
 
 export async function fetchGpsPhotoFile(photo: GpsPhoto): Promise<File> {
@@ -59,95 +60,85 @@ export async function fetchGpsPhotoFile(photo: GpsPhoto): Promise<File> {
   const mime = blob.type.startsWith('image/') ? blob.type : 'image/jpeg'
   const safeName =
     photo.file_name?.trim() ||
-    `fotodokumentace-${photo.captured_date}-${photo.captured_time.slice(0, 5).replace(':', '')}.jpg`
+    `fotografie-${photo.captured_date}-${photo.captured_time.slice(0, 5).replace(':', '')}.jpg`
   return new File([blob], safeName, { type: mime, lastModified: Date.now() })
+}
+
+export async function resolvePhotoShareFile(
+  photo: GpsPhoto,
+  mode: PhotoShareMode
+): Promise<File> {
+  if (mode === 'original') return fetchGpsPhotoFile(photo)
+  return buildGpsPhotoShareImageFile(photo)
 }
 
 export function isWebShareAvailable(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 }
 
-export function canSharePhotoWithText(file: File, text: string, title: string): boolean {
-  if (!isWebShareAvailable() || typeof navigator.canShare !== 'function') return false
-  return navigator.canShare({ files: [file], text, title })
-}
-
-export function canSharePhotoFileOnly(file: File): boolean {
+export function canSharePhotoFile(file: File): boolean {
   if (!isWebShareAvailable() || typeof navigator.canShare !== 'function') return false
   return navigator.canShare({ files: [file] })
 }
 
-/**
- * Sdílení originální fotografie + metadata (Web Share API Level 2: files + text).
- * Pokud prohlížeč neumí soubor i text najednou, sdílí fotku a popis zkopíruje do schránky.
- */
-export async function shareGpsPhoto(photo: GpsPhoto): Promise<PhotoShareResult> {
-  if (!isWebShareAvailable()) return 'unsupported'
+export function downloadShareFile(file: File): void {
+  const url = URL.createObjectURL(file)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = file.name
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  window.setTimeout(() => {
+    if (link.parentNode) link.parentNode.removeChild(link)
+    URL.revokeObjectURL(url)
+  }, 1500)
+}
 
-  const file = await fetchGpsPhotoFile(photo)
-  const text = buildPhotoShareText(photo)
-  const title = buildPhotoShareTitle(photo)
+export async function sharePhotoFileNative(file: File, title: string): Promise<PhotoShareChannelResult> {
+  if (!canSharePhotoFile(file)) return 'unsupported'
 
-  if (canSharePhotoWithText(file, text, title)) {
-    try {
-      await navigator.share({ title, text, files: [file] })
-      return 'shared'
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'
-    }
-  }
-
-  if (canSharePhotoFileOnly(file)) {
-    try {
-      await navigator.share({ title, files: [file] })
-      try {
-        await copyPhotoShareText(photo)
-      } catch {
-        // Schránka nemusí být dostupná – fotka je sdílená.
-      }
-      return 'shared_file_only'
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'
-    }
-  }
-
-  const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   try {
-    await navigator.share({ title, text, url: mapUrl })
-    return 'shared_text_only'
+    await navigator.share({
+      files: [file],
+      title,
+    })
+    return 'shared'
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'
     return 'unsupported'
   }
 }
 
-/** Záložní sdílení bez Web Share API – stažení fotky + popis do schránky. */
-export async function shareGpsPhotoFallbackDownload(
+export async function sharePhotoViaChannel(
+  file: File,
   photo: GpsPhoto,
-  download: (filePath: string, fileName: string) => Promise<void>
-): Promise<'downloaded' | 'failed'> {
-  try {
-    await download(photo.file_path, photo.file_name)
-    try {
-      await copyPhotoShareText(photo)
-    } catch {
-      // Stažení proběhlo, kopírování je volitelné.
-    }
+  channel: PhotoShareChannel
+): Promise<PhotoShareChannelResult> {
+  const title = buildPhotoShareTitle(photo)
+
+  if (channel === 'save') {
+    downloadShareFile(file)
     return 'downloaded'
-  } catch {
-    return 'failed'
   }
+
+  const nativeResult = await sharePhotoFileNative(file, title)
+  if (nativeResult === 'shared' || nativeResult === 'cancelled') return nativeResult
+
+  if (channel === 'email') {
+    const body = `${buildPhotoShareText(photo)}\n\n(GPS fotodoklad je v příloze obrázku – ${file.name})`
+    window.location.href = getEmailShareUrl(body, title)
+    downloadShareFile(file)
+    return 'downloaded'
+  }
+
+  downloadShareFile(file)
+  return 'downloaded'
 }
 
-export async function copyPhotoShareText(photo: GpsPhoto): Promise<void> {
-  if (typeof navigator.clipboard?.writeText !== 'function') {
-    throw new Error('Kopírování do schránky není v tomto prohlížeči dostupné.')
-  }
-  await navigator.clipboard.writeText(buildPhotoShareText(photo))
-}
-
-export function getWhatsAppShareUrl(text: string): string {
-  return `https://wa.me/?text=${encodeURIComponent(text)}`
+export function getWhatsAppShareUrl(_text: string): string {
+  return 'https://wa.me/'
 }
 
 export function getMessengerShareUrl(text: string, mapUrl: string): string {
@@ -155,6 +146,13 @@ export function getMessengerShareUrl(text: string, mapUrl: string): string {
   return `https://www.facebook.com/dialog/send?link=${encodeURIComponent(mapUrl)}&app_id=0&redirect_uri=${redirect}&quote=${encodeURIComponent(text)}`
 }
 
-export function getEmailShareUrl(text: string, subject = 'Fotodokumentace VH Bulldig'): string {
+export function getEmailShareUrl(text: string, subject = 'GPS fotodokumentace VH Bulldig'): string {
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`
 }
+
+export function getShareChannelLogName(channel: PhotoShareChannel, mode: PhotoShareMode): string {
+  const prefix = mode === 'document' ? 'doklad' : 'original'
+  return `${prefix}_${channel}`
+}
+
+export { buildGpsPhotoShareFileName }
