@@ -1,11 +1,12 @@
 import type { NavItem } from '@/types'
+import { APP_BUILD_VERSION } from '@/constants/branding'
 
 export const APP_INFO = {
   name: 'VH Bulldig ERP',
   companyName: 'VH Bulldig s.r.o.',
   shortName: 'VH Bulldig',
   tagline: 'Stavební a zemní práce',
-  version: '1.7.2',
+  version: APP_BUILD_VERSION,
   moduleLabel: 'VH Bulldig ERP – produkční verze',
 }
 
