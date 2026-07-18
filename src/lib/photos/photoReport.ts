@@ -8,8 +8,7 @@ import {
   formatPhotoAddress,
   getOrderDisplayName,
 } from '@/lib/photos/photoDisplay'
-import { downloadPdfBlob, htmlToPdfBlob, sanitizePdfFileName } from '@/lib/print/pdfDownload'
-import { sharePdfBlob } from '@/lib/print/pdfShare'
+import { downloadPdfBlob, htmlToPdfBlob, sanitizePdfFileName, sharePdfFile } from '@/lib/print/pdfDownload'
 import { withPdfGeneratingOverlay } from '@/lib/print/pdfMobileUi'
 import {
   buildProfessionalReportDocument,
@@ -85,7 +84,7 @@ export function buildPhotoReportDocument(photo: GpsPhoto, company?: CompanyHeade
 }
 
 export function buildPhotoReportPdfFileName(photo: GpsPhoto): string {
-  return sanitizePdfFileName(`gps-fotodoklad_${photo.captured_date}_${photo.id.slice(0, 8)}`)
+  return sanitizePdfFileName(`GPS_fotodoklad_${photo.captured_date}`)
 }
 
 export async function buildPhotoReportPdfBlob(
@@ -125,6 +124,14 @@ export async function sharePhotoReportPdf(
   photo: GpsPhoto,
   company?: CompanyHeader | null
 ): Promise<SharePhotoReportPdfResult> {
+  const fileName = buildPhotoReportPdfFileName(photo)
+  const title = 'GPS fotodoklad – stavební dokumentace'
   const blob = await withPdfGeneratingOverlay(() => buildPhotoReportPdfBlob(photo, company))
-  return sharePdfBlob(blob, buildPhotoReportPdfFileName(photo), 'GPS fotodoklad – stavební dokumentace')
+
+  const shareResult = await sharePdfFile(blob, fileName, title)
+  if (shareResult === 'shared') return 'shared'
+  if (shareResult === 'cancelled') return 'cancelled'
+
+  downloadPdfBlob(blob, fileName)
+  return 'downloaded'
 }

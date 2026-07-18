@@ -1,58 +1,5 @@
-const HTML2PDF_CDN =
-  'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js'
-
-type Html2PdfWorker = {
-  set: (options: Record<string, unknown>) => Html2PdfWorker
-  from: (element: HTMLElement) => Html2PdfWorker
-  outputPdf: (type: 'blob') => Promise<Blob>
-}
-
-type Html2PdfFactory = () => Html2PdfWorker
-
-let html2pdfLoadPromise: Promise<void> | null = null
-
-function loadHtml2PdfBundle(): Promise<void> {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error('PDF generování není dostupné mimo prohlížeč.'))
-  }
-
-  const win = window as Window & { html2pdf?: Html2PdfFactory }
-  if (win.html2pdf) return Promise.resolve()
-
-  if (!html2pdfLoadPromise) {
-    html2pdfLoadPromise = new Promise((resolve, reject) => {
-      const existing = document.querySelector<HTMLScriptElement>('script[data-vh-html2pdf]')
-      if (existing) {
-        if (win.html2pdf) {
-          resolve()
-          return
-        }
-        existing.addEventListener('load', () => resolve(), { once: true })
-        existing.addEventListener('error', () => reject(new Error('Načtení PDF knihovny se nezdařilo.')), {
-          once: true,
-        })
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = HTML2PDF_CDN
-      script.async = true
-      script.dataset.vhHtml2pdf = 'true'
-      script.onload = () => resolve()
-      script.onerror = () => reject(new Error('Načtení PDF knihovny se nezdařilo.'))
-      document.head.appendChild(script)
-    })
-  }
-
-  return html2pdfLoadPromise
-}
-
-async function getHtml2PdfFactory(): Promise<Html2PdfFactory> {
-  await loadHtml2PdfBundle()
-  const factory = (window as Window & { html2pdf?: Html2PdfFactory }).html2pdf
-  if (!factory) throw new Error('PDF knihovna není dostupná.')
-  return factory
-}
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 
 export function isMobilePrintDevice(): boolean {
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return false
@@ -84,15 +31,32 @@ export function buildDefaultPdfFileName(html: string): string {
 
 export function pdfBlobToFile(pdfBlob: Blob, fileName: string): File {
   const safeName = sanitizePdfFileName(fileName)
-  return new File([pdfBlob], safeName, { type: 'application/pdf' })
+  return new File([ensurePdfBlob(pdfBlob)], safeName, { type: 'application/pdf' })
+}
+
+export function ensurePdfBlob(blob: Blob): Blob {
+  if (blob.type === 'application/pdf') return blob
+  return new Blob([blob], { type: 'application/pdf' })
+}
+
+export async function assertValidPdfBlob(blob: Blob): Promise<void> {
+  const pdf = ensurePdfBlob(blob)
+  if (!pdf || pdf.size < 512) {
+    throw new Error('PDF soubor je prázdný nebo poškozený.')
+  }
+
+  const header = await pdf.slice(0, 5).text()
+  if (!header.startsWith('%PDF')) {
+    throw new Error('Vygenerované PDF je neplatné.')
+  }
 }
 
 export function downloadPdfBlob(pdfBlob: Blob, fileName: string): void {
-  const safeName = sanitizePdfFileName(fileName)
-  const url = URL.createObjectURL(pdfBlob)
+  const file = pdfBlobToFile(pdfBlob, fileName)
+  const url = URL.createObjectURL(file)
   const link = document.createElement('a')
   link.href = url
-  link.download = safeName
+  link.download = file.name
   link.rel = 'noopener'
   link.style.display = 'none'
   document.body.appendChild(link)
@@ -100,7 +64,7 @@ export function downloadPdfBlob(pdfBlob: Blob, fileName: string): void {
   window.setTimeout(() => {
     if (link.parentNode) link.parentNode.removeChild(link)
     URL.revokeObjectURL(url)
-  }, 1500)
+  }, 5000)
 }
 
 export type SharePdfResult = 'shared' | 'cancelled' | 'unsupported'
@@ -129,11 +93,31 @@ export async function sharePdfFile(
   return 'unsupported'
 }
 
+async function waitForDocumentImages(doc: Document): Promise<void> {
+  const images = Array.from(doc.querySelectorAll('img'))
+  await Promise.all(
+    images.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete && img.naturalWidth > 0) {
+            resolve()
+            return
+          }
+          const done = () => resolve()
+          img.addEventListener('load', done, { once: true })
+          img.addEventListener('error', done, { once: true })
+          window.setTimeout(done, 10_000)
+        })
+    )
+  )
+}
+
+/** Převede HTML dokument na skutečný PDF blob (jsPDF + html2canvas, bez CDN). */
 export async function htmlToPdfBlob(html: string): Promise<Blob> {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('title', 'Generování PDF')
   iframe.style.cssText =
-    'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;visibility:hidden;background:#ffffff;'
+    'position:fixed;left:-10000px;top:0;width:794px;min-height:1123px;border:0;visibility:hidden;background:#ffffff;'
   document.body.appendChild(iframe)
 
   try {
@@ -156,43 +140,52 @@ export async function htmlToPdfBlob(html: string): Promise<Blob> {
       await frameDoc.fonts.ready.catch(() => undefined)
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, 350))
+    await waitForDocumentImages(frameDoc)
+    await new Promise((resolve) => window.setTimeout(resolve, 250))
 
     const pageEl = frameDoc.querySelector<HTMLElement>('.doc-shell') ?? frameDoc.body
-    const captureWidth = pageEl.offsetWidth || pageEl.scrollWidth
-    const captureHeight = pageEl.offsetHeight || pageEl.scrollHeight
+    const captureWidth = Math.max(pageEl.scrollWidth, pageEl.offsetWidth, 794)
+    const captureHeight = Math.max(pageEl.scrollHeight, pageEl.offsetHeight, 1)
 
-    const html2pdf = await getHtml2PdfFactory()
-    const blob = await html2pdf()
-      .set({
-        margin: 0,
-        filename: 'dokument.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          letterRendering: true,
-          backgroundColor: '#ffffff',
-          width: captureWidth,
-          height: captureHeight,
-          windowWidth: captureWidth,
-          windowHeight: captureHeight,
-          scrollX: 0,
-          scrollY: 0,
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] },
-      })
-      .from(pageEl)
-      .outputPdf('blob')
+    const canvas = await html2canvas(pageEl, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      backgroundColor: '#ffffff',
+      width: captureWidth,
+      height: captureHeight,
+      windowWidth: captureWidth,
+      windowHeight: captureHeight,
+      scrollX: 0,
+      scrollY: 0,
+    })
 
-    if (!(blob instanceof Blob) || blob.size === 0) {
-      throw new Error('Vygenerovaný PDF soubor je prázdný.')
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const imgWidth = pageWidth
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    const imgData = canvas.toDataURL('image/jpeg', 0.92)
+
+    let heightLeft = imgHeight
+    let position = 0
+
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST')
+    heightLeft -= pageHeight
+
+    while (heightLeft > 0) {
+      pdf.addPage()
+      position = heightLeft - imgHeight
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST')
+      heightLeft -= pageHeight
     }
 
-    return blob
+    const blob = pdf.output('blob') as Blob
+    const pdfBlob = ensurePdfBlob(blob)
+    await assertValidPdfBlob(pdfBlob)
+    return pdfBlob
   } finally {
-    if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
+    iframe.remove()
   }
 }
