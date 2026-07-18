@@ -8,6 +8,9 @@ import {
   formatPhotoAddress,
   getOrderDisplayName,
 } from '@/lib/photos/photoDisplay'
+import { downloadPdfBlob, htmlToPdfBlob, sanitizePdfFileName } from '@/lib/print/pdfDownload'
+import { sharePdfBlob } from '@/lib/print/pdfShare'
+import { withPdfGeneratingOverlay } from '@/lib/print/pdfMobileUi'
 import {
   buildProfessionalReportDocument,
   downloadHtmlDocument,
@@ -81,13 +84,47 @@ export function buildPhotoReportDocument(photo: GpsPhoto, company?: CompanyHeade
   )
 }
 
-export function printPhotoReport(photo: GpsPhoto, company?: CompanyHeader | null): void {
-  openPrintDocument(buildPhotoReportDocument(photo, company))
+export function buildPhotoReportPdfFileName(photo: GpsPhoto): string {
+  return sanitizePdfFileName(`gps-fotodoklad_${photo.captured_date}_${photo.id.slice(0, 8)}`)
 }
 
+export async function buildPhotoReportPdfBlob(
+  photo: GpsPhoto,
+  company?: CompanyHeader | null
+): Promise<Blob> {
+  const html = buildPhotoReportDocument(photo, company)
+  return htmlToPdfBlob(html)
+}
+
+export function printPhotoReport(photo: GpsPhoto, company?: CompanyHeader | null): void {
+  openPrintDocument(buildPhotoReportDocument(photo, company), {
+    title: 'GPS fotodoklad – stavební dokumentace',
+    fileName: buildPhotoReportPdfFileName(photo),
+  })
+}
+
+/** @deprecated Použijte downloadPhotoReportPdf – zachováno pro zpětnou kompatibilitu HTML exportu. */
 export function downloadPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | null): void {
   downloadHtmlDocument(
     buildPhotoReportDocument(photo, company),
     `gps-fotodoklad_${photo.captured_date}_${photo.id.slice(0, 8)}.html`
   )
+}
+
+export async function downloadPhotoReportPdf(
+  photo: GpsPhoto,
+  company?: CompanyHeader | null
+): Promise<void> {
+  const blob = await withPdfGeneratingOverlay(() => buildPhotoReportPdfBlob(photo, company))
+  downloadPdfBlob(blob, buildPhotoReportPdfFileName(photo))
+}
+
+export type SharePhotoReportPdfResult = 'shared' | 'downloaded' | 'cancelled'
+
+export async function sharePhotoReportPdf(
+  photo: GpsPhoto,
+  company?: CompanyHeader | null
+): Promise<SharePhotoReportPdfResult> {
+  const blob = await withPdfGeneratingOverlay(() => buildPhotoReportPdfBlob(photo, company))
+  return sharePdfBlob(blob, buildPhotoReportPdfFileName(photo), 'GPS fotodoklad – stavební dokumentace')
 }

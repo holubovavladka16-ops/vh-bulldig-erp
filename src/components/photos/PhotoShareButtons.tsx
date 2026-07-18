@@ -2,10 +2,12 @@ import { FileDown, Printer, Share2, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
-import { PhotoShareSheet } from '@/components/photos/PhotoShareSheet'
-import type { PhotoShareMode } from '@/lib/photos/share'
 import { logGpsPhotoShare } from '@/lib/photos/api'
-import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
+import {
+  downloadPhotoReportPdf,
+  printPhotoReport,
+  sharePhotoReportPdf,
+} from '@/lib/photos/photoReport'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { GpsPhoto } from '@/types/photos'
 
@@ -19,12 +21,22 @@ interface PhotoShareButtonsProps {
 export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareButtonsProps) {
   const { settings: company } = useCompanySettings()
   const sharePhoto = { ...photo, note: note || photo.note }
-  const [shareSheetOpen, setShareSheetOpen] = useState(false)
-  const [shareMode, setShareMode] = useState<PhotoShareMode>('document')
+  const [sharingPdf, setSharingPdf] = useState(false)
 
   async function logShare(channel: string) {
     await logGpsPhotoShare(photo.id, channel, userId)
     onShared?.()
+  }
+
+  async function handleSharePdf() {
+    setSharingPdf(true)
+    try {
+      const result = await sharePhotoReportPdf(sharePhoto, company)
+      if (result === 'shared') await logShare('pdf_sdileni')
+      else if (result === 'downloaded') await logShare('pdf_sdileni_fallback')
+    } finally {
+      setSharingPdf(false)
+    }
   }
 
   function handlePrintPdf() {
@@ -32,35 +44,26 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
     void logShare('pdf_tisk')
   }
 
-  function handleDownloadPdf() {
-    downloadPhotoReportHtml(sharePhoto, company)
-    void logShare('pdf_ulozeni')
+  async function handleSavePdf() {
+    await downloadPhotoReportPdf(sharePhoto, company)
+    await logShare('pdf_ulozeni')
   }
 
   return (
     <div className="space-y-3">
-      <Button className="w-full" onClick={() => setShareSheetOpen(true)}>
+      <Button className="w-full" onClick={() => void handleSharePdf()} loading={sharingPdf}>
         <Share2 className="h-4 w-4" />
-        Sdílet fotku s informacemi
+        Sdílet GPS fotodoklad
       </Button>
 
-      <PhotoShareSheet
-        open={shareSheetOpen}
-        photo={sharePhoto}
-        shareMode={shareMode}
-        onShareModeChange={setShareMode}
-        onClose={() => setShareSheetOpen(false)}
-        onShared={(channel) => void logShare(channel)}
-      />
-
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Button variant="secondary" size="sm" onClick={() => void handleSavePdf()} className="w-full sm:w-auto">
+          <FileDown className="h-4 w-4" />
+          Uložit PDF doklad
+        </Button>
         <Button variant="secondary" size="sm" onClick={handlePrintPdf} className="w-full sm:w-auto">
           <Printer className="h-4 w-4" />
           PDF – tisk
-        </Button>
-        <Button variant="secondary" size="sm" onClick={handleDownloadPdf} className="w-full sm:w-auto">
-          <FileDown className="h-4 w-4" />
-          PDF – uložit
         </Button>
       </div>
     </div>

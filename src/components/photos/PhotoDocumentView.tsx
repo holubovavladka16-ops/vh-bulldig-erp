@@ -13,7 +13,6 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { PhotoMiniMap } from '@/components/photos/PhotoMiniMap'
-import { PhotoShareSheet } from '@/components/photos/PhotoShareSheet'
 import { getGpsPhotoUrl, logGpsPhotoShare } from '@/lib/photos/api'
 import {
   getGoogleMapsUrl,
@@ -22,8 +21,7 @@ import {
   getStaticMapImageUrl,
   getStreetViewUrl,
 } from '@/lib/photos/mapLinks'
-import type { PhotoShareMode } from '@/lib/photos/share'
-import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
+import { downloadPhotoReportPdf, printPhotoReport, sharePhotoReportPdf } from '@/lib/photos/photoReport'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import {
   formatCaptureDateLabel,
@@ -62,8 +60,9 @@ export function PhotoDocumentView({
   compact = false,
 }: PhotoDocumentViewProps) {
   const { settings: company } = useCompanySettings()
-  const [shareSheetOpen, setShareSheetOpen] = useState(false)
-  const [shareMode, setShareMode] = useState<PhotoShareMode>('document')
+  const [sharingPdf, setSharingPdf] = useState(false)
+  const [savingPdf, setSavingPdf] = useState(false)
+  const [shareMessage, setShareMessage] = useState<string | null>(null)
 
   const sharePhoto = { ...photo, note: note || photo.note }
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
@@ -81,9 +80,17 @@ export function PhotoDocumentView({
     onShared?.()
   }
 
-  function handleSavePdf() {
-    downloadPhotoReportHtml(sharePhoto, company)
-    void logShare('pdf_ulozeni')
+  async function handleSavePdf() {
+    setSavingPdf(true)
+    setShareMessage(null)
+    try {
+      await downloadPhotoReportPdf(sharePhoto, company)
+      await logShare('pdf_ulozeni')
+    } catch {
+      setShareMessage('Uložení PDF se nezdařilo.')
+    } finally {
+      setSavingPdf(false)
+    }
   }
 
   function handlePrintPdf() {
@@ -91,8 +98,25 @@ export function PhotoDocumentView({
     void logShare('pdf_tisk')
   }
 
-  function handleShareLogged(channel: string) {
-    void logShare(channel)
+  async function handleSharePdf() {
+    setSharingPdf(true)
+    setShareMessage(null)
+    try {
+      const result = await sharePhotoReportPdf(sharePhoto, company)
+      if (result === 'shared') {
+        await logShare('pdf_sdileni')
+        return
+      }
+      if (result === 'downloaded') {
+        await logShare('pdf_sdileni_fallback')
+        setShareMessage('PDF bylo staženo – v aplikaci ho přiložte ručně.')
+        return
+      }
+    } catch {
+      setShareMessage('Sdílení PDF se nezdařilo.')
+    } finally {
+      setSharingPdf(false)
+    }
   }
 
   return (
@@ -214,52 +238,43 @@ export function PhotoDocumentView({
 
       {!compact && userId && (
         <>
-          {/* PDF */}
-          <div className="border-t border-[var(--accent-primary)]/20 px-4 py-4">
+          {/* PDF a sdílení */}
+          <div className="border-t border-[var(--accent-primary)]/20 px-4 py-4 space-y-3">
             <Button
               type="button"
               className="w-full justify-center py-3 text-sm font-semibold uppercase tracking-wide"
-              onClick={handleSavePdf}
+              onClick={() => void handleSharePdf()}
+              loading={sharingPdf}
+            >
+              <Share2 className="h-5 w-5" />
+              Sdílet GPS fotodoklad
+            </Button>
+            <p className="text-center text-[11px] leading-snug text-theme-muted">
+              Vytvoří profesionální PDF doklad a otevře systémové sdílení (WhatsApp, Messenger, e-mail…).
+            </p>
+
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full justify-center py-3 text-sm font-semibold uppercase tracking-wide"
+              onClick={() => void handleSavePdf()}
+              loading={savingPdf}
             >
               <FileDown className="h-5 w-5" />
-              Uložit PDF doklad s fotkou
+              Uložit PDF doklad
             </Button>
             <button
               type="button"
               onClick={handlePrintPdf}
-              className="mt-2 w-full text-center text-xs text-theme-muted hover:text-theme-primary"
+              className="w-full text-center text-xs text-theme-muted hover:text-theme-primary"
             >
               nebo vytisknout PDF
             </button>
-          </div>
 
-          {/* Sdílení */}
-          <div className="border-t border-[var(--accent-primary)]/20 px-4 py-4">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-theme-muted">
-              Sdílení fotodokumentace
-            </p>
-            <Button
-              type="button"
-              className="w-full justify-center py-3 text-sm font-semibold uppercase tracking-wide"
-              onClick={() => setShareSheetOpen(true)}
-            >
-              <Share2 className="h-5 w-5" />
-              Sdílet fotku s informacemi
-            </Button>
-            <p className="mt-2 text-center text-[11px] leading-snug text-theme-muted">
-              Vytvoří GPS fotodoklad — fotografie s vloženým panelem adresy, GPS, data a zakázky.
-              Údaje zůstanou viditelné i v Messengeru a WhatsAppu.
-            </p>
+            {shareMessage && (
+              <p className="text-center text-xs text-amber-200">{shareMessage}</p>
+            )}
           </div>
-
-          <PhotoShareSheet
-            open={shareSheetOpen}
-            photo={sharePhoto}
-            shareMode={shareMode}
-            onShareModeChange={setShareMode}
-            onClose={() => setShareSheetOpen(false)}
-            onShared={handleShareLogged}
-          />
 
           {/* Mapy */}
           <div className="grid grid-cols-3 gap-2 border-t border-[var(--accent-primary)]/20 px-4 py-4">
