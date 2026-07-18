@@ -28,6 +28,50 @@ export function buildPhotoShareText(photo: GpsPhoto): string {
     .join('\n')
 }
 
+/** Text pro sdílení hned po vyfocení (před uložením do galerie). */
+export function buildSnapshotShareText(input: {
+  lat: number
+  lng: number
+  accuracy: number | null
+  addressFull: string
+  capturedAt: Date
+  note: string
+  orderName: string
+}): string {
+  const date = input.capturedAt.toISOString().slice(0, 10)
+  const time = input.capturedAt.toTimeString().slice(0, 8)
+  return buildPhotoShareText({
+    id: 'preview',
+    file_path: '',
+    file_name: '',
+    captured_at: input.capturedAt.toISOString(),
+    captured_date: date,
+    captured_time: time,
+    gps_lat: input.lat,
+    gps_lng: input.lng,
+    gps_accuracy: input.accuracy,
+    device_heading: null,
+    address_full: input.addressFull,
+    street: '',
+    city: '',
+    postal_code: '',
+    country: 'CZ',
+    note: input.note || null,
+    order_id: null,
+    worker_id: null,
+    report_id: null,
+    diary_entry_id: null,
+    utility_connection_id: null,
+    photo_phase: null,
+    construction_point_id: null,
+    sort_order: 0,
+    order_name: input.orderName,
+    created_by: null,
+    created_at: input.capturedAt.toISOString(),
+    updated_at: input.capturedAt.toISOString(),
+  })
+}
+
 
 
 export function getWhatsAppShareUrl(text: string): string {
