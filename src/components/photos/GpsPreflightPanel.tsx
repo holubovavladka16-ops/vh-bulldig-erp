@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/Button'
 import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
 import { formatDeviceOrientation, getDeviceOrientation } from '@/lib/photos/gpsWatch'
 import type { GpsPreflightPhase, AddressStatus } from '@/hooks/useGpsPreflight'
-import { getAddressDisplayLabel } from '@/hooks/useGpsPreflight'
 import type { GeocodedAddress } from '@/types/photos'
 import type { GpsPositionState } from '@/lib/photos/gpsWatch'
 
@@ -11,7 +10,9 @@ interface GpsPreflightPanelProps {
   phase: GpsPreflightPhase
   position: GpsPositionState | null
   address: GeocodedAddress | null
-  addressStatus: AddressStatus
+  addressLoading?: boolean
+  /** Kompatibilita pro moduly přidané po v1.6.0 (Výkopy). */
+  addressStatus?: AddressStatus
   error: string | null
   onAcceptRelaxed: () => void
   onContinueSearching: () => void
@@ -21,13 +22,13 @@ export function GpsPreflightPanel({
   phase,
   position,
   address,
+  addressLoading,
   addressStatus,
   error,
   onAcceptRelaxed,
   onContinueSearching,
 }: GpsPreflightPanelProps) {
-  const addressLoading = addressStatus === 'loading'
-  const addressLabel = getAddressDisplayLabel(address, addressStatus)
+  const isAddressLoading = addressLoading ?? addressStatus === 'loading'
   const orientation = formatDeviceOrientation(getDeviceOrientation())
   const accuracy = position?.accuracy
   const accuracyLabel =
@@ -48,7 +49,7 @@ export function GpsPreflightPanel({
           <span className="text-amber-300">📷 Focení povoleno (snížená přesnost)</span>
         ) : showWaitingMessage ? (
           <span className="flex items-center gap-2 text-theme-secondary">
-            {(phase === 'initializing' || addressLoading) && (
+            {(phase === 'initializing' || isAddressLoading) && (
               <Loader2 className="h-4 w-4 animate-spin" />
             )}
             🛰 Hledám polohu…
@@ -87,13 +88,13 @@ export function GpsPreflightPanel({
         <div className="sm:col-span-2">
           <dt className="text-xs text-theme-muted">Adresa</dt>
           <dd className="text-theme-primary">
-            {addressLoading && !address ? (
+            {isAddressLoading && !address ? (
               <span className="flex items-center gap-2 text-theme-muted">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Načítám adresu…
               </span>
             ) : (
-              addressLabel
+              address?.address_full || '—'
             )}
           </dd>
         </div>
