@@ -3,6 +3,7 @@ import { ArrowLeft, Camera, Check, ImagePlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useCameraStream } from '@/hooks/useCameraStream'
+import { CameraVideoPreview } from '@/components/photos/CameraVideoPreview'
 import type { FormCheckContext } from '@/types/formCheck'
 import '@/styles/photoMap.css'
 
@@ -43,13 +44,13 @@ export function FormCheckCaptureScreen({
   }, [previewUrl])
 
   async function handleCameraCapture() {
-    if (!camera.isActive) return
-    const file = await camera.captureFrame()
-    if (!file) {
-      setError('Snímek se nepodařilo pořídit. Zkuste znovu nebo použijte Galerie.')
+    if (!camera.canCapture) return
+    const result = await camera.captureFrame()
+    if (!result.file) {
+      setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
       return
     }
-    showPreview(file)
+    showPreview(result.file)
   }
 
   function handleGalleryInput(e: ChangeEvent<HTMLInputElement>) {
@@ -139,24 +140,12 @@ export function FormCheckCaptureScreen({
         <div className="p-4 sm:p-6">
           <div className="photo-camera-shell">
             <div className="photo-camera-viewport">
-              {camera.isActive ? (
-                <video
-                  ref={camera.videoRef}
-                  className="photo-camera-video"
-                  playsInline
-                  muted
-                  autoPlay
-                />
-              ) : (
-                <div className="photo-camera-placeholder">
-                  <Camera className="h-12 w-12 text-white/40" />
-                  <p className="mt-3 text-sm text-white/70">
-                    {camera.phase === 'starting'
-                      ? 'Spouštím kameru…'
-                      : camera.error || 'Kamera se připravuje…'}
-                  </p>
-                </div>
-              )}
+              <CameraVideoPreview
+                setVideoRef={camera.setVideoRef}
+                phase={camera.phase}
+                isStreamReady={camera.isStreamReady}
+                errorMessage={camera.errorMessage}
+              />
 
               <div className="photo-camera-overlay">
                 <p className="text-center text-sm font-medium text-white drop-shadow">
@@ -168,8 +157,8 @@ export function FormCheckCaptureScreen({
             <div className="photo-camera-actions">
               <button
                 type="button"
-                className={`photo-capture-btn photo-capture-btn--primary ${!camera.isActive ? 'photo-capture-btn--disabled' : ''}`}
-                disabled={!camera.isActive}
+                className={`photo-capture-btn photo-capture-btn--primary ${!camera.canCapture ? 'photo-capture-btn--disabled' : ''}`}
+                disabled={!camera.canCapture}
                 onClick={() => void handleCameraCapture()}
               >
                 <Camera className="h-6 w-6" />
@@ -190,8 +179,13 @@ export function FormCheckCaptureScreen({
               </label>
             </div>
 
-            {camera.error && camera.phase !== 'active' && (
-              <p className="mt-2 text-center text-xs text-theme-muted">{camera.error}</p>
+            {camera.errorMessage && (camera.phase === 'denied' || camera.phase === 'unavailable') && (
+              <div className="mt-2 space-y-1 text-center text-xs">
+                <p className="text-red-400">{camera.errorMessage}</p>
+                <button type="button" className="text-sky-400 underline" onClick={camera.retry}>
+                  Zkusit kameru znovu
+                </button>
+              </div>
             )}
 
             {error && <p className="mt-2 text-center text-sm text-red-400">{error}</p>}
