@@ -4,6 +4,7 @@ interface CameraDiagnosticsPanelProps {
   diagnostics: CameraStartupDiagnostics
   phase: string
   errorMessage: string | null
+  overlay?: boolean
 }
 
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
@@ -22,12 +23,17 @@ export function CameraDiagnosticsPanel({
   diagnostics,
   phase,
   errorMessage,
+  overlay = false,
 }: CameraDiagnosticsPanelProps) {
   const getUserMediaOk = diagnostics.getUserMediaStatus === 'ok'
   const canPlay = diagnostics.readyState >= 2
 
   return (
-    <div className="camera-diagnostics mt-2 rounded-lg border border-amber-500/30 bg-black/70 p-2 text-left font-mono text-[10px] leading-relaxed text-amber-100/90">
+    <div
+      className={`camera-diagnostics rounded-lg border border-amber-500/40 bg-black/80 p-2 text-left font-mono text-[10px] leading-relaxed text-amber-100/90 ${
+        overlay ? 'camera-diagnostics--overlay' : 'mt-2'
+      }`}
+    >
       <p className="mb-1 text-[11px] font-semibold text-amber-300">Diagnostika kamery</p>
 
       <div className="grid gap-0.5 sm:grid-cols-2">
@@ -47,6 +53,10 @@ export function CameraDiagnosticsPanel({
                 : diagnostics.getUserMediaStatus
             }
           />
+        </p>
+        <p>
+          oprávnění:{' '}
+          <span className="text-white">{diagnostics.permissionState ?? '—'}</span>
         </p>
         <p>
           video mounted:{' '}

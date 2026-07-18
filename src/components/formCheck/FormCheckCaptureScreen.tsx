@@ -145,6 +145,9 @@ export function FormCheckCaptureScreen({
                 phase={camera.phase}
                 isStreamReady={camera.isStreamReady}
                 errorMessage={camera.errorMessage}
+                needsUserStart={camera.needsUserStart}
+                onStart={camera.start}
+                diagnostics={camera.diagnostics}
               />
 
               <div className="photo-camera-overlay">

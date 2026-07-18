@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import '@/styles/photoMap.css'
-import { CameraDiagnosticsPanel } from '@/components/photos/CameraDiagnosticsPanel'
 import { CameraVideoPreview } from '@/components/photos/CameraVideoPreview'
 import { GpsCameraOverlay } from '@/components/photos/GpsCameraOverlay'
 import { useGpsPreflight } from '@/hooks/useGpsPreflight'
@@ -205,6 +204,9 @@ export function PhotoCaptureFlow({
               phase={camera.phase}
               isStreamReady={camera.isStreamReady}
               errorMessage={camera.errorMessage}
+              needsUserStart={camera.needsUserStart}
+              onStart={camera.start}
+              diagnostics={camera.diagnostics}
             />
 
             <div className="photo-camera-overlay">
@@ -253,7 +255,7 @@ export function PhotoCaptureFlow({
             </p>
           )}
 
-          {gpsReady && camera.phase === 'active' && !camera.isStreamReady && (
+          {gpsReady && camera.phase === 'active' && !camera.isStreamReady && !camera.needsUserStart && (
             <p className="mt-2 text-center text-xs text-amber-300">
               Čekám na živý náhled kamery…
             </p>
@@ -267,12 +269,6 @@ export function PhotoCaptureFlow({
               </button>
             </div>
           )}
-
-          <CameraDiagnosticsPanel
-            diagnostics={camera.diagnostics}
-            phase={camera.phase}
-            errorMessage={camera.errorMessage}
-          />
 
           {error && <p className="mt-2 text-center text-sm text-red-400">{error}</p>}
         </div>

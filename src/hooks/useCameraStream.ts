@@ -30,6 +30,7 @@ export interface CameraStartupDiagnostics {
   getUserMediaStatus: GetUserMediaStatus
   getUserMediaError: string | null
   constraintsUsed: string | null
+  permissionState: string | null
   streamActive: boolean
   streamId: string | null
   trackSummary: string
@@ -66,6 +67,7 @@ const INITIAL_DIAGNOSTICS: CameraStartupDiagnostics = {
   getUserMediaStatus: 'idle',
   getUserMediaError: null,
   constraintsUsed: null,
+  permissionState: null,
   streamActive: false,
   streamId: null,
   trackSummary: '—',
@@ -82,6 +84,10 @@ const INITIAL_DIAGNOSTICS: CameraStartupDiagnostics = {
   paused: true,
   isStreamReady: false,
   updatedAt: Date.now(),
+}
+
+export function isTouchDevice(): boolean {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0
 }
 
 export function classifyGetUserMediaError(err: unknown): CameraError {
@@ -147,14 +153,26 @@ function isVideoStreamReady(video: HTMLVideoElement, stream: MediaStream): boole
 
 function summarizeTracks(stream: MediaStream | null): string {
   if (!stream) return '—'
-  return stream
-    .getVideoTracks()
-    .map((t) => `${t.label || 'video'}:${t.readyState}`)
-    .join(', ') || 'žádná video stopa'
+  return (
+    stream
+      .getVideoTracks()
+      .map((t) => `${t.label || 'video'}:${t.readyState}`)
+      .join(', ') || 'žádná video stopa'
+  )
 }
 
 function readyStateLabel(state: number): string {
   return READY_STATE_LABELS[state] ?? `unknown (${state})`
+}
+
+async function queryCameraPermission(): Promise<string | null> {
+  try {
+    if (!navigator.permissions?.query) return null
+    const result = await navigator.permissions.query({ name: 'camera' as PermissionName })
+    return result.state
+  } catch {
+    return null
+  }
 }
 
 async function requestCameraStream(
@@ -191,14 +209,27 @@ async function requestCameraStream(
   throw lastError
 }
 
+function prepareVideoElement(video: HTMLVideoElement): void {
+  video.muted = true
+  video.playsInline = true
+  video.autoplay = true
+  video.setAttribute('playsinline', 'true')
+  video.setAttribute('webkit-playsinline', 'true')
+  video.setAttribute('muted', 'true')
+  video.setAttribute('autoplay', 'true')
+}
+
 export function useCameraStream({ enabled, facingMode = 'environment' }: UseCameraStreamOptions) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const stopRef = useRef<() => void>(() => {})
   const [phase, setPhase] = useState<CameraPhase>('idle')
   const [isStreamReady, setIsStreamReady] = useState(false)
   const [error, setError] = useState<CameraError | null>(null)
   const [diagnostics, setDiagnostics] = useState<CameraStartupDiagnostics>(INITIAL_DIAGNOSTICS)
-  const [retryCount, setRetryCount] = useState(0)
+  const [startToken, setStartToken] = useState(0)
+
+  const needsUserStart = enabled && startToken === 0 && isTouchDevice()
 
   const patchDiagnostics = useCallback((patch: Partial<CameraStartupDiagnostics>) => {
     setDiagnostics((prev) => ({
@@ -250,6 +281,8 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
     })
   }, [patchDiagnostics])
 
+  stopRef.current = stop
+
   const attachStreamToVideo = useCallback(async () => {
     const video = videoRef.current
     const stream = streamRef.current
@@ -262,17 +295,16 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       return
     }
 
+    prepareVideoElement(video)
     collectVideoDiagnostics('assigning_srcobject')
 
     if (video.srcObject !== stream) {
       video.srcObject = stream
     }
 
-    const srcObjectAssigned = Boolean(video.srcObject)
-    const srcObjectMatches = video.srcObject === stream
     collectVideoDiagnostics('srcobject_assigned', {
-      srcObjectAssigned,
-      srcObjectMatches,
+      srcObjectAssigned: Boolean(video.srcObject),
+      srcObjectMatches: video.srcObject === stream,
       playAttempted: false,
       playOk: false,
       playError: null,
@@ -314,13 +346,37 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       })
     }
 
-    collectVideoDiagnostics('checking_ready_state')
+    requestAnimationFrame(() => {
+      collectVideoDiagnostics('post_play_frame')
+    })
   }, [collectVideoDiagnostics])
+
+  const start = useCallback(() => {
+    setError(null)
+    setStartToken((n) => n + 1)
+  }, [])
+
+  // Desktop: auto-start. Touch (Android): čeká na klepnutí „Spustit kameru“.
+  useEffect(() => {
+    if (!enabled) return
+    if (!isTouchDevice()) {
+      setStartToken((n) => (n === 0 ? 1 : n))
+    }
+  }, [enabled])
 
   useEffect(() => {
     if (!enabled) {
-      stop()
+      stopRef.current()
       setError(null)
+      setStartToken(0)
+      return
+    }
+
+    if (startToken === 0) {
+      patchDiagnostics({
+        step: 'waiting_for_user_start',
+        getUserMediaStatus: 'idle',
+      })
       return
     }
 
@@ -348,6 +404,10 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       getUserMediaError: null,
       constraintsUsed: null,
       isStreamReady: false,
+    })
+
+    void queryCameraPermission().then((permissionState) => {
+      if (!cancelled) patchDiagnostics({ permissionState })
     })
 
     void requestCameraStream(facingMode, (constraints) => {
@@ -397,9 +457,9 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
 
     return () => {
       cancelled = true
-      stop()
+      stopRef.current()
     }
-  }, [enabled, facingMode, stop, attachStreamToVideo, patchDiagnostics, retryCount])
+  }, [enabled, startToken, facingMode, attachStreamToVideo, patchDiagnostics])
 
   useEffect(() => {
     if (!enabled || phase !== 'active' || !streamRef.current) return
@@ -419,6 +479,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
     video.addEventListener('loadedmetadata', onReady)
     video.addEventListener('loadeddata', onReady)
     video.addEventListener('playing', onReady)
+    video.addEventListener('canplay', onReady)
     video.addEventListener('resize', onReady)
 
     const interval = window.setInterval(() => {
@@ -432,6 +493,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       video.removeEventListener('loadedmetadata', onReady)
       video.removeEventListener('loadeddata', onReady)
       video.removeEventListener('playing', onReady)
+      video.removeEventListener('canplay', onReady)
       video.removeEventListener('resize', onReady)
       window.clearInterval(interval)
       window.clearTimeout(timeout)
@@ -566,23 +628,22 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       patchDiagnostics({ videoMounted: Boolean(el) })
 
       if (el) {
-        el.setAttribute('playsinline', 'true')
-        el.setAttribute('webkit-playsinline', 'true')
+        prepareVideoElement(el)
       }
 
-      if (el && streamRef.current && phase === 'active') {
+      if (el && streamRef.current) {
         void attachStreamToVideo()
       }
     },
-    [attachStreamToVideo, phase, patchDiagnostics]
+    [attachStreamToVideo, patchDiagnostics]
   )
 
   const retry = useCallback(() => {
     if (!enabled) return
-    stop()
+    stopRef.current()
     setError(null)
-    setRetryCount((n) => n + 1)
-  }, [enabled, stop])
+    setStartToken((n) => n + 1)
+  }, [enabled])
 
   return {
     videoRef,
@@ -594,6 +655,8 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
     isActive: phase === 'active',
     isStreamReady,
     canCapture: phase === 'active' && isStreamReady,
+    needsUserStart,
+    start,
     captureFrame,
     stop,
     retry,
