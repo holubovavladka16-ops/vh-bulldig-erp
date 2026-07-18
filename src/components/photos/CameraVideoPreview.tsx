@@ -37,7 +37,7 @@ export function CameraVideoPreview({
 
       {needsUserStart && (
         <div className="photo-camera-start-overlay">
-          <button type="button" className="photo-capture-btn photo-capture-btn--primary" onClick={onStart}>
+          <button type="button" className="photo-capture-btn photo-capture-btn--primary" onClick={() => void onStart()}>
             <Camera className="h-6 w-6" />
             Spustit kameru
           </button>

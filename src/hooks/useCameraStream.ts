@@ -222,14 +222,20 @@ function prepareVideoElement(video: HTMLVideoElement): void {
 export function useCameraStream({ enabled, facingMode = 'environment' }: UseCameraStreamOptions) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const stopRef = useRef<() => void>(() => {})
+  const enabledRef = useRef(enabled)
+  const startingRef = useRef(false)
+  const autoStartedRef = useRef(false)
   const [phase, setPhase] = useState<CameraPhase>('idle')
   const [isStreamReady, setIsStreamReady] = useState(false)
   const [error, setError] = useState<CameraError | null>(null)
   const [diagnostics, setDiagnostics] = useState<CameraStartupDiagnostics>(INITIAL_DIAGNOSTICS)
-  const [startToken, setStartToken] = useState(0)
 
-  const needsUserStart = enabled && startToken === 0 && isTouchDevice()
+  enabledRef.current = enabled
+
+  const needsUserStart =
+    enabled &&
+    isTouchDevice() &&
+    (phase === 'idle' || phase === 'denied' || phase === 'unavailable')
 
   const patchDiagnostics = useCallback((patch: Partial<CameraStartupDiagnostics>) => {
     setDiagnostics((prev) => ({
@@ -268,6 +274,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
   )
 
   const stop = useCallback(() => {
+    startingRef.current = false
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
     if (videoRef.current) {
@@ -280,8 +287,6 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       step: 'stopped',
     })
   }, [patchDiagnostics])
-
-  stopRef.current = stop
 
   const attachStreamToVideo = useCallback(async () => {
     const video = videoRef.current
@@ -351,32 +356,11 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
     })
   }, [collectVideoDiagnostics])
 
-  const start = useCallback(() => {
-    setError(null)
-    setStartToken((n) => n + 1)
-  }, [])
-
-  // Desktop: auto-start. Touch (Android): čeká na klepnutí „Spustit kameru“.
-  useEffect(() => {
-    if (!enabled) return
-    if (!isTouchDevice()) {
-      setStartToken((n) => (n === 0 ? 1 : n))
-    }
-  }, [enabled])
-
-  useEffect(() => {
-    if (!enabled) {
-      stopRef.current()
-      setError(null)
-      setStartToken(0)
-      return
-    }
-
-    if (startToken === 0) {
-      patchDiagnostics({
-        step: 'waiting_for_user_start',
-        getUserMediaStatus: 'idle',
-      })
+  /** Volat přímo z onClick — getUserMedia musí běžet v user-gesture řetězci (Android). */
+  const start = useCallback(async () => {
+    if (!enabledRef.current || startingRef.current) return
+    if (streamRef.current?.active) {
+      await attachStreamToVideo()
       return
     }
 
@@ -394,7 +378,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       return
     }
 
-    let cancelled = false
+    startingRef.current = true
     setPhase('starting')
     setError(null)
     setIsStreamReady(false)
@@ -407,59 +391,73 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
     })
 
     void queryCameraPermission().then((permissionState) => {
-      if (!cancelled) patchDiagnostics({ permissionState })
+      patchDiagnostics({ permissionState })
     })
 
-    void requestCameraStream(facingMode, (constraints) => {
-      if (cancelled) return
+    try {
+      const stream = await requestCameraStream(facingMode, (constraints) => {
+        patchDiagnostics({
+          step: 'getusermedia_attempt',
+          constraintsUsed: JSON.stringify(constraints),
+        })
+      })
+
+      if (!enabledRef.current) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+
+      streamRef.current = stream
+      setPhase('active')
       patchDiagnostics({
-        step: 'getusermedia_attempt',
-        constraintsUsed: JSON.stringify(constraints),
-      })
-    })
-      .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop())
-          return
-        }
-
-        streamRef.current = stream
-        setPhase('active')
-        patchDiagnostics({
-          step: 'getusermedia_ok',
-          getUserMediaStatus: 'ok',
-          getUserMediaError: null,
-          streamActive: stream.active,
-          streamId: stream.id,
-          trackSummary: summarizeTracks(stream),
-        })
-
-        void attachStreamToVideo()
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return
-        const classified = classifyGetUserMediaError(err)
-        const errText =
-          err instanceof DOMException
-            ? `${err.name}: ${err.message}`
-            : err instanceof Error
-              ? err.message
-              : String(err)
-        setError(classified)
-        setPhase(classified.code === 'permission_denied' ? 'denied' : 'unavailable')
-        patchDiagnostics({
-          step: 'getusermedia_error',
-          getUserMediaStatus: 'error',
-          getUserMediaError: errText,
-          isStreamReady: false,
-        })
+        step: 'getusermedia_ok',
+        getUserMediaStatus: 'ok',
+        getUserMediaError: null,
+        streamActive: stream.active,
+        streamId: stream.id,
+        trackSummary: summarizeTracks(stream),
       })
 
-    return () => {
-      cancelled = true
-      stopRef.current()
+      await attachStreamToVideo()
+    } catch (err: unknown) {
+      if (!enabledRef.current) return
+      const classified = classifyGetUserMediaError(err)
+      const errText =
+        err instanceof DOMException
+          ? `${err.name}: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : String(err)
+      setError(classified)
+      setPhase(classified.code === 'permission_denied' ? 'denied' : 'unavailable')
+      patchDiagnostics({
+        step: 'getusermedia_error',
+        getUserMediaStatus: 'error',
+        getUserMediaError: errText,
+        isStreamReady: false,
+      })
+    } finally {
+      startingRef.current = false
     }
-  }, [enabled, startToken, facingMode, attachStreamToVideo, patchDiagnostics])
+  }, [attachStreamToVideo, facingMode, patchDiagnostics])
+
+  useEffect(() => {
+    if (!enabled) {
+      autoStartedRef.current = false
+      stop()
+      setError(null)
+      patchDiagnostics({
+        step: 'waiting_for_user_start',
+        getUserMediaStatus: 'idle',
+      })
+      return
+    }
+
+    if (!isTouchDevice() && !autoStartedRef.current) {
+      autoStartedRef.current = true
+      void start()
+    }
+  }, [enabled, start, stop, patchDiagnostics])
 
   useEffect(() => {
     if (!enabled || phase !== 'active' || !streamRef.current) return
@@ -639,11 +637,11 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
   )
 
   const retry = useCallback(() => {
-    if (!enabled) return
-    stopRef.current()
+    if (!enabledRef.current) return
+    stop()
     setError(null)
-    setStartToken((n) => n + 1)
-  }, [enabled])
+    void start()
+  }, [start, stop])
 
   return {
     videoRef,

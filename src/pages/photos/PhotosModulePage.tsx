@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, LayoutGrid, Map } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -12,6 +12,7 @@ import { PhotoMapDetailPanel } from '@/components/photos/PhotoMapDetailPanel'
 import { PhotoMapView } from '@/components/photos/PhotoMapView'
 import { PhotoCard } from '@/components/photos/PhotoCard'
 import { useAuth } from '@/context/AuthContext'
+import { isTouchDevice } from '@/hooks/useCameraStream'
 import { fetchGpsPhotos } from '@/lib/photos/api'
 import { fetchJobOrders } from '@/lib/orders/api'
 import { fetchWorkers } from '@/lib/workers/api'
@@ -32,6 +33,14 @@ export function PhotosModulePage() {
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null)
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
   const [workerOptions, setWorkerOptions] = useState<{ value: string; label: string }[]>([])
+  const startCameraRef = useRef<(() => Promise<void>) | null>(null)
+
+  function openCameraView() {
+    setPageView('camera')
+    if (isTouchDevice()) {
+      void startCameraRef.current?.()
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -76,7 +85,7 @@ export function PhotosModulePage() {
           type="button"
           size="sm"
           variant={pageView === 'camera' ? 'primary' : 'secondary'}
-          onClick={() => setPageView('camera')}
+          onClick={openCameraView}
           disabled={!user}
         >
           <Camera className="h-4 w-4" />
@@ -93,17 +102,24 @@ export function PhotosModulePage() {
         </Button>
       </div>
 
-      {pageView === 'camera' && user ? (
-        <Card className="p-4 sm:p-6">
-          <PhotoCaptureFlow
-            active
-            uploadedBy={user.id}
-            creatorName={creatorName}
-            onCreated={handlePhotoCreated}
-            onCancel={() => setPageView('gallery')}
-          />
-        </Card>
-      ) : (
+      <div className={pageView === 'camera' ? undefined : 'hidden'}>
+        {user ? (
+          <Card className="p-4 sm:p-6">
+            <PhotoCaptureFlow
+              active={pageView === 'camera'}
+              uploadedBy={user.id}
+              creatorName={creatorName}
+              onCreated={handlePhotoCreated}
+              onCancel={() => setPageView('gallery')}
+              onRegisterCameraStart={(start) => {
+                startCameraRef.current = start
+              }}
+            />
+          </Card>
+        ) : null}
+      </div>
+
+      {pageView !== 'camera' && (
         <>
           <Card className="mb-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

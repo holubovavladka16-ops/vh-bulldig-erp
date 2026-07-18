@@ -49,7 +49,7 @@ export function QrScannerView({
             <button
               type="button"
               className="photo-capture-btn photo-capture-btn--primary"
-              onClick={camera.start}
+              onClick={() => void camera.start()}
             >
               <Camera className="h-6 w-6" />
               Spustit kameru
