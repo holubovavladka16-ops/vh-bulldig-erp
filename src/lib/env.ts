@@ -34,3 +34,23 @@ export function getSupabaseConfigHint(): string {
 export function getInitialAdminEmailHint(): string {
   return import.meta.env.VITE_INITIAL_ADMIN_EMAIL?.trim() ?? ''
 }
+
+function looksLikeRealPublicUrl(value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) return false
+  return !EXAMPLE_MARKERS.some((marker) => normalized.includes(marker))
+}
+
+export function getPublicAppUrl(): string {
+  const configured = import.meta.env.VITE_PUBLIC_APP_URL?.trim()
+  if (configured && looksLikeRealPublicUrl(configured)) {
+    return configured.replace(/\/+$/, '')
+  }
+  if (configured && import.meta.env.PROD) {
+    console.warn(
+      `VITE_PUBLIC_APP_URL ("${configured}") vypadá jako neplatná nebo zástupná hodnota – ` +
+        'používám aktuální doménu prohlížeče (window.location.origin) místo ní.'
+    )
+  }
+  return typeof window !== 'undefined' ? window.location.origin : ''
+}

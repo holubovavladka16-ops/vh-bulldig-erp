@@ -225,35 +225,20 @@ export function PhotosMapModulePage() {
 
 
         {selectedPointId && (
-
           <>
-
             <ConstructionPointDetailPanel
-
               pointId={selectedPointId}
-
               onClose={() => setSelectedPointId(null)}
-
               onUpdated={load}
-
               variant="sidebar"
-
             />
-
             <ConstructionPointDetailPanel
-
               pointId={selectedPointId}
-
               onClose={() => setSelectedPointId(null)}
-
               onUpdated={load}
-
               variant="sheet"
-
             />
-
           </>
-
         )}
 
       </div>

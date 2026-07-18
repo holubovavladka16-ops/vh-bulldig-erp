@@ -11,12 +11,20 @@ interface NominatimAddress {
   town?: string
   village?: string
   municipality?: string
+  county?: string
+  state?: string
   postcode?: string
   country?: string
 }
 
-/** Požadovaná přesnost GPS pro fotodokumentaci (metry). */
+/** Požadovaná přesnost GPS pro výkopy a starší preflight logiku (metry). */
 export const GPS_TARGET_ACCURACY_METERS = 2
+
+/** Fotodokumentace – výborná přesnost (metry). */
+export const GPS_EXCELLENT_ACCURACY_METERS = 5
+
+/** Fotodokumentace – maximální přesnost pro uložení bez varování (metry). */
+export const GPS_PHOTO_SAVE_MAX_ACCURACY_METERS = 10
 
 const GPS_CAPTURE_MAX_WAIT_MS = GPS_MAX_WAIT_MS
 
@@ -98,11 +106,12 @@ export async function reverseGeocode(lat: number, lng: number): Promise<Geocoded
     const address = data.address ?? {}
     const streetParts = [address.road, address.house_number].filter(Boolean)
     const city = address.city ?? address.town ?? address.village ?? address.municipality ?? ''
+    const localityParts = [city, address.county, address.state].filter(Boolean)
 
     return {
       address_full: data.display_name,
       street: streetParts.join(' '),
-      city,
+      city: localityParts.join(', '),
       postal_code: address.postcode ?? '',
       country: address.country ?? '',
     }

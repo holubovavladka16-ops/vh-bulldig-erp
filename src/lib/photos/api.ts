@@ -60,6 +60,59 @@ export function getGpsPhotoUrl(filePath: string): string {
   return data.publicUrl
 }
 
+export const GPS_PHOTOS_PAGE_SIZE = 24
+
+/** Menší náhled pro galerii – Supabase transform sníží datový objem. */
+export function getGpsPhotoThumbnailUrl(filePath: string, width = 480, height = 360): string {
+  const { data } = supabase.storage.from('gps-photos').getPublicUrl(filePath, {
+    transform: { width, height, resize: 'cover' },
+  })
+  return data.publicUrl
+}
+
+function applyGpsPhotoFilters(
+  query: ReturnType<typeof supabase.from>,
+  filters: GpsPhotoFilters
+) {
+  let q = query
+  if (filters.orderId) q = q.eq('order_id', filters.orderId)
+  if (filters.workerId) q = q.eq('worker_id', filters.workerId)
+  if (filters.dateFrom) q = q.gte('captured_date', filters.dateFrom)
+  if (filters.dateTo) q = q.lte('captured_date', filters.dateTo)
+  return q
+}
+
+export interface GpsPhotosPageResult {
+  photos: GpsPhoto[]
+  total: number
+  hasMore: boolean
+}
+
+export async function fetchGpsPhotosPage(
+  filters: GpsPhotoFilters = {},
+  page = 0,
+  pageSize = GPS_PHOTOS_PAGE_SIZE
+): Promise<GpsPhotosPageResult> {
+  const from = page * pageSize
+  const to = from + pageSize - 1
+
+  let query = supabase
+    .from('gps_photos')
+    .select(
+      '*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)',
+      { count: 'exact' }
+    )
+    .order('captured_at', { ascending: false })
+
+  query = applyGpsPhotoFilters(query, filters)
+  const { data, error, count } = await query.range(from, to)
+
+  if (error) throw new Error(error.message)
+  const photos = ((data ?? []) as GpsPhotoRow[]).map(mapPhotoRow)
+  const total = count ?? photos.length
+  return { photos, total, hasMore: from + photos.length < total }
+}
+
 export async function downloadGpsPhoto(filePath: string, fileName: string): Promise<void> {
   const url = getGpsPhotoUrl(filePath)
   const response = await fetch(url)
@@ -79,10 +132,23 @@ export async function fetchGpsPhotos(filters: GpsPhotoFilters = {}): Promise<Gps
     .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
     .order('captured_at', { ascending: false })
 
-  if (filters.orderId) query = query.eq('order_id', filters.orderId)
-  if (filters.workerId) query = query.eq('worker_id', filters.workerId)
-  if (filters.dateFrom) query = query.gte('captured_date', filters.dateFrom)
-  if (filters.dateTo) query = query.lte('captured_date', filters.dateTo)
+  query = applyGpsPhotoFilters(query, filters)
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return ((data ?? []) as GpsPhotoRow[]).map(mapPhotoRow)
+}
+
+/** Lehký dotaz pro mapu – bez zbytečných joinů a bez načítání celé galerie v UI. */
+export async function fetchGpsPhotosForMap(filters: GpsPhotoFilters = {}): Promise<GpsPhoto[]> {
+  let query = supabase
+    .from('gps_photos')
+    .select(
+      'id, file_path, file_name, captured_at, captured_date, captured_time, gps_lat, gps_lng, note, order_id, worker_id, job_orders(name)'
+    )
+    .order('captured_at', { ascending: false })
+
+  query = applyGpsPhotoFilters(query, filters)
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -237,6 +303,23 @@ export async function updateGpsPhotoNote(id: string, note: string, performedBy: 
   const { error } = await supabase.from('gps_photos').update({ note: note.trim() || null }).eq('id', id)
   if (error) throw new Error(error.message)
   await addPhotoHistory(id, 'Poznámka upravena', performedBy, { note })
+}
+
+export async function updateGpsPhotoAddress(
+  id: string,
+  address: Pick<GpsPhoto, 'address_full' | 'street' | 'city' | 'postal_code' | 'country'>
+): Promise<void> {
+  const { error } = await supabase
+    .from('gps_photos')
+    .update({
+      address_full: address.address_full,
+      street: address.street,
+      city: address.city,
+      postal_code: address.postal_code,
+      country: address.country,
+    })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 export async function updateGpsPhotoLinks(

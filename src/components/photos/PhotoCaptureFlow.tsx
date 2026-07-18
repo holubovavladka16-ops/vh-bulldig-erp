@@ -1,46 +1,28 @@
-import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import {
   ArrowLeft,
   Camera,
   Check,
   ImagePlus,
   Loader2,
-  Mail,
-  MapPin,
-  MessageCircle,
-  Satellite,
-  Send,
   User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import '@/styles/photoMap.css'
-import { GpsCameraOverlay } from '@/components/photos/GpsCameraOverlay'
-import { PhotoLocationPreview } from '@/components/photos/PhotoLocationPreview'
-import { useGpsPreflight } from '@/hooks/useGpsPreflight'
+import { PostCaptureGpsPanel } from '@/components/photos/PostCaptureGpsPanel'
+import { usePostCaptureGps } from '@/hooks/usePostCaptureGps'
 import { usePhotoCameraStream } from '@/hooks/usePhotoCameraStream'
 import { getDeviceOrientation } from '@/lib/photos/gpsWatch'
-import { formatGpsCoordinatesCompact } from '@/lib/photos/photoDisplay'
 import { createGpsPhoto } from '@/lib/photos/api'
-import { getGoogleMapsUrl } from '@/lib/photos/mapLinks'
-import {
-  buildSnapshotShareText,
-  getEmailShareUrl,
-  getMessengerShareUrl,
-  getWhatsAppShareUrl,
-} from '@/lib/photos/share'
 import { fetchJobOrders } from '@/lib/orders/api'
-import type { GpsPositionState } from '@/lib/photos/gpsWatch'
-import type { GeocodedAddress } from '@/types/photos'
 
 type CapturePhase = 'camera' | 'save'
 
 interface CapturedSnapshot {
   file: File
   previewUrl: string
-  position: GpsPositionState
-  address: GeocodedAddress
   capturedAt: Date
   deviceHeading: number | null
 }
@@ -56,10 +38,6 @@ export interface PhotoCaptureFlowProps {
   onCancel?: () => void
   /** Kompaktní režim bez horní navigace (uvnitř modalu). */
   compact?: boolean
-}
-
-function formatGpsAccuracy(accuracy: number): string {
-  return `±${accuracy < 10 ? accuracy.toFixed(1) : Math.round(accuracy)} m`
 }
 
 export function PhotoCaptureFlow({
@@ -81,10 +59,10 @@ export function PhotoCaptureFlow({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const gps = useGpsPreflight(active && phase === 'camera')
   const camera = usePhotoCameraStream({ enabled: active && phase === 'camera' })
+  const postGps = usePostCaptureGps(active && phase === 'save' && snapshot != null)
 
-  const canCapture = gps.canCapture && camera.isActive && !saving
+  const canCapture = !saving
 
   useEffect(() => {
     if (!active) return
@@ -111,22 +89,14 @@ export function PhotoCaptureFlow({
 
   if (!active) return null
 
-  async function takeSnapshot(file: File) {
-    if (!gps.position) {
-      setError('GPS poloha není připravena. Počkejte na zaměření.')
-      return
-    }
-
-    const resolvedAddress = gps.resolveAddressForCapture()
+  function takeSnapshot(file: File) {
     const previewUrl = URL.createObjectURL(file)
 
     setSnapshot({
       file,
       previewUrl,
-      position: { ...gps.position },
-      address: resolvedAddress,
       capturedAt: new Date(),
-      deviceHeading: getDeviceOrientation() ?? gps.position.heading ?? null,
+      deviceHeading: getDeviceOrientation(),
     })
     setPhase('save')
     setError('')
@@ -134,19 +104,19 @@ export function PhotoCaptureFlow({
   }
 
   async function handleCameraCapture() {
-    if (!canCapture) return
+    if (!camera.isActive || saving) return
     const file = await camera.captureFrame()
     if (!file) {
       setError('Snímek se nepodařilo pořídit. Zkuste znovu nebo použijte Galerie.')
       return
     }
-    await takeSnapshot(file)
+    takeSnapshot(file)
   }
 
   function handleGalleryInput(e: ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     e.target.value = ''
-    if (selected) void takeSnapshot(selected)
+    if (selected) takeSnapshot(selected)
   }
 
   function handleRetake() {
@@ -154,12 +124,17 @@ export function PhotoCaptureFlow({
     setSnapshot(null)
     setPhase('camera')
     setError('')
+    camera.stop()
   }
 
   async function handleSave() {
-    if (!snapshot) return
+    if (!snapshot || !postGps.position || !postGps.address) return
     if (!orderId) {
       setError('Vyberte zakázku.')
+      return
+    }
+    if (!postGps.canSave) {
+      setError('Počkejte na přesnější polohu (ideálně do ±10 m) před uložením.')
       return
     }
 
@@ -171,11 +146,11 @@ export function PhotoCaptureFlow({
         {
           file: snapshot.file,
           captured_at: snapshot.capturedAt,
-          gps_lat: snapshot.position.lat,
-          gps_lng: snapshot.position.lng,
-          gps_accuracy: snapshot.position.accuracy,
+          gps_lat: postGps.position.lat,
+          gps_lng: postGps.position.lng,
+          gps_accuracy: postGps.position.accuracy,
           device_heading: snapshot.deviceHeading,
-          ...snapshot.address,
+          ...postGps.address,
           note,
           order_id: orderId,
           construction_point_id: constructionPointId ?? null,
@@ -202,42 +177,42 @@ export function PhotoCaptureFlow({
               <ArrowLeft className="h-4 w-4" />
               Galerie
             </Button>
-            <p className="text-sm text-theme-muted">GPS se zaměřuje před vyfocením</p>
+            <p className="text-sm text-theme-muted">GPS a adresa se načtou po vyfocení</p>
           </div>
         )}
 
         <div className="photo-camera-shell">
           <div className="photo-camera-viewport">
-            {camera.isActive ? (
-              <video
-                ref={camera.videoRef}
-                className="photo-camera-video"
-                playsInline
-                muted
-                autoPlay
-              />
-            ) : (
+            <video
+              ref={camera.videoRef}
+              className="photo-camera-video"
+              playsInline
+              muted
+              autoPlay
+            />
+
+            {!camera.isActive && camera.phase === 'starting' && (
               <div className="photo-camera-placeholder">
-                <Camera className="h-12 w-12 text-white/40" />
-                <p className="mt-3 text-sm text-white/70">
-                  {camera.phase === 'starting'
-                    ? 'Spouštím kameru…'
-                    : camera.error || 'Kamera se připravuje…'}
-                </p>
+                <Loader2 className="h-10 w-10 animate-spin text-white/60" />
+                <p className="mt-3 text-sm text-white/70">Spouštím fotoaparát…</p>
               </div>
             )}
 
-            <div className="photo-camera-overlay">
-              <GpsCameraOverlay
-                phase={gps.phase}
-                position={gps.position}
-                address={gps.address}
-                addressStatus={gps.addressStatus}
-                error={gps.error}
-                onAcceptRelaxed={gps.acceptRelaxedAccuracy}
-                onContinueSearching={gps.continueSearching}
-              />
-            </div>
+            {!camera.isActive && camera.phase !== 'starting' && camera.error && (
+              <div className="photo-camera-placeholder">
+                <Camera className="h-12 w-12 text-white/40" />
+                <p className="mt-3 text-sm text-red-300">{camera.error}</p>
+              </div>
+            )}
+
+            {!camera.isActive && camera.phase !== 'starting' && !camera.error && (
+              <div className="photo-camera-placeholder">
+                <Camera className="h-12 w-12 text-white/40" />
+                <p className="mt-3 text-sm text-white/70">
+                  Fotoaparát se spustí po udělení oprávnění.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="photo-camera-actions">
@@ -251,31 +226,33 @@ export function PhotoCaptureFlow({
               Vyfotit
             </button>
 
-            <label
-              className={`photo-capture-btn photo-capture-btn--secondary ${!canCapture ? 'photo-capture-btn--disabled' : ''}`}
-            >
+            <label className="photo-capture-btn photo-capture-btn--secondary">
               <ImagePlus className="h-5 w-5" />
               Galerie
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                disabled={!canCapture}
+                disabled={saving}
                 onChange={handleGalleryInput}
               />
             </label>
+
+            {!camera.isActive && camera.phase !== 'starting' && (
+              <label className="photo-capture-btn photo-capture-btn--secondary">
+                <Camera className="h-5 w-5" />
+                Fotoaparát (záložní)
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={saving}
+                  onChange={handleGalleryInput}
+                />
+              </label>
+            )}
           </div>
-
-          {!canCapture && (
-            <p className="mt-2 text-center text-xs text-amber-300">
-              <Satellite className="mr-1 inline h-3.5 w-3.5" />
-              Tlačítko Vyfotit se aktivuje po zaměření GPS polohy a spuštění kamery.
-            </p>
-          )}
-
-          {camera.error && camera.phase !== 'active' && (
-            <p className="mt-2 text-center text-xs text-theme-muted">{camera.error}</p>
-          )}
 
           {error && <p className="mt-2 text-center text-sm text-red-400">{error}</p>}
         </div>
@@ -291,18 +268,6 @@ export function PhotoCaptureFlow({
     minute: '2-digit',
     second: '2-digit',
   })
-  const orderName =
-    orderOptions.find((o) => o.value === orderId)?.label?.replace(/^—\s*/, '') || 'Obecné staveniště'
-  const shareText = buildSnapshotShareText({
-    lat: snapshot.position.lat,
-    lng: snapshot.position.lng,
-    accuracy: snapshot.position.accuracy,
-    addressFull: snapshot.address.address_full,
-    capturedAt: snapshot.capturedAt,
-    note,
-    orderName,
-  })
-  const mapUrl = getGoogleMapsUrl(snapshot.position.lat, snapshot.position.lng)
 
   return (
     <div className={`photo-capture-flow ${compact ? '' : 'photo-capture-flow--page'}`}>
@@ -315,47 +280,12 @@ export function PhotoCaptureFlow({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="space-y-3">
-          <div className="overflow-hidden rounded-2xl border border-[var(--border-glass)] bg-black/40">
-            <img
-              src={snapshot.previewUrl}
-              alt="Pořízená fotografie"
-              className="max-h-[360px] w-full object-contain"
-            />
-          </div>
-
-          <PhotoLocationPreview
-            lat={snapshot.position.lat}
-            lng={snapshot.position.lng}
-            address={snapshot.address.address_full}
-            accuracy={snapshot.position.accuracy}
+        <div className="overflow-hidden rounded-2xl border border-[var(--border-glass)] bg-black/40">
+          <img
+            src={snapshot.previewUrl}
+            alt="Pořízená fotografie"
+            className="max-h-[360px] w-full object-contain"
           />
-
-          <div className="rounded-xl border border-[var(--accent-primary)]/30 p-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-theme-muted">
-              Sdílení (WhatsApp / Messenger / e-mail):
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <CaptureShareLink
-                href={getWhatsAppShareUrl(shareText)}
-                label="WhatsApp"
-                icon={<MessageCircle className="h-5 w-5" />}
-                className="border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
-              />
-              <CaptureShareLink
-                href={getMessengerShareUrl(shareText, mapUrl)}
-                label="Messenger"
-                icon={<Send className="h-5 w-5" />}
-                className="border-blue-500/40 text-blue-300 hover:bg-blue-500/10"
-              />
-              <CaptureShareLink
-                href={getEmailShareUrl(shareText)}
-                label="E-mail"
-                icon={<Mail className="h-5 w-5" />}
-                className="border-sky-500/40 text-sky-300 hover:bg-sky-500/10"
-              />
-            </div>
-          </div>
         </div>
 
         <div className="space-y-4">
@@ -394,31 +324,34 @@ export function PhotoCaptureFlow({
                   {dateStr} · {timeStr}
                 </dd>
               </div>
-              <div>
-                <dt className="text-xs text-theme-muted">GPS souřadnice</dt>
-                <dd className="font-mono text-theme-primary">
-                  {formatGpsCoordinatesCompact(snapshot.position.lat, snapshot.position.lng)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-theme-muted">Přesnost GPS</dt>
-                <dd className="text-theme-primary">
-                  {formatGpsAccuracy(snapshot.position.accuracy)}
-                </dd>
-              </div>
-              <div className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                <div>
-                  <dt className="text-xs text-theme-muted">Adresa</dt>
-                  <dd className="text-theme-primary">{snapshot.address.address_full}</dd>
-                </div>
-              </div>
             </dl>
           </div>
 
+          <PostCaptureGpsPanel
+            phase={postGps.phase}
+            statusLabel={postGps.statusLabel}
+            position={postGps.position}
+            address={postGps.address}
+            addressLoading={postGps.addressLoading}
+            error={postGps.error}
+            isImprecise={postGps.isImprecise}
+          />
+
           {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <Button type="button" className="w-full" loading={saving} onClick={() => void handleSave()}>
+          {!postGps.canSave && postGps.isImprecise && (
+            <p className="text-sm text-amber-300">
+              Uložení bude možné po dosažení přesnosti do ±10 m. GPS se nadále upřesňuje.
+            </p>
+          )}
+
+          <Button
+            type="button"
+            className="w-full"
+            loading={saving}
+            disabled={!postGps.canSave || saving}
+            onClick={() => void handleSave()}
+          >
             <Check className="h-4 w-4" />
             Uložit fotografii
           </Button>
@@ -432,29 +365,5 @@ export function PhotoCaptureFlow({
         </div>
       </div>
     </div>
-  )
-}
-
-function CaptureShareLink({
-  href,
-  label,
-  icon,
-  className,
-}: {
-  href: string
-  label: string
-  icon: ReactNode
-  className: string
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 transition ${className}`}
-    >
-      {icon}
-      <span className="text-[10px] font-semibold uppercase">{label}</span>
-    </a>
   )
 }
