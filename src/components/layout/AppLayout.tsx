@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { AppVersionFooter } from './AppVersionFooter'
 
 interface AppLayoutProps {
   title?: string
@@ -25,6 +26,8 @@ export function AppLayout({ title = '', children, headerAction }: AppLayoutProps
         <main className="flex-1 overflow-y-auto p-3 scrollbar-premium sm:p-4 lg:p-6">
           {children}
         </main>
+
+        <AppVersionFooter />
       </div>
     </div>
   )
