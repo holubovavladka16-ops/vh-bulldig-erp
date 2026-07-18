@@ -9,34 +9,49 @@ import { fetchGpsPhotoBlob } from '@/lib/photos/api'
 import { getGoogleMapsUrl } from '@/lib/photos/mapLinks'
 import type { GpsPhoto } from '@/types/photos'
 
-export type PhotoShareResult = 'shared' | 'shared_text_only' | 'unsupported' | 'cancelled'
+export type PhotoShareResult =
+  | 'shared'
+  | 'shared_file_only'
+  | 'shared_text_only'
+  | 'unsupported'
+  | 'cancelled'
 
+const DEFAULT_ORDER_LABEL = 'OBECNÉ STAVENIŠTĚ'
+
+export function hasPhotoOrderName(photo: GpsPhoto): boolean {
+  if (photo.order_id) return true
+  const name = photo.order_name?.trim()
+  return Boolean(name && name.toUpperCase() !== DEFAULT_ORDER_LABEL)
+}
+
+/** Text pro sdílení – fotka nahoře, metadata pod ní (WhatsApp, Messenger, Gmail). */
 export function buildPhotoShareText(photo: GpsPhoto): string {
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
-  const orderName = getOrderDisplayName(photo)
   const address = formatPhotoAddress(photo)
   const dateLabel = formatCaptureDateLabel(photo.captured_date)
   const timeLabel = formatCaptureTime(photo.captured_time)
   const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
 
-  return [
-    'Fotodokumentace VH Bulldig',
-    '',
-    `Zakázka: ${orderName}`,
-    `Datum a čas: ${dateLabel} ${timeLabel}`,
-    `GPS: ${coords}`,
-    photo.gps_accuracy != null ? `Přesnost: ±${Math.round(photo.gps_accuracy)} m` : '',
-    `Adresa: ${address}`,
-    photo.note?.trim() ? `Poznámka: ${photo.note.trim()}` : '',
-    '',
-    `Google Maps: ${mapUrl}`,
-  ]
-    .filter((line) => line !== '')
-    .join('\n')
+  const lines = [`📍 ${address}`, `🌍 ${coords}`, `🕒 ${dateLabel} ${timeLabel}`]
+
+  if (hasPhotoOrderName(photo)) {
+    lines.push(`🏗️ ${getOrderDisplayName(photo)}`)
+  }
+
+  lines.push(`🔗 ${mapUrl}`)
+
+  const note = photo.note?.trim()
+  if (note) {
+    lines.push('', note)
+  }
+
+  return lines.join('\n')
 }
 
 export function buildPhotoShareTitle(photo: GpsPhoto): string {
-  return `Fotodokumentace – ${getOrderDisplayName(photo)}`
+  return hasPhotoOrderName(photo)
+    ? `Fotodokumentace – ${getOrderDisplayName(photo)}`
+    : 'Fotodokumentace VH Bulldig'
 }
 
 export async function fetchGpsPhotoFile(photo: GpsPhoto): Promise<File> {
@@ -52,36 +67,75 @@ export function isWebShareAvailable(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 }
 
-export function canSharePhotoFile(file: File, text: string, title: string): boolean {
+export function canSharePhotoWithText(file: File, text: string, title: string): boolean {
   if (!isWebShareAvailable() || typeof navigator.canShare !== 'function') return false
   return navigator.canShare({ files: [file], text, title })
 }
 
-/** Sdílení originální fotografie + metadata (Web Share API Level 2 s files). */
+export function canSharePhotoFileOnly(file: File): boolean {
+  if (!isWebShareAvailable() || typeof navigator.canShare !== 'function') return false
+  return navigator.canShare({ files: [file] })
+}
+
+/**
+ * Sdílení originální fotografie + metadata (Web Share API Level 2: files + text).
+ * Pokud prohlížeč neumí soubor i text najednou, sdílí fotku a popis zkopíruje do schránky.
+ */
 export async function shareGpsPhoto(photo: GpsPhoto): Promise<PhotoShareResult> {
   if (!isWebShareAvailable()) return 'unsupported'
 
   const file = await fetchGpsPhotoFile(photo)
   const text = buildPhotoShareText(photo)
   const title = buildPhotoShareTitle(photo)
-  const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
 
-  const filePayload: ShareData = { title, text, files: [file] }
-  if (canSharePhotoFile(file, text, title)) {
+  if (canSharePhotoWithText(file, text, title)) {
     try {
-      await navigator.share(filePayload)
+      await navigator.share({ title, text, files: [file] })
       return 'shared'
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'
     }
   }
 
+  if (canSharePhotoFileOnly(file)) {
+    try {
+      await navigator.share({ title, files: [file] })
+      try {
+        await copyPhotoShareText(photo)
+      } catch {
+        // Schránka nemusí být dostupná – fotka je sdílená.
+      }
+      return 'shared_file_only'
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'
+    }
+  }
+
+  const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   try {
     await navigator.share({ title, text, url: mapUrl })
     return 'shared_text_only'
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'
     return 'unsupported'
+  }
+}
+
+/** Záložní sdílení bez Web Share API – stažení fotky + popis do schránky. */
+export async function shareGpsPhotoFallbackDownload(
+  photo: GpsPhoto,
+  download: (filePath: string, fileName: string) => Promise<void>
+): Promise<'downloaded' | 'failed'> {
+  try {
+    await download(photo.file_path, photo.file_name)
+    try {
+      await copyPhotoShareText(photo)
+    } catch {
+      // Stažení proběhlo, kopírování je volitelné.
+    }
+    return 'downloaded'
+  } catch {
+    return 'failed'
   }
 }
 
