@@ -8,11 +8,16 @@ import {
   formatPhotoAddress,
   getOrderDisplayName,
 } from '@/lib/photos/photoDisplay'
-import { downloadPdfBlob, htmlToPdfBlob, sanitizePdfFileName, sharePdfFile } from '@/lib/print/pdfDownload'
+import {
+  assertValidPdfBlob,
+  downloadPdfBlob,
+  htmlToPdfBlob,
+  sanitizePdfFileName,
+  sharePdfFile,
+} from '@/lib/print/pdfDownload'
 import { withPdfGeneratingOverlay } from '@/lib/print/pdfMobileUi'
 import {
   buildProfessionalReportDocument,
-  downloadHtmlDocument,
   escHtml,
   openPrintDocument,
   type CompanyHeader,
@@ -84,15 +89,49 @@ export function buildPhotoReportDocument(photo: GpsPhoto, company?: CompanyHeade
 }
 
 export function buildPhotoReportPdfFileName(photo: GpsPhoto): string {
-  return sanitizePdfFileName(`GPS_fotodoklad_${photo.captured_date}`)
+  return sanitizePdfFileName(`gps-fotodoklad_${photo.captured_date}_${photo.id.slice(0, 8)}`)
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Načtení obrázku pro PDF se nezdařilo.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+/** Vloží obrázky jako data URL, aby html2canvas vytvořil skutečné PDF i na mobilu. */
+async function inlineRemoteImagesInHtml(html: string): Promise<string> {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const images = Array.from(doc.querySelectorAll('img[src]'))
+
+  await Promise.all(
+    images.map(async (img) => {
+      const src = img.getAttribute('src')
+      if (!src || src.startsWith('data:')) return
+      try {
+        const response = await fetch(src)
+        if (!response.ok) return
+        const blob = await response.blob()
+        img.setAttribute('src', await blobToDataUrl(blob))
+      } catch {
+        // ponechat původní URL
+      }
+    })
+  )
+
+  return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`
 }
 
 export async function buildPhotoReportPdfBlob(
   photo: GpsPhoto,
   company?: CompanyHeader | null
 ): Promise<Blob> {
-  const html = buildPhotoReportDocument(photo, company)
-  return htmlToPdfBlob(html)
+  const html = await inlineRemoteImagesInHtml(buildPhotoReportDocument(photo, company))
+  const blob = await htmlToPdfBlob(html)
+  await assertValidPdfBlob(blob)
+  return blob
 }
 
 export function printPhotoReport(photo: GpsPhoto, company?: CompanyHeader | null): void {
@@ -100,14 +139,6 @@ export function printPhotoReport(photo: GpsPhoto, company?: CompanyHeader | null
     title: 'GPS fotodoklad – stavební dokumentace',
     fileName: buildPhotoReportPdfFileName(photo),
   })
-}
-
-/** @deprecated Použijte downloadPhotoReportPdf – zachováno pro zpětnou kompatibilitu HTML exportu. */
-export function downloadPhotoReportHtml(photo: GpsPhoto, company?: CompanyHeader | null): void {
-  downloadHtmlDocument(
-    buildPhotoReportDocument(photo, company),
-    `gps-fotodoklad_${photo.captured_date}_${photo.id.slice(0, 8)}.html`
-  )
 }
 
 export async function downloadPhotoReportPdf(
@@ -125,10 +156,9 @@ export async function sharePhotoReportPdf(
   company?: CompanyHeader | null
 ): Promise<SharePhotoReportPdfResult> {
   const fileName = buildPhotoReportPdfFileName(photo)
-  const title = 'GPS fotodoklad – stavební dokumentace'
   const blob = await withPdfGeneratingOverlay(() => buildPhotoReportPdfBlob(photo, company))
 
-  const shareResult = await sharePdfFile(blob, fileName, title)
+  const shareResult = await sharePdfFile(blob, fileName)
   if (shareResult === 'shared') return 'shared'
   if (shareResult === 'cancelled') return 'cancelled'
 

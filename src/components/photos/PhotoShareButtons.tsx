@@ -8,6 +8,7 @@ import {
   printPhotoReport,
   sharePhotoReportPdf,
 } from '@/lib/photos/photoReport'
+import { sharePhotoInfo } from '@/lib/photos/share'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { GpsPhoto } from '@/types/photos'
 
@@ -21,11 +22,22 @@ interface PhotoShareButtonsProps {
 export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareButtonsProps) {
   const { settings: company } = useCompanySettings()
   const sharePhoto = { ...photo, note: note || photo.note }
+  const [sharingInfo, setSharingInfo] = useState(false)
   const [sharingPdf, setSharingPdf] = useState(false)
 
   async function logShare(channel: string) {
     await logGpsPhotoShare(photo.id, channel, userId)
     onShared?.()
+  }
+
+  async function handleShareInfo() {
+    setSharingInfo(true)
+    try {
+      const result = await sharePhotoInfo(sharePhoto)
+      if (result === 'shared') await logShare('text_sdileni')
+    } finally {
+      setSharingInfo(false)
+    }
   }
 
   async function handleSharePdf() {
@@ -51,12 +63,16 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
 
   return (
     <div className="space-y-3">
-      <Button className="w-full" onClick={() => void handleSharePdf()} loading={sharingPdf}>
+      <Button className="w-full" onClick={() => void handleShareInfo()} loading={sharingInfo}>
         <Share2 className="h-4 w-4" />
-        Sdílet GPS fotodoklad
+        Sdílet informace
       </Button>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Button variant="secondary" size="sm" onClick={() => void handleSharePdf()} loading={sharingPdf} className="w-full sm:w-auto">
+          <Share2 className="h-4 w-4" />
+          Sdílet PDF doklad
+        </Button>
         <Button variant="secondary" size="sm" onClick={() => void handleSavePdf()} className="w-full sm:w-auto">
           <FileDown className="h-4 w-4" />
           Uložit PDF doklad
