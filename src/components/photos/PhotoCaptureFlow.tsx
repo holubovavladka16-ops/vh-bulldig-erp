@@ -1,12 +1,15 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react'
 import {
   ArrowLeft,
   Camera,
   Check,
   ImagePlus,
   Loader2,
+  Mail,
   MapPin,
+  MessageCircle,
   Satellite,
+  Send,
   User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -14,11 +17,19 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import '@/styles/photoMap.css'
 import { GpsCameraOverlay } from '@/components/photos/GpsCameraOverlay'
+import { PhotoLocationPreview } from '@/components/photos/PhotoLocationPreview'
 import { useGpsPreflight } from '@/hooks/useGpsPreflight'
 import { usePhotoCameraStream } from '@/hooks/usePhotoCameraStream'
 import { getDeviceOrientation } from '@/lib/photos/gpsWatch'
-import { geocodeFallbackAddress, formatGpsCoordinatesCompact } from '@/lib/photos/photoDisplay'
+import { formatGpsCoordinatesCompact } from '@/lib/photos/photoDisplay'
 import { createGpsPhoto } from '@/lib/photos/api'
+import { getGoogleMapsUrl } from '@/lib/photos/mapLinks'
+import {
+  buildSnapshotShareText,
+  getEmailShareUrl,
+  getMessengerShareUrl,
+  getWhatsAppShareUrl,
+} from '@/lib/photos/share'
 import { fetchJobOrders } from '@/lib/orders/api'
 import type { GpsPositionState } from '@/lib/photos/gpsWatch'
 import type { GeocodedAddress } from '@/types/photos'
@@ -73,7 +84,7 @@ export function PhotoCaptureFlow({
   const gps = useGpsPreflight(active && phase === 'camera')
   const camera = usePhotoCameraStream({ enabled: active && phase === 'camera' })
 
-  const canCapture = gps.canCapture && !saving
+  const canCapture = gps.canCapture && camera.isActive && !saving
 
   useEffect(() => {
     if (!active) return
@@ -106,7 +117,7 @@ export function PhotoCaptureFlow({
       return
     }
 
-    const resolvedAddress = gps.address ?? geocodeFallbackAddress(gps.position.lat, gps.position.lng)
+    const resolvedAddress = gps.resolveAddressForCapture()
     const previewUrl = URL.createObjectURL(file)
 
     setSnapshot({
@@ -221,7 +232,7 @@ export function PhotoCaptureFlow({
                 phase={gps.phase}
                 position={gps.position}
                 address={gps.address}
-                addressLoading={gps.addressLoading}
+                addressStatus={gps.addressStatus}
                 error={gps.error}
                 onAcceptRelaxed={gps.acceptRelaxedAccuracy}
                 onContinueSearching={gps.continueSearching}
@@ -258,7 +269,7 @@ export function PhotoCaptureFlow({
           {!canCapture && (
             <p className="mt-2 text-center text-xs text-amber-300">
               <Satellite className="mr-1 inline h-3.5 w-3.5" />
-              Tlačítko Vyfotit se aktivuje po načtení GPS polohy a adresy.
+              Tlačítko Vyfotit se aktivuje po zaměření GPS polohy a spuštění kamery.
             </p>
           )}
 
@@ -280,6 +291,18 @@ export function PhotoCaptureFlow({
     minute: '2-digit',
     second: '2-digit',
   })
+  const orderName =
+    orderOptions.find((o) => o.value === orderId)?.label?.replace(/^—\s*/, '') || 'Obecné staveniště'
+  const shareText = buildSnapshotShareText({
+    lat: snapshot.position.lat,
+    lng: snapshot.position.lng,
+    accuracy: snapshot.position.accuracy,
+    addressFull: snapshot.address.address_full,
+    capturedAt: snapshot.capturedAt,
+    note,
+    orderName,
+  })
+  const mapUrl = getGoogleMapsUrl(snapshot.position.lat, snapshot.position.lng)
 
   return (
     <div className={`photo-capture-flow ${compact ? '' : 'photo-capture-flow--page'}`}>
@@ -292,12 +315,47 @@ export function PhotoCaptureFlow({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl border border-[var(--border-glass)] bg-black/40">
-          <img
-            src={snapshot.previewUrl}
-            alt="Pořízená fotografie"
-            className="max-h-[360px] w-full object-contain"
+        <div className="space-y-3">
+          <div className="overflow-hidden rounded-2xl border border-[var(--border-glass)] bg-black/40">
+            <img
+              src={snapshot.previewUrl}
+              alt="Pořízená fotografie"
+              className="max-h-[360px] w-full object-contain"
+            />
+          </div>
+
+          <PhotoLocationPreview
+            lat={snapshot.position.lat}
+            lng={snapshot.position.lng}
+            address={snapshot.address.address_full}
+            accuracy={snapshot.position.accuracy}
           />
+
+          <div className="rounded-xl border border-[var(--accent-primary)]/30 p-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-theme-muted">
+              Sdílení (WhatsApp / Messenger / e-mail):
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <CaptureShareLink
+                href={getWhatsAppShareUrl(shareText)}
+                label="WhatsApp"
+                icon={<MessageCircle className="h-5 w-5" />}
+                className="border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+              />
+              <CaptureShareLink
+                href={getMessengerShareUrl(shareText, mapUrl)}
+                label="Messenger"
+                icon={<Send className="h-5 w-5" />}
+                className="border-blue-500/40 text-blue-300 hover:bg-blue-500/10"
+              />
+              <CaptureShareLink
+                href={getEmailShareUrl(shareText)}
+                label="E-mail"
+                icon={<Mail className="h-5 w-5" />}
+                className="border-sky-500/40 text-sky-300 hover:bg-sky-500/10"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -374,5 +432,29 @@ export function PhotoCaptureFlow({
         </div>
       </div>
     </div>
+  )
+}
+
+function CaptureShareLink({
+  href,
+  label,
+  icon,
+  className,
+}: {
+  href: string
+  label: string
+  icon: ReactNode
+  className: string
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 transition ${className}`}
+    >
+      {icon}
+      <span className="text-[10px] font-semibold uppercase">{label}</span>
+    </a>
   )
 }

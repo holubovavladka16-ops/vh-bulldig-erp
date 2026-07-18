@@ -2,6 +2,8 @@ import type { GpsPhoto } from '@/types/photos'
 import { parseDateParts } from '@/lib/dates'
 
 export const ADDRESS_GEOCODE_FAILED = 'Adresa se nepodařila načíst, souřadnice jsou uloženy.'
+export const ADDRESS_LOADING_LABEL = 'Adresa se načítá'
+export const ADDRESS_UNAVAILABLE_LABEL = 'Adresa nedostupná'
 
 export function formatGpsCoordinates(lat: number, lng: number): string {
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`
@@ -94,7 +96,7 @@ export function geocodeFallbackAddress(lat?: number, lng?: number) {
   void lat
   void lng
   return {
-    address_full: ADDRESS_GEOCODE_FAILED,
+    address_full: ADDRESS_UNAVAILABLE_LABEL,
     street: '',
     city: '',
     postal_code: '',
