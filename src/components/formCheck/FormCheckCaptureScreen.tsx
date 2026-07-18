@@ -1,5 +1,5 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
-import { ArrowLeft, Camera, Check, ImagePlus } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useCameraStream } from '@/hooks/useCameraStream'
@@ -26,6 +26,8 @@ export function FormCheckCaptureScreen({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [capturedFile, setCapturedFile] = useState<File | null>(null)
   const [error, setError] = useState('')
+  const [capturing, setCapturing] = useState(false)
+  const capturingRef = useRef(false)
 
   const camera = useCameraStream({ enabled: active && phase === 'camera', facingMode: 'environment' })
 
@@ -44,13 +46,23 @@ export function FormCheckCaptureScreen({
   }, [previewUrl])
 
   async function handleCameraCapture() {
-    if (!camera.canCapture) return
-    const result = await camera.captureFrame()
-    if (!result.file) {
-      setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
-      return
+    if (capturingRef.current) return
+
+    capturingRef.current = true
+    setCapturing(true)
+    setError('')
+
+    try {
+      const result = await camera.captureFrame()
+      if (!result.file) {
+        setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
+        return
+      }
+      showPreview(result.file)
+    } finally {
+      capturingRef.current = false
+      setCapturing(false)
     }
-    showPreview(result.file)
   }
 
   function handleGalleryInput(e: ChangeEvent<HTMLInputElement>) {
@@ -160,12 +172,21 @@ export function FormCheckCaptureScreen({
             <div className="photo-camera-actions">
               <button
                 type="button"
-                className={`photo-capture-btn photo-capture-btn--primary ${!camera.canCapture ? 'photo-capture-btn--disabled' : ''}`}
-                disabled={!camera.canCapture}
+                className={`photo-capture-btn photo-capture-btn--primary ${!camera.canCapture && !capturing ? 'photo-capture-btn--disabled' : ''} ${capturing ? 'photo-capture-btn--busy' : ''}`}
+                aria-disabled={capturing || undefined}
                 onClick={() => void handleCameraCapture()}
               >
-                <Camera className="h-6 w-6" />
-                Vyfotit
+                {capturing ? (
+                  <>
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                    Pořizuji…
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-6 w-6" />
+                    Vyfotit
+                  </>
+                )}
               </button>
 
               <label

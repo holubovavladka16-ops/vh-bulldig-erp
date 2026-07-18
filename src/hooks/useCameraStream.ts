@@ -225,6 +225,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
   const enabledRef = useRef(enabled)
   const startingRef = useRef(false)
   const autoStartedRef = useRef(false)
+  const streamLatchReadyRef = useRef(false)
   const [phase, setPhase] = useState<CameraPhase>('idle')
   const [isStreamReady, setIsStreamReady] = useState(false)
   const [error, setError] = useState<CameraError | null>(null)
@@ -252,6 +253,9 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       const streamReady = video && stream ? isVideoStreamReady(video, stream) : false
 
       setIsStreamReady(streamReady)
+      if (streamReady) {
+        streamLatchReadyRef.current = true
+      }
       patchDiagnostics({
         step,
         streamActive: Boolean(stream?.active),
@@ -275,6 +279,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
 
   const stop = useCallback(() => {
     startingRef.current = false
+    streamLatchReadyRef.current = false
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
     if (videoRef.current) {
@@ -652,7 +657,8 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
     diagnostics,
     isActive: phase === 'active',
     isStreamReady,
-    canCapture: phase === 'active' && isStreamReady,
+    canCapture:
+      phase === 'active' && (isStreamReady || streamLatchReadyRef.current),
     needsUserStart,
     start,
     captureFrame,
