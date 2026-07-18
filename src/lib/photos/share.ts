@@ -1,31 +1,25 @@
 import { formatDate } from '@/constants/workers'
-import {
-  formatCaptureTime,
-  formatGpsCoordinatesCompact,
-  formatPhotoAddress,
-  getOrderDisplayName,
-} from '@/lib/photos/photoDisplay'
+
 import { getGoogleMapsUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
+
 import type { GpsPhoto } from '@/types/photos'
 
-export type SharePhotoInfoResult = 'shared' | 'cancelled' | 'unsupported'
+
 
 export function buildPhotoShareText(photo: GpsPhoto): string {
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const streetViewUrl = getStreetViewUrl(photo.gps_lat, photo.gps_lng)
-  const orderName = getOrderDisplayName(photo)
-  const address = formatPhotoAddress(photo)
-  const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
+  const orderName = photo.order_name?.trim() || 'Obecné staveniště'
 
   return [
     `Fotodokumentace VH Bulldig – ${orderName}`,
     '',
     `Datum: ${formatDate(photo.captured_date)}`,
-    `Čas: ${formatCaptureTime(photo.captured_time)}`,
-    `GPS: ${coords}`,
+    `Čas: ${photo.captured_time.slice(0, 8)}`,
+    `GPS: ${photo.gps_lat.toFixed(5)}, ${photo.gps_lng.toFixed(5)}`,
     photo.gps_accuracy != null ? `Přesnost: ±${Math.round(photo.gps_accuracy)} m` : '',
-    `Adresa: ${address}`,
-    photo.note?.trim() ? `Popis prací: ${photo.note.trim()}` : '',
+    `Adresa: ${photo.address_full || '—'}`,
+    photo.note ? `Popis prací: ${photo.note}` : '',
     '',
     `Mapa: ${mapUrl}`,
     `Street View: ${streetViewUrl}`,
@@ -34,33 +28,29 @@ export function buildPhotoShareText(photo: GpsPhoto): string {
     .join('\n')
 }
 
-export function buildPhotoShareTitle(photo: GpsPhoto): string {
-  return `Fotodokumentace – ${getOrderDisplayName(photo)}`
+
+
+export function getWhatsAppShareUrl(text: string): string {
+
+  return `https://wa.me/?text=${encodeURIComponent(text)}`
+
 }
 
-/** Textové sdílení GPS informací – navigator.share({ title, text, url }). */
-export async function sharePhotoInfo(photo: GpsPhoto): Promise<SharePhotoInfoResult> {
-  const text = buildPhotoShareText(photo)
-  const title = buildPhotoShareTitle(photo)
-  const url = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
 
-  if (typeof navigator.share !== 'function') {
-    if (typeof navigator.clipboard?.writeText === 'function') {
-      try {
-        await navigator.clipboard.writeText(`${text}\n\n${url}`)
-        return 'shared'
-      } catch {
-        return 'unsupported'
-      }
-    }
-    return 'unsupported'
-  }
 
-  try {
-    await navigator.share({ title, text, url })
-    return 'shared'
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'
-    return 'unsupported'
-  }
+export function getMessengerShareUrl(text: string, mapUrl: string): string {
+
+  const redirect = encodeURIComponent(window.location.href)
+
+  return `https://www.facebook.com/dialog/send?link=${encodeURIComponent(mapUrl)}&app_id=0&redirect_uri=${redirect}&quote=${encodeURIComponent(text)}`
+
 }
+
+
+
+export function getEmailShareUrl(text: string, subject = 'Fotodokumentace VH Bulldig'): string {
+
+  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`
+
+}
+

@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GPS_TARGET_ACCURACY_METERS, reverseGeocode } from '@/lib/photos/geocoding'
-import {
-  ADDRESS_LOADING_LABEL,
-  ADDRESS_UNAVAILABLE_LABEL,
-  geocodeFallbackAddress,
-} from '@/lib/photos/photoDisplay'
+import { geocodeFallbackAddress } from '@/lib/photos/photoDisplay'
 import {
   type GpsPositionState,
   startGpsWatch,
@@ -18,11 +14,8 @@ export type GpsPreflightPhase =
   | 'timeout_prompt'
   | 'relaxed'
 
-export type AddressStatus = 'idle' | 'loading' | 'ready' | 'unavailable'
-
 const GEOCODE_DEBOUNCE_MS = 1500
 const GEOCODE_MIN_MOVE_M = 8
-const GEOCODE_TIMEOUT_MS = 4000
 
 function distanceMeters(a: GpsPositionState, b: GpsPositionState): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180
@@ -36,38 +29,13 @@ function distanceMeters(a: GpsPositionState, b: GpsPositionState): number {
   return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
-async function reverseGeocodeWithTimeout(
-  lat: number,
-  lng: number,
-  timeoutMs: number
-): Promise<GeocodedAddress | null> {
-  try {
-    return await Promise.race([
-      reverseGeocode(lat, lng),
-      new Promise<null>((_, reject) => {
-        setTimeout(() => reject(new Error('geocode_timeout')), timeoutMs)
-      }),
-    ])
-  } catch {
-    return null
-  }
-}
-
-export function getAddressDisplayLabel(
-  address: GeocodedAddress | null,
-  addressStatus: AddressStatus
-): string {
-  if (address?.address_full) return address.address_full
-  if (addressStatus === 'loading') return ADDRESS_LOADING_LABEL
-  if (addressStatus === 'unavailable') return ADDRESS_UNAVAILABLE_LABEL
-  return '—'
-}
+export type AddressStatus = 'idle' | 'loading' | 'ready' | 'unavailable'
 
 export function useGpsPreflight(enabled: boolean) {
   const [phase, setPhase] = useState<GpsPreflightPhase>('initializing')
   const [position, setPosition] = useState<GpsPositionState | null>(null)
   const [address, setAddress] = useState<GeocodedAddress | null>(null)
-  const [addressStatus, setAddressStatus] = useState<AddressStatus>('idle')
+  const [addressLoading, setAddressLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const resetTimeoutRef = useRef<(() => void) | null>(null)
@@ -77,23 +45,20 @@ export function useGpsPreflight(enabled: boolean) {
 
   const geocodeForPosition = useCallback(async (pos: GpsPositionState) => {
     const generation = ++geocodeGenerationRef.current
-    setAddressStatus('loading')
+    setAddressLoading(true)
     try {
-      const result = await reverseGeocodeWithTimeout(pos.lat, pos.lng, GEOCODE_TIMEOUT_MS)
+      const result = await reverseGeocode(pos.lat, pos.lng)
       if (generation !== geocodeGenerationRef.current) return
-      if (result) {
-        setAddress(result)
-        setAddressStatus('ready')
-      } else {
-        setAddress(null)
-        setAddressStatus('unavailable')
-      }
+      setAddress(result)
       lastGeocodedRef.current = pos
     } catch {
       if (generation !== geocodeGenerationRef.current) return
-      setAddress(null)
-      setAddressStatus('unavailable')
+      setAddress(geocodeFallbackAddress(pos.lat, pos.lng))
       lastGeocodedRef.current = pos
+    } finally {
+      if (generation === geocodeGenerationRef.current) {
+        setAddressLoading(false)
+      }
     }
   }, [])
 
@@ -115,7 +80,7 @@ export function useGpsPreflight(enabled: boolean) {
       setPhase('initializing')
       setPosition(null)
       setAddress(null)
-      setAddressStatus('idle')
+      setAddressLoading(false)
       setError(null)
       return
     }
@@ -123,7 +88,7 @@ export function useGpsPreflight(enabled: boolean) {
     setPhase('initializing')
     setPosition(null)
     setAddress(null)
-    setAddressStatus('idle')
+    setAddressLoading(false)
     setError(null)
     lastGeocodedRef.current = null
     geocodeGenerationRef.current += 1
@@ -177,28 +142,28 @@ export function useGpsPreflight(enabled: boolean) {
   }, [])
 
   const hasLocation = position != null
-  const canCapture = hasLocation && (phase === 'ready' || phase === 'relaxed')
-  const addressLoading = addressStatus === 'loading'
-  const addressDisplayLabel = getAddressDisplayLabel(address, addressStatus)
+  const hasAddress = address != null && !addressLoading
+  const accuracyReady = position != null && position.accuracy <= GPS_TARGET_ACCURACY_METERS
+  const canCapture =
+    hasLocation &&
+    hasAddress &&
+    (phase === 'ready' || phase === 'relaxed')
 
-  /** Adresa pro uložení snímku — geokód, fallback souřadnic, nebo placeholder. */
-  const resolveAddressForCapture = useCallback((): GeocodedAddress => {
-    if (address) return address
-    if (position) return geocodeFallbackAddress(position.lat, position.lng)
-    return geocodeFallbackAddress()
-  }, [address, position])
+  const addressStatus: AddressStatus = addressLoading
+    ? 'loading'
+    : address
+      ? 'ready'
+      : 'idle'
 
   return {
     phase,
     position,
     address,
-    addressStatus,
     addressLoading,
-    addressDisplayLabel,
-    resolveAddressForCapture,
+    addressStatus,
     error,
     canCapture,
-    accuracyReady: position != null && position.accuracy <= GPS_TARGET_ACCURACY_METERS,
+    accuracyReady,
     acceptRelaxedAccuracy,
     continueSearching,
   }

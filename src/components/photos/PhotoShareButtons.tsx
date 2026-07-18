@@ -1,14 +1,15 @@
-import { FileDown, Printer, Share2, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Mail, MessageCircle, Printer, Send, FileDown, Trash2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
-import { logGpsPhotoShare } from '@/lib/photos/api'
 import {
-  downloadPhotoReportPdf,
-  printPhotoReport,
-  sharePhotoReportPdf,
-} from '@/lib/photos/photoReport'
-import { sharePhotoInfo } from '@/lib/photos/share'
+  buildPhotoShareText,
+  getEmailShareUrl,
+  getMessengerShareUrl,
+  getWhatsAppShareUrl,
+} from '@/lib/photos/share'
+import { getGoogleMapsUrl } from '@/lib/photos/mapLinks'
+import { downloadGpsPhoto, logGpsPhotoShare } from '@/lib/photos/api'
+import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { GpsPhoto } from '@/types/photos'
 
@@ -22,65 +23,69 @@ interface PhotoShareButtonsProps {
 export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareButtonsProps) {
   const { settings: company } = useCompanySettings()
   const sharePhoto = { ...photo, note: note || photo.note }
-  const [sharingInfo, setSharingInfo] = useState(false)
-  const [sharingPdf, setSharingPdf] = useState(false)
+  const text = `${buildPhotoShareText(sharePhoto)}\n\nPDF report vytvořte v ERP tlačítkem „PDF – tisk“ nebo „PDF – uložit“.`
+  const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
 
   async function logShare(channel: string) {
     await logGpsPhotoShare(photo.id, channel, userId)
     onShared?.()
   }
 
-  async function handleShareInfo() {
-    setSharingInfo(true)
-    try {
-      const result = await sharePhotoInfo(sharePhoto)
-      if (result === 'shared') await logShare('text_sdileni')
-    } finally {
-      setSharingInfo(false)
-    }
-  }
-
-  async function handleSharePdf() {
-    setSharingPdf(true)
-    try {
-      const result = await sharePhotoReportPdf(sharePhoto, company)
-      if (result === 'shared') await logShare('pdf_sdileni')
-      else if (result === 'downloaded') await logShare('pdf_sdileni_fallback')
-    } finally {
-      setSharingPdf(false)
-    }
-  }
-
   function handlePrintPdf() {
     printPhotoReport(sharePhoto, company)
-    void logShare('pdf_tisk')
+    logShare('pdf_tisk')
   }
 
-  async function handleSavePdf() {
-    await downloadPhotoReportPdf(sharePhoto, company)
-    await logShare('pdf_ulozeni')
+  function handleDownloadPdf() {
+    downloadPhotoReportHtml(sharePhoto, company)
+    logShare('pdf_ulozeni')
+  }
+
+  async function handleDownloadPhoto() {
+    try {
+      await downloadGpsPhoto(photo.file_path, photo.file_name)
+      await logShare('stazeni_fotky')
+    } catch {
+      // ignore – browser may block programmatic download
+    }
   }
 
   return (
     <div className="space-y-3">
-      <Button className="w-full" onClick={() => void handleShareInfo()} loading={sharingInfo}>
-        <Share2 className="h-4 w-4" />
-        Sdílet informace
-      </Button>
-
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <Button variant="secondary" size="sm" onClick={() => void handleSharePdf()} loading={sharingPdf} className="w-full sm:w-auto">
-          <Share2 className="h-4 w-4" />
-          Sdílet PDF doklad
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => void handleSavePdf()} className="w-full sm:w-auto">
-          <FileDown className="h-4 w-4" />
-          Uložit PDF doklad
+        <Button variant="secondary" size="sm" onClick={handleDownloadPhoto} className="w-full sm:w-auto">
+          <Download className="h-4 w-4" />
+          Stáhnout fotku
         </Button>
         <Button variant="secondary" size="sm" onClick={handlePrintPdf} className="w-full sm:w-auto">
           <Printer className="h-4 w-4" />
           PDF – tisk
         </Button>
+        <Button variant="secondary" size="sm" onClick={handleDownloadPdf} className="w-full sm:w-auto">
+          <FileDown className="h-4 w-4" />
+          PDF – uložit
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <a href={getWhatsAppShareUrl(text)} target="_blank" rel="noopener noreferrer" onClick={() => logShare('whatsapp')} className="w-full sm:w-auto">
+          <Button variant="secondary" size="sm" type="button" className="w-full sm:w-auto">
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp
+          </Button>
+        </a>
+        <a href={getMessengerShareUrl(text, mapUrl)} target="_blank" rel="noopener noreferrer" onClick={() => logShare('messenger')} className="w-full sm:w-auto">
+          <Button variant="secondary" size="sm" type="button" className="w-full sm:w-auto">
+            <Send className="h-4 w-4" />
+            Messenger
+          </Button>
+        </a>
+        <a href={getEmailShareUrl(text)} onClick={() => logShare('email')} className="w-full sm:w-auto">
+          <Button variant="secondary" size="sm" type="button" className="w-full sm:w-auto">
+            <Mail className="h-4 w-4" />
+            E-mail
+          </Button>
+        </a>
       </div>
     </div>
   )

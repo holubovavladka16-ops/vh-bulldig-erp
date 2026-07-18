@@ -1,7 +1,7 @@
 import { Camera } from 'lucide-react'
 import type { CameraPhase, CameraStartupDiagnostics } from '@/hooks/useCameraStream'
-import { CameraDiagnosticsPanel } from '@/components/photos/CameraDiagnosticsPanel'
-import { isCameraDebugEnabled } from '@/lib/photos/cameraDebug'
+import { CameraDiagnosticsPanel } from '@/components/formCheck/CameraDiagnosticsPanel'
+import { isCameraDebugEnabled } from '@/lib/formCheck/cameraDebug'
 
 interface CameraVideoPreviewProps {
   setVideoRef: (el: HTMLVideoElement | null) => void

@@ -3,7 +3,7 @@ import { ArrowLeft, Camera, Check, ImagePlus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useCameraStream } from '@/hooks/useCameraStream'
-import { CameraVideoPreview } from '@/components/photos/CameraVideoPreview'
+import { CameraVideoPreview } from '@/components/formCheck/CameraVideoPreview'
 import type { FormCheckContext } from '@/types/formCheck'
 import '@/styles/photoMap.css'
 
