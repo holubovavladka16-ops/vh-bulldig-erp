@@ -2,7 +2,8 @@ import { Loader2, Satellite } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
 import { formatDeviceOrientation, getDeviceOrientation } from '@/lib/photos/gpsWatch'
-import type { GpsPreflightPhase } from '@/hooks/useGpsPreflight'
+import type { GpsPreflightPhase, AddressStatus } from '@/hooks/useGpsPreflight'
+import { getAddressDisplayLabel } from '@/hooks/useGpsPreflight'
 import type { GeocodedAddress } from '@/types/photos'
 import type { GpsPositionState } from '@/lib/photos/gpsWatch'
 
@@ -10,7 +11,7 @@ interface GpsPreflightPanelProps {
   phase: GpsPreflightPhase
   position: GpsPositionState | null
   address: GeocodedAddress | null
-  addressLoading: boolean
+  addressStatus: AddressStatus
   error: string | null
   onAcceptRelaxed: () => void
   onContinueSearching: () => void
@@ -20,11 +21,13 @@ export function GpsPreflightPanel({
   phase,
   position,
   address,
-  addressLoading,
+  addressStatus,
   error,
   onAcceptRelaxed,
   onContinueSearching,
 }: GpsPreflightPanelProps) {
+  const addressLoading = addressStatus === 'loading'
+  const addressLabel = getAddressDisplayLabel(address, addressStatus)
   const orientation = formatDeviceOrientation(getDeviceOrientation())
   const accuracy = position?.accuracy
   const accuracyLabel =
@@ -90,7 +93,7 @@ export function GpsPreflightPanel({
                 Načítám adresu…
               </span>
             ) : (
-              address?.address_full || '—'
+              addressLabel
             )}
           </dd>
         </div>

@@ -18,7 +18,7 @@ import { GpsCameraOverlay } from '@/components/photos/GpsCameraOverlay'
 import { useGpsPreflight } from '@/hooks/useGpsPreflight'
 import { isTouchDevice, useCameraStream } from '@/hooks/useCameraStream'
 import { getDeviceOrientation } from '@/lib/photos/gpsWatch'
-import { geocodeFallbackAddress, formatGpsCoordinatesCompact } from '@/lib/photos/photoDisplay'
+import { formatGpsCoordinatesCompact } from '@/lib/photos/photoDisplay'
 import { createGpsPhoto } from '@/lib/photos/api'
 import { fetchJobOrders } from '@/lib/orders/api'
 import type { GpsPositionState } from '@/lib/photos/gpsWatch'
@@ -122,7 +122,7 @@ export function PhotoCaptureFlow({
       return
     }
 
-    const resolvedAddress = gps.address ?? geocodeFallbackAddress(gps.position.lat, gps.position.lng)
+    const resolvedAddress = gps.resolveAddressForCapture()
     const previewUrl = URL.createObjectURL(file)
 
     setSnapshot({
@@ -235,7 +235,7 @@ export function PhotoCaptureFlow({
                   phase={gps.phase}
                   position={gps.position}
                   address={gps.address}
-                  addressLoading={gps.addressLoading}
+                  addressStatus={gps.addressStatus}
                   error={gps.error}
                   onAcceptRelaxed={gps.acceptRelaxedAccuracy}
                   onContinueSearching={gps.continueSearching}
@@ -298,7 +298,7 @@ export function PhotoCaptureFlow({
           {!gpsReady && (
             <p className="mt-2 text-center text-xs text-amber-300">
               <Satellite className="mr-1 inline h-3.5 w-3.5" />
-              Tlačítko Vyfotit se aktivuje po načtení GPS polohy a adresy.
+              Tlačítko Vyfotit se aktivuje po načtení GPS polohy a připravení kamery.
             </p>
           )}
 

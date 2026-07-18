@@ -1,6 +1,7 @@
 import { Loader2, MapPin, Satellite } from 'lucide-react'
 import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
-import type { GpsPreflightPhase } from '@/hooks/useGpsPreflight'
+import type { GpsPreflightPhase, AddressStatus } from '@/hooks/useGpsPreflight'
+import { getAddressDisplayLabel } from '@/hooks/useGpsPreflight'
 import type { GeocodedAddress } from '@/types/photos'
 import type { GpsPositionState } from '@/lib/photos/gpsWatch'
 import { LiveLocationMiniMap } from '@/components/photos/LiveLocationMiniMap'
@@ -9,7 +10,7 @@ interface GpsCameraOverlayProps {
   phase: GpsPreflightPhase
   position: GpsPositionState | null
   address: GeocodedAddress | null
-  addressLoading: boolean
+  addressStatus: AddressStatus
   error: string | null
   onAcceptRelaxed: () => void
   onContinueSearching: () => void
@@ -19,7 +20,7 @@ export function GpsCameraOverlay({
   phase,
   position,
   address,
-  addressLoading,
+  addressStatus,
   error,
   onAcceptRelaxed,
   onContinueSearching,
@@ -29,7 +30,9 @@ export function GpsCameraOverlay({
     accuracy != null ? `±${accuracy < 10 ? accuracy.toFixed(1) : Math.round(accuracy)} m` : '—'
 
   const gpsReady = phase === 'ready' || phase === 'relaxed'
-  const isSearching = phase === 'initializing' || phase === 'waiting' || addressLoading
+  const isSearchingGps = phase === 'initializing' || phase === 'waiting'
+  const addressLabel = getAddressDisplayLabel(address, addressStatus)
+  const addressIsLoading = addressStatus === 'loading'
 
   return (
     <div className="pointer-events-auto space-y-2">
@@ -38,7 +41,7 @@ export function GpsCameraOverlay({
           <Satellite className="h-3.5 w-3.5 text-cyan-400" />
           {gpsReady ? (
             <span className="text-emerald-400">GPS připravena k focení</span>
-          ) : isSearching ? (
+          ) : isSearchingGps ? (
             <span className="flex items-center gap-1.5 text-amber-200">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Zaměřuji polohu…
@@ -75,13 +78,13 @@ export function GpsCameraOverlay({
               Adresa
             </dt>
             <dd className="line-clamp-2 text-white">
-              {addressLoading && !address ? (
+              {addressIsLoading ? (
                 <span className="flex items-center gap-1 text-white/60">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Načítám…
+                  {addressLabel}
                 </span>
               ) : (
-                address?.address_full || '—'
+                addressLabel
               )}
             </dd>
           </div>

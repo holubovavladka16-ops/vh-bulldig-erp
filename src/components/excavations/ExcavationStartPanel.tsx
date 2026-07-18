@@ -119,7 +119,7 @@ export function ExcavationStartPanel({ disabled, onMapReady }: ExcavationStartPa
                 phase={gps.phase}
                 position={gps.position}
                 address={gps.address}
-                addressLoading={gps.addressLoading}
+                addressStatus={gps.addressStatus}
                 error={gps.error}
                 onAcceptRelaxed={gps.acceptRelaxedAccuracy}
                 onContinueSearching={gps.continueSearching}
