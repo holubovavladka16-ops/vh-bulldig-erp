@@ -8,6 +8,10 @@ interface UseQrScannerOptions {
   onScan: (payload: string) => void
 }
 
+/**
+ * Skenuje QR z existujícího video prvku – nevolá vlastní getUserMedia,
+ * aby nekolidoval s useCameraStream ve stejném modulu.
+ */
 export function useQrScanner({ enabled, videoRef, onScan }: UseQrScannerOptions) {
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,7 +47,7 @@ export function useQrScanner({ enabled, videoRef, onScan }: UseQrScannerOptions)
     setError(null)
 
     reader
-      .decodeFromVideoDevice(undefined, video, (result, err) => {
+      .decodeFromVideoElement(video, (result, err) => {
         if (cancelled) return
 
         if (result) {

@@ -2,7 +2,7 @@ import { Loader2, MapPin, Satellite } from 'lucide-react'
 import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
 import type { GpsPreflightPhase } from '@/hooks/useGpsPreflight'
 import type { GeocodedAddress } from '@/types/photos'
-import type { GpsPositionState } from '@/lib/photos/gpsWatch'
+import type { GpsPositionState, GpsTimingMetrics } from '@/lib/photos/gpsWatch'
 import { LiveLocationMiniMap } from '@/components/photos/LiveLocationMiniMap'
 
 interface GpsCameraOverlayProps {
@@ -11,8 +11,20 @@ interface GpsCameraOverlayProps {
   address: GeocodedAddress | null
   addressLoading: boolean
   error: string | null
+  timing?: GpsTimingMetrics
   onAcceptRelaxed: () => void
   onContinueSearching: () => void
+}
+
+function formatAccuracy(accuracy: number | undefined): string {
+  if (accuracy == null) return '—'
+  return `±${accuracy < 10 ? accuracy.toFixed(1) : Math.round(accuracy)} m`
+}
+
+function formatTimingMs(ms: number | null): string {
+  if (ms == null) return '—'
+  if (ms < 1000) return `${ms} ms`
+  return `${(ms / 1000).toFixed(1)} s`
 }
 
 export function GpsCameraOverlay({
@@ -21,30 +33,33 @@ export function GpsCameraOverlay({
   address,
   addressLoading,
   error,
+  timing,
   onAcceptRelaxed,
   onContinueSearching,
 }: GpsCameraOverlayProps) {
   const accuracy = position?.accuracy
-  const accuracyLabel =
-    accuracy != null ? `±${accuracy < 10 ? accuracy.toFixed(1) : Math.round(accuracy)} m` : '—'
-
-  const gpsReady = phase === 'ready' || phase === 'relaxed'
+  const accuracyLabel = formatAccuracy(accuracy)
+  const isPrecise = accuracy != null && accuracy <= GPS_TARGET_ACCURACY_METERS
+  const gpsSettled = phase === 'ready' || phase === 'relaxed'
   const isSearching = phase === 'initializing' || phase === 'waiting' || addressLoading
+  const showReducedAccuracy = phase === 'relaxed' && !isPrecise
 
   return (
     <div className="pointer-events-auto space-y-2">
       <div className="rounded-xl border border-white/20 bg-black/70 px-3 py-2.5 backdrop-blur-md">
         <div className="flex items-center gap-2 text-xs font-medium text-white">
           <Satellite className="h-3.5 w-3.5 text-cyan-400" />
-          {gpsReady ? (
-            <span className="text-emerald-400">GPS připravena k focení</span>
+          {gpsSettled && isPrecise ? (
+            <span className="text-emerald-400">GPS přesná (±{GPS_TARGET_ACCURACY_METERS} m)</span>
+          ) : showReducedAccuracy ? (
+            <span className="text-amber-300">GPS: {accuracyLabel} (nejlepší za 5 s)</span>
           ) : isSearching ? (
             <span className="flex items-center gap-1.5 text-amber-200">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Zaměřuji polohu…
+              GPS na pozadí… focení je volné
             </span>
           ) : (
-            <span className="text-white/80">Sleduji GPS…</span>
+            <span className="text-white/80">Sleduji GPS na pozadí…</span>
           )}
         </div>
 
@@ -59,15 +74,7 @@ export function GpsCameraOverlay({
           </div>
           <div>
             <dt className="text-white/50">Přesnost</dt>
-            <dd
-              className={
-                accuracy != null && accuracy <= GPS_TARGET_ACCURACY_METERS
-                  ? 'text-emerald-400'
-                  : 'text-white'
-              }
-            >
-              {accuracyLabel}
-            </dd>
+            <dd className={isPrecise ? 'text-emerald-400' : 'text-white'}>{accuracyLabel}</dd>
           </div>
           <div className="col-span-2">
             <dt className="flex items-center gap-1 text-white/50">
@@ -78,13 +85,26 @@ export function GpsCameraOverlay({
               {addressLoading && !address ? (
                 <span className="flex items-center gap-1 text-white/60">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Načítám…
+                  Načítám na pozadí…
                 </span>
               ) : (
-                address?.address_full || '—'
+                address?.address_full || (position ? 'Adresa se doplní…' : '—')
               )}
             </dd>
           </div>
+          {timing?.firstFixMs != null && (
+            <div className="col-span-2 border-t border-white/10 pt-1">
+              <dt className="text-white/40">Časy GPS</dt>
+              <dd className="text-white/60">
+                První fix: {formatTimingMs(timing.firstFixMs)}
+                {timing.targetReachedMs != null
+                  ? ` · Cíl: ${formatTimingMs(timing.targetReachedMs)}`
+                  : timing.settledMs != null
+                    ? ` · Ustáleno: ${formatTimingMs(timing.settledMs)}`
+                    : ''}
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
 
