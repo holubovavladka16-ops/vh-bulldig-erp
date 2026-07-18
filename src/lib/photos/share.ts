@@ -35,6 +35,31 @@ export function buildPhotoShareText(photo: GpsPhoto): string {
     .join('\n')
 }
 
+/** Text ke sdílení PDF přílohy – bez odkazu do ERP aplikace. */
+export function buildPhotoPdfShareText(photo: GpsPhoto): string {
+  const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
+  const orderName = getOrderDisplayName(photo)
+  const address = formatPhotoShareAddress(photo)
+  const author = getPhotoAuthorName(photo)
+
+  return [
+    `GPS fotodoklad VH Bulldig – ${orderName}`,
+    '',
+    `Datum: ${formatDate(photo.captured_date)}`,
+    `Čas: ${formatCaptureTime(photo.captured_time)}`,
+    `GPS: ${photo.gps_lat.toFixed(5)}, ${photo.gps_lng.toFixed(5)}`,
+    photo.gps_accuracy != null ? `Přesnost: ±${Math.round(photo.gps_accuracy)} m` : '',
+    `Adresa: ${address}`,
+    `Zakázka: ${orderName}`,
+    photo.note?.trim() ? `Poznámka: ${photo.note.trim()}` : '',
+    `Autor fotografie: ${author}`,
+    '',
+    `Mapa: ${mapUrl}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 export function getWhatsAppShareUrl(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`
 }

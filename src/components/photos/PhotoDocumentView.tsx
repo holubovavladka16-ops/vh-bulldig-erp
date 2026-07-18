@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { PhotoMiniMap } from '@/components/photos/PhotoMiniMap'
-import { getGpsPhotoUrl } from '@/lib/photos/api'
+import { getGpsPhotoUrl, logGpsPhotoShare } from '@/lib/photos/api'
 import {
   getGoogleMapsUrl,
   getMapyCzUrl,
@@ -24,8 +24,8 @@ import {
   getStreetViewUrl,
 } from '@/lib/photos/mapLinks'
 import { shareGpsPhoto } from '@/lib/photos/sharePayload'
-import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
-import { logGpsPhotoShare } from '@/lib/photos/api'
+import { downloadPhotoReportPdf, printPhotoReport } from '@/lib/photos/photoReportPdf'
+import { withPdfGeneratingOverlay } from '@/lib/print/pdfMobileUi'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import {
   formatCaptureDateLabel,
@@ -80,9 +80,13 @@ export function PhotoDocumentView({
     onShared?.()
   }
 
-  function handleSavePdf() {
-    downloadPhotoReportHtml(sharePhoto, company)
-    void logShare('pdf_ulozeni')
+  async function handleSavePdf() {
+    try {
+      await withPdfGeneratingOverlay(() => downloadPhotoReportPdf(sharePhoto, company))
+      void logShare('pdf_ulozeni')
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Uložení PDF se nezdařilo.')
+    }
   }
 
   function handlePrintPdf() {
@@ -92,17 +96,17 @@ export function PhotoDocumentView({
 
   async function handleShare(channel: 'whatsapp' | 'messenger' | 'email' | 'native') {
     try {
-      const result = await shareGpsPhoto(sharePhoto, channel)
+      const result = await shareGpsPhoto(sharePhoto, channel, company)
       if (result.outcome === 'cancelled') return
       if (result.outcome === 'copied') {
-        window.alert('Zpráva a odkaz byly zkopírovány do schránky. Přiložte staženou fotografii ke sdílení.')
+        window.alert('Text byl zkopírován do schránky. PDF doklad byl stažen – přiložte ho ke sdílení.')
       }
       if (result.outcome === 'downloaded' || result.outcome === 'opened') {
-        window.alert('Fotografie s údaji byla stažena. Přiložte ji ke zprávě nebo e-mailu.')
+        window.alert('PDF doklad byl stažen. Přiložte ho ke zprávě nebo e-mailu.')
       }
       await logShare(channel === 'native' ? 'native_share' : channel)
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Sdílení fotografie se nezdařilo.')
+      window.alert(err instanceof Error ? err.message : 'Sdílení PDF se nezdařilo.')
     }
   }
 
