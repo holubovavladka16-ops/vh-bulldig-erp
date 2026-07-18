@@ -2,8 +2,9 @@ import { Mail, MessageCircle, Printer, Send, FileDown, Trash2, Download } from '
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { downloadGpsPhoto, logGpsPhotoShare } from '@/lib/photos/api'
-import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
+import { downloadPhotoReportPdf, printPhotoReport } from '@/lib/photos/photoReportPdf'
 import { shareGpsPhoto } from '@/lib/photos/sharePayload'
+import { withPdfGeneratingOverlay } from '@/lib/print/pdfMobileUi'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { GpsPhoto } from '@/types/photos'
 
@@ -25,28 +26,32 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
 
   async function handleShare(channel: 'whatsapp' | 'messenger' | 'email') {
     try {
-      const result = await shareGpsPhoto(sharePhoto, channel)
+      const result = await shareGpsPhoto(sharePhoto, channel, company)
       if (result.outcome === 'cancelled') return
       if (result.outcome === 'copied') {
-        window.alert('Zpráva a odkaz byly zkopírovány do schránky. Přiložte staženou fotografii ke sdílení.')
+        window.alert('Text byl zkopírován do schránky. PDF doklad byl stažen – přiložte ho ke sdílení.')
       }
       if (result.outcome === 'downloaded' || result.outcome === 'opened') {
-        window.alert('Fotografie s údaji byla stažena. Přiložte ji ke zprávě nebo e-mailu.')
+        window.alert('PDF doklad byl stažen. Přiložte ho ke zprávě nebo e-mailu.')
       }
       await logShare(channel)
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Sdílení fotografie se nezdařilo.')
+      window.alert(err instanceof Error ? err.message : 'Sdílení PDF se nezdařilo.')
     }
   }
 
   function handlePrintPdf() {
     printPhotoReport(sharePhoto, company)
-    logShare('pdf_tisk')
+    void logShare('pdf_tisk')
   }
 
-  function handleDownloadPdf() {
-    downloadPhotoReportHtml(sharePhoto, company)
-    logShare('pdf_ulozeni')
+  async function handleDownloadPdf() {
+    try {
+      await withPdfGeneratingOverlay(() => downloadPhotoReportPdf(sharePhoto, company))
+      void logShare('pdf_ulozeni')
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Uložení PDF se nezdařilo.')
+    }
   }
 
   async function handleDownloadPhoto() {
@@ -69,7 +74,7 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
           <Printer className="h-4 w-4" />
           PDF – tisk
         </Button>
-        <Button variant="secondary" size="sm" onClick={handleDownloadPdf} className="w-full sm:w-auto">
+        <Button variant="secondary" size="sm" onClick={() => void handleDownloadPdf()} className="w-full sm:w-auto">
           <FileDown className="h-4 w-4" />
           PDF – uložit
         </Button>

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { getGpsPhotoUrl } from '@/lib/photos/api'
+import type { GpsPhoto } from '@/types/photos'
 
 export interface PublicGpsPhoto {
   id: string
@@ -48,4 +49,38 @@ export async function fetchPublicGpsPhoto(photoId: string): Promise<PublicGpsPho
 
 export function getPublicGpsPhotoImageUrl(filePath: string): string {
   return getGpsPhotoUrl(filePath)
+}
+
+export function publicGpsPhotoToGpsPhoto(photo: PublicGpsPhoto): GpsPhoto {
+  const capturedAt = `${photo.captured_date}T${photo.captured_time || '00:00:00'}`
+  return {
+    id: photo.id,
+    file_path: photo.file_path,
+    file_name: photo.file_name,
+    captured_at: capturedAt,
+    captured_date: photo.captured_date,
+    captured_time: photo.captured_time,
+    gps_lat: photo.gps_lat,
+    gps_lng: photo.gps_lng,
+    gps_accuracy: photo.gps_accuracy,
+    device_heading: null,
+    address_full: photo.address_full,
+    street: photo.street,
+    city: photo.city,
+    postal_code: photo.postal_code,
+    country: photo.country,
+    note: photo.note,
+    order_id: null,
+    worker_id: null,
+    report_id: null,
+    diary_entry_id: null,
+    utility_connection_id: null,
+    photo_phase: null,
+    construction_point_id: null,
+    sort_order: 0,
+    order_name: photo.order_name ?? undefined,
+    created_by: null,
+    created_at: capturedAt,
+    updated_at: capturedAt,
+  }
 }
