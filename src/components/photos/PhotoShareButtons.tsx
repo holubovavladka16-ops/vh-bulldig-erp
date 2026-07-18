@@ -1,7 +1,12 @@
-import { Copy, Download, FileDown, Printer, Share2, Trash2 } from 'lucide-react'
+import { FileDown, Printer, Share2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
-import { copyPhotoShareText, isWebShareAvailable, shareGpsPhoto } from '@/lib/photos/share'
+import {
+  buildPhotoShareText,
+  isWebShareAvailable,
+  shareGpsPhoto,
+  shareGpsPhotoFallbackDownload,
+} from '@/lib/photos/share'
 import { downloadGpsPhoto, logGpsPhotoShare } from '@/lib/photos/api'
 import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
@@ -20,6 +25,7 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
   const sharePhoto = { ...photo, note: note || photo.note }
   const [sharing, setSharing] = useState(false)
   const [showFallback, setShowFallback] = useState(!isWebShareAvailable())
+  const [message, setMessage] = useState<string | null>(null)
 
   async function logShare(channel: string) {
     await logGpsPhotoShare(photo.id, channel, userId)
@@ -31,18 +37,29 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
     void logShare('pdf_tisk')
   }
 
-  function handleDownloadPdf() {
+  function handleExportPdf() {
     downloadPhotoReportHtml(sharePhoto, company)
     void logShare('pdf_ulozeni')
   }
 
   async function handleSharePhoto() {
     setSharing(true)
+    setMessage(null)
     try {
       const result = await shareGpsPhoto(sharePhoto)
-      if (result === 'shared') await logShare('native_file_share')
-      else if (result === 'shared_text_only') await logShare('native_text_share')
-      else if (result === 'unsupported') setShowFallback(true)
+      if (result === 'shared' || result === 'shared_file_only') {
+        await logShare('native_file_share')
+        if (result === 'shared_file_only') {
+          setMessage('Fotografie sdílena. Popis zkopírován do schránky.')
+        }
+        return
+      }
+      if (result === 'shared_text_only') {
+        await logShare('native_text_share')
+        setShowFallback(true)
+        return
+      }
+      if (result === 'unsupported') setShowFallback(true)
     } catch {
       setShowFallback(true)
     } finally {
@@ -50,21 +67,13 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
     }
   }
 
-  async function handleDownloadPhoto() {
+  async function handleFallbackDownload() {
+    setSharing(true)
     try {
-      await downloadGpsPhoto(photo.file_path, photo.file_name)
-      await logShare('stazeni_fotky')
-    } catch {
-      // ignore
-    }
-  }
-
-  async function handleCopyText() {
-    try {
-      await copyPhotoShareText(sharePhoto)
-      await logShare('clipboard')
-    } catch {
-      // ignore
+      const result = await shareGpsPhotoFallbackDownload(sharePhoto, downloadGpsPhoto)
+      if (result === 'downloaded') await logShare('stazeni_fotky')
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -72,32 +81,41 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
     <div className="space-y-3">
       <Button className="w-full" onClick={() => void handleSharePhoto()} loading={sharing}>
         <Share2 className="h-4 w-4" />
-        Sdílet fotografii
+        Sdílet fotku s informacemi
       </Button>
 
+      <pre className="whitespace-pre-wrap rounded-lg border border-[var(--border-glass)] bg-black/20 px-3 py-2 text-[11px] leading-relaxed text-theme-secondary">
+        {buildPhotoShareText(sharePhoto)}
+      </pre>
+
+      {message && <p className="text-xs text-amber-200">{message}</p>}
+
       {showFallback && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button variant="secondary" size="sm" onClick={() => void handleDownloadPhoto()} className="w-full sm:w-auto">
-            <Download className="h-4 w-4" />
-            Stáhnout fotku
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handleDownloadPdf} className="w-full sm:w-auto">
-            <FileDown className="h-4 w-4" />
-            PDF – uložit
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => void handleCopyText()} className="w-full sm:w-auto">
-            <Copy className="h-4 w-4" />
-            Kopírovat popis
-          </Button>
+        <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-3">
+          <p className="text-xs text-theme-muted">Záložní varianty sdílení:</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full sm:flex-1"
+              onClick={() => void (isWebShareAvailable() ? handleSharePhoto() : handleFallbackDownload())}
+              loading={sharing}
+            >
+              <Share2 className="h-4 w-4" />
+              Sdílet fotku s informacemi
+            </Button>
+            <Button variant="secondary" size="sm" className="w-full sm:flex-1" onClick={handleExportPdf}>
+              <FileDown className="h-4 w-4" />
+              Export do PDF
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <Button variant="secondary" size="sm" onClick={handlePrintPdf} className="w-full sm:w-auto">
-          <Printer className="h-4 w-4" />
-          PDF – tisk
-        </Button>
-      </div>
+      <Button variant="secondary" size="sm" onClick={handlePrintPdf} className="w-full sm:w-auto">
+        <Printer className="h-4 w-4" />
+        PDF – tisk
+      </Button>
     </div>
   )
 }

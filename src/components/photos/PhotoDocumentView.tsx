@@ -2,8 +2,6 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import {
   Clock,
-  Copy,
-  Download,
   Eye,
   FileDown,
   Map,
@@ -24,9 +22,10 @@ import {
   getStreetViewUrl,
 } from '@/lib/photos/mapLinks'
 import {
-  copyPhotoShareText,
+  buildPhotoShareText,
   isWebShareAvailable,
   shareGpsPhoto,
+  shareGpsPhotoFallbackDownload,
 } from '@/lib/photos/share'
 import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
@@ -70,10 +69,10 @@ export function PhotoDocumentView({
   const [sharing, setSharing] = useState(false)
   const [shareFallbackVisible, setShareFallbackVisible] = useState(!isWebShareAvailable())
   const [shareMessage, setShareMessage] = useState<string | null>(null)
-  const [copyingText, setCopyingText] = useState(false)
   const [downloadingPhoto, setDownloadingPhoto] = useState(false)
 
   const sharePhoto = { ...photo, note: note || photo.note }
+  const sharePreviewText = buildPhotoShareText(sharePhoto)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const orderName = getOrderDisplayName(photo)
   const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
@@ -109,48 +108,49 @@ export function PhotoDocumentView({
         setShareFallbackVisible(false)
         return
       }
+      if (result === 'shared_file_only') {
+        await logShare('native_file_share')
+        setShareMessage(
+          'Fotografie sdílena. Popis s adresou a GPS byl zkopírován do schránky – vložte ho do zprávy.',
+        )
+        return
+      }
       if (result === 'shared_text_only') {
         await logShare('native_text_share')
-        setShareMessage('Sdíleno bez souboru – prohlížeč nepodporuje sdílení fotografie.')
+        setShareMessage('Sdílen pouze text – prohlížeč nepodporuje sdílení souboru.')
         setShareFallbackVisible(true)
         return
       }
       if (result === 'cancelled') return
-      setShareMessage('Prohlížeč nepodporuje sdílení souborů. Použijte stažení fotografie nebo PDF.')
+      setShareMessage('Prohlížeč nepodporuje přímé sdílení. Zvolte záložní variantu níže.')
       setShareFallbackVisible(true)
     } catch {
-      setShareMessage('Sdílení se nezdařilo. Zkuste stáhnout fotografii nebo PDF.')
+      setShareMessage('Sdílení se nezdařilo. Zvolte záložní variantu níže.')
       setShareFallbackVisible(true)
     } finally {
       setSharing(false)
     }
   }
 
-  async function handleDownloadPhoto() {
+  async function handleShareFallbackDownload() {
     setDownloadingPhoto(true)
     setShareMessage(null)
     try {
-      await downloadGpsPhoto(photo.file_path, photo.file_name)
-      await logShare('stazeni_fotky')
-    } catch {
+      const result = await shareGpsPhotoFallbackDownload(sharePhoto, downloadGpsPhoto)
+      if (result === 'downloaded') {
+        await logShare('stazeni_fotky')
+        setShareMessage('Fotografie stažena a popis zkopírován do schránky – vložte ho do zprávy.')
+        return
+      }
       setShareMessage('Stažení fotografie se nezdařilo.')
     } finally {
       setDownloadingPhoto(false)
     }
   }
 
-  async function handleCopyShareText() {
-    setCopyingText(true)
-    setShareMessage(null)
-    try {
-      await copyPhotoShareText(sharePhoto)
-      await logShare('clipboard')
-      setShareMessage('Popis zkopírován do schránky.')
-    } catch {
-      setShareMessage('Kopírování se nezdařilo.')
-    } finally {
-      setCopyingText(false)
-    }
+  async function handleExportPdf() {
+    handleSavePdf()
+    setShareMessage('PDF doklad byl stažen.')
   }
 
   return (
@@ -294,7 +294,7 @@ export function PhotoDocumentView({
           {/* Sdílení */}
           <div className="border-t border-[var(--accent-primary)]/20 px-4 py-4">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-theme-muted">
-              Sdílení fotografie
+              Sdílení fotodokumentace
             </p>
             <Button
               type="button"
@@ -303,50 +303,50 @@ export function PhotoDocumentView({
               loading={sharing}
             >
               <Share2 className="h-5 w-5" />
-              Sdílet fotografii
+              Sdílet fotku s informacemi
             </Button>
             <p className="mt-2 text-center text-[11px] leading-snug text-theme-muted">
-              Sdílí originální fotografii s popisem zakázky, datem, GPS, adresou a odkazem na mapu.
-              {isWebShareAvailable() ? ' Na Androidu lze poslat přímo do WhatsAppu, Messengeru nebo Gmailu.' : ''}
+              Sdílí originální fotografii s popisem adresy, GPS, data a odkazu na mapu.
+              {isWebShareAvailable() ? ' Funguje s WhatsApp, Messenger, Gmail a dalšími aplikacemi.' : ''}
             </p>
+
+            <pre className="mt-3 whitespace-pre-wrap rounded-lg border border-[var(--border-glass)] bg-black/25 px-3 py-2 text-[11px] leading-relaxed text-theme-secondary">
+              {sharePreviewText}
+            </pre>
 
             {(shareFallbackVisible || shareMessage) && (
               <div className="mt-3 space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-3">
                 {shareMessage && <p className="text-xs text-amber-200">{shareMessage}</p>}
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="w-full justify-center"
-                    onClick={() => void handleDownloadPhoto()}
-                    loading={downloadingPhoto}
-                  >
-                    <Download className="h-4 w-4" />
-                    Stáhnout fotografii
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="w-full justify-center"
-                    onClick={handleSavePdf}
-                  >
-                    <FileDown className="h-4 w-4" />
-                    Stáhnout PDF
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="w-full justify-center"
-                    onClick={() => void handleCopyShareText()}
-                    loading={copyingText}
-                  >
-                    <Copy className="h-4 w-4" />
-                    Kopírovat popis
-                  </Button>
-                </div>
+                {shareFallbackVisible && (
+                  <>
+                    <p className="text-xs text-theme-muted">
+                      Tento prohlížeč neumí sdílet fotografii i text najednou. Zvolte preferovanou variantu:
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="w-full justify-center"
+                        onClick={() => void (isWebShareAvailable() ? handleSharePhoto() : handleShareFallbackDownload())}
+                        loading={sharing || downloadingPhoto}
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Sdílet fotku s informacemi
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="w-full justify-center"
+                        onClick={handleExportPdf}
+                      >
+                        <FileDown className="h-4 w-4" />
+                        Export do PDF
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
