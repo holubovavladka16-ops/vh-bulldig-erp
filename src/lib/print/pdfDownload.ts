@@ -71,19 +71,13 @@ export type SharePdfResult = 'shared' | 'cancelled' | 'unsupported'
 
 export async function sharePdfFile(
   pdfBlob: Blob,
-  fileName: string,
-  title: string,
-  text?: string
+  fileName: string
 ): Promise<SharePdfResult> {
   const pdfFile = pdfBlobToFile(pdfBlob, fileName)
 
   if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [pdfFile] })) {
     try {
-      await navigator.share({
-        files: [pdfFile],
-        title,
-        text: text ?? title,
-      })
+      await navigator.share({ files: [pdfFile] })
       return 'shared'
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'

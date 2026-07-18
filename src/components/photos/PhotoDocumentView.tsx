@@ -22,6 +22,7 @@ import {
   getStreetViewUrl,
 } from '@/lib/photos/mapLinks'
 import { downloadPhotoReportPdf, printPhotoReport, sharePhotoReportPdf } from '@/lib/photos/photoReport'
+import { sharePhotoInfo } from '@/lib/photos/share'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import {
   formatCaptureDateLabel,
@@ -60,6 +61,7 @@ export function PhotoDocumentView({
   compact = false,
 }: PhotoDocumentViewProps) {
   const { settings: company } = useCompanySettings()
+  const [sharingInfo, setSharingInfo] = useState(false)
   const [sharingPdf, setSharingPdf] = useState(false)
   const [savingPdf, setSavingPdf] = useState(false)
   const [shareMessage, setShareMessage] = useState<string | null>(null)
@@ -78,6 +80,24 @@ export function PhotoDocumentView({
     if (!userId) return
     await logGpsPhotoShare(photo.id, channel, userId)
     onShared?.()
+  }
+
+  async function handleShareInfo() {
+    setSharingInfo(true)
+    setShareMessage(null)
+    try {
+      const result = await sharePhotoInfo(sharePhoto)
+      if (result === 'shared') {
+        await logShare('text_sdileni')
+        return
+      }
+      if (result === 'cancelled') return
+      setShareMessage('Sdílení textu není v tomto prohlížeči podporováno.')
+    } catch {
+      setShareMessage('Sdílení informací se nezdařilo.')
+    } finally {
+      setSharingInfo(false)
+    }
   }
 
   async function handleSavePdf() {
@@ -238,20 +258,31 @@ export function PhotoDocumentView({
 
       {!compact && userId && (
         <>
-          {/* PDF a sdílení */}
+          {/* Sdílení a PDF */}
           <div className="border-t border-[var(--accent-primary)]/20 px-4 py-4 space-y-3">
             <Button
               type="button"
+              className="w-full justify-center py-3 text-sm font-semibold uppercase tracking-wide"
+              onClick={() => void handleShareInfo()}
+              loading={sharingInfo}
+            >
+              <Share2 className="h-5 w-5" />
+              Sdílet informace
+            </Button>
+            <p className="text-center text-[11px] leading-snug text-theme-muted">
+              Odešle text se zakázkou, datem, GPS, adresou a odkazy na mapu (WhatsApp, Messenger, e-mail…).
+            </p>
+
+            <Button
+              type="button"
+              variant="secondary"
               className="w-full justify-center py-3 text-sm font-semibold uppercase tracking-wide"
               onClick={() => void handleSharePdf()}
               loading={sharingPdf}
             >
               <Share2 className="h-5 w-5" />
-              Sdílet GPS fotodoklad
+              Sdílet PDF doklad
             </Button>
-            <p className="text-center text-[11px] leading-snug text-theme-muted">
-              Vytvoří profesionální PDF doklad a otevře systémové sdílení (WhatsApp, Messenger, e-mail…).
-            </p>
 
             <Button
               type="button"
