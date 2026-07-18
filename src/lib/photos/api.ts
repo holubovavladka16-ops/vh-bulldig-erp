@@ -60,17 +60,27 @@ export function getGpsPhotoUrl(filePath: string): string {
   return data.publicUrl
 }
 
-export async function downloadGpsPhoto(filePath: string, fileName: string): Promise<void> {
+export async function fetchGpsPhotoBlob(filePath: string): Promise<Blob> {
   const url = getGpsPhotoUrl(filePath)
   const response = await fetch(url)
-  if (!response.ok) throw new Error('Stažení fotografie se nezdařilo.')
-  const blob = await response.blob()
+  if (!response.ok) throw new Error('Načtení fotografie se nezdařilo.')
+  return response.blob()
+}
+
+export async function downloadGpsPhoto(filePath: string, fileName: string): Promise<void> {
+  const blob = await fetchGpsPhotoBlob(filePath)
   const objectUrl = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = objectUrl
   link.download = fileName
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.appendChild(link)
   link.click()
-  URL.revokeObjectURL(objectUrl)
+  window.setTimeout(() => {
+    if (link.parentNode) link.parentNode.removeChild(link)
+    URL.revokeObjectURL(objectUrl)
+  }, 1500)
 }
 
 export async function fetchGpsPhotos(filters: GpsPhotoFilters = {}): Promise<GpsPhoto[]> {

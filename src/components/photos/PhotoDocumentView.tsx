@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 import {
   Clock,
+  Copy,
+  Download,
   Eye,
   FileDown,
-  Mail,
   Map,
   MapPin,
-  MessageCircle,
-  Send,
   Share2,
   Trash2,
   User,
@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { PhotoMiniMap } from '@/components/photos/PhotoMiniMap'
-import { getGpsPhotoUrl } from '@/lib/photos/api'
+import { downloadGpsPhoto, getGpsPhotoUrl, logGpsPhotoShare } from '@/lib/photos/api'
 import {
   getGoogleMapsUrl,
   getMapyCzUrl,
@@ -24,13 +24,11 @@ import {
   getStreetViewUrl,
 } from '@/lib/photos/mapLinks'
 import {
-  buildPhotoShareText,
-  getEmailShareUrl,
-  getMessengerShareUrl,
-  getWhatsAppShareUrl,
+  copyPhotoShareText,
+  isWebShareAvailable,
+  shareGpsPhoto,
 } from '@/lib/photos/share'
 import { downloadPhotoReportHtml, printPhotoReport } from '@/lib/photos/photoReport'
-import { logGpsPhotoShare } from '@/lib/photos/api'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import {
   formatCaptureDateLabel,
@@ -69,8 +67,13 @@ export function PhotoDocumentView({
   compact = false,
 }: PhotoDocumentViewProps) {
   const { settings: company } = useCompanySettings()
+  const [sharing, setSharing] = useState(false)
+  const [shareFallbackVisible, setShareFallbackVisible] = useState(!isWebShareAvailable())
+  const [shareMessage, setShareMessage] = useState<string | null>(null)
+  const [copyingText, setCopyingText] = useState(false)
+  const [downloadingPhoto, setDownloadingPhoto] = useState(false)
+
   const sharePhoto = { ...photo, note: note || photo.note }
-  const shareText = buildPhotoShareText(sharePhoto)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
   const orderName = getOrderDisplayName(photo)
   const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
@@ -96,22 +99,57 @@ export function PhotoDocumentView({
     void logShare('pdf_tisk')
   }
 
-  async function handleNativeShare() {
-    const payload = {
-      title: `Fotodokumentace – ${orderName}`,
-      text: shareText,
-      url: mapUrl,
-    }
+  async function handleSharePhoto() {
+    setSharing(true)
+    setShareMessage(null)
     try {
-      if (navigator.share) {
-        await navigator.share(payload)
-        await logShare('native_share')
+      const result = await shareGpsPhoto(sharePhoto)
+      if (result === 'shared') {
+        await logShare('native_file_share')
+        setShareFallbackVisible(false)
         return
       }
-      await navigator.clipboard.writeText(`${shareText}\n\n${mapUrl}`)
-      await logShare('clipboard')
+      if (result === 'shared_text_only') {
+        await logShare('native_text_share')
+        setShareMessage('Sdíleno bez souboru – prohlížeč nepodporuje sdílení fotografie.')
+        setShareFallbackVisible(true)
+        return
+      }
+      if (result === 'cancelled') return
+      setShareMessage('Prohlížeč nepodporuje sdílení souborů. Použijte stažení fotografie nebo PDF.')
+      setShareFallbackVisible(true)
     } catch {
-      // uživatel zrušil sdílení
+      setShareMessage('Sdílení se nezdařilo. Zkuste stáhnout fotografii nebo PDF.')
+      setShareFallbackVisible(true)
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  async function handleDownloadPhoto() {
+    setDownloadingPhoto(true)
+    setShareMessage(null)
+    try {
+      await downloadGpsPhoto(photo.file_path, photo.file_name)
+      await logShare('stazeni_fotky')
+    } catch {
+      setShareMessage('Stažení fotografie se nezdařilo.')
+    } finally {
+      setDownloadingPhoto(false)
+    }
+  }
+
+  async function handleCopyShareText() {
+    setCopyingText(true)
+    setShareMessage(null)
+    try {
+      await copyPhotoShareText(sharePhoto)
+      await logShare('clipboard')
+      setShareMessage('Popis zkopírován do schránky.')
+    } catch {
+      setShareMessage('Kopírování se nezdařilo.')
+    } finally {
+      setCopyingText(false)
     }
   }
 
@@ -256,39 +294,61 @@ export function PhotoDocumentView({
           {/* Sdílení */}
           <div className="border-t border-[var(--accent-primary)]/20 px-4 py-4">
             <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-theme-muted">
-              Sdílení (WhatsApp / Messenger / e-mail):
+              Sdílení fotografie
             </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <ShareLink
-                href={getWhatsAppShareUrl(shareText)}
-                onClick={() => logShare('whatsapp')}
-                label="WhatsApp"
-                icon={<MessageCircle className="h-5 w-5" />}
-                className="border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
-              />
-              <ShareLink
-                href={getEmailShareUrl(shareText)}
-                onClick={() => logShare('email')}
-                label="E-mail"
-                icon={<Mail className="h-5 w-5" />}
-                className="border-sky-500/40 text-sky-300 hover:bg-sky-500/10"
-              />
-              <ShareLink
-                href={getMessengerShareUrl(shareText, mapUrl)}
-                onClick={() => logShare('messenger')}
-                label="Messenger"
-                icon={<Send className="h-5 w-5" />}
-                className="border-blue-500/40 text-blue-300 hover:bg-blue-500/10"
-              />
-              <button
-                type="button"
-                onClick={() => void handleNativeShare()}
-                className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl border border-violet-500/40 px-2 py-2 text-violet-300 transition hover:bg-violet-500/10"
-              >
-                <Share2 className="h-5 w-5" />
-                <span className="text-[10px] font-semibold uppercase">Sdílet</span>
-              </button>
-            </div>
+            <Button
+              type="button"
+              className="w-full justify-center py-3 text-sm font-semibold uppercase tracking-wide"
+              onClick={() => void handleSharePhoto()}
+              loading={sharing}
+            >
+              <Share2 className="h-5 w-5" />
+              Sdílet fotografii
+            </Button>
+            <p className="mt-2 text-center text-[11px] leading-snug text-theme-muted">
+              Sdílí originální fotografii s popisem zakázky, datem, GPS, adresou a odkazem na mapu.
+              {isWebShareAvailable() ? ' Na Androidu lze poslat přímo do WhatsAppu, Messengeru nebo Gmailu.' : ''}
+            </p>
+
+            {(shareFallbackVisible || shareMessage) && (
+              <div className="mt-3 space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-3">
+                {shareMessage && <p className="text-xs text-amber-200">{shareMessage}</p>}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full justify-center"
+                    onClick={() => void handleDownloadPhoto()}
+                    loading={downloadingPhoto}
+                  >
+                    <Download className="h-4 w-4" />
+                    Stáhnout fotografii
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full justify-center"
+                    onClick={handleSavePdf}
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Stáhnout PDF
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full justify-center"
+                    onClick={() => void handleCopyShareText()}
+                    loading={copyingText}
+                  >
+                    <Copy className="h-4 w-4" />
+                    Kopírovat popis
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Mapy */}
@@ -315,33 +375,6 @@ export function PhotoDocumentView({
         </>
       )}
     </article>
-  )
-}
-
-function ShareLink({
-  href,
-  onClick,
-  label,
-  icon,
-  className,
-}: {
-  href: string
-  onClick: () => void
-  label: string
-  icon: ReactNode
-  className: string
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={onClick}
-      className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 transition ${className}`}
-    >
-      {icon}
-      <span className="text-[10px] font-semibold uppercase">{label}</span>
-    </a>
   )
 }
 
