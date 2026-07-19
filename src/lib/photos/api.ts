@@ -1,13 +1,8 @@
 import { supabase } from '@/lib/supabase'
-import {
-  createConstructionPoint,
-} from '@/lib/constructionPoints/api'
 import type {
   GpsPhoto,
   GpsPhotoCreateInput,
-  GpsPhotoDetail,
   GpsPhotoFilters,
-  GpsPhotoHistoryEntry,
 } from '@/types/photos'
 
 type GpsPhotoRow = GpsPhoto & {
@@ -38,11 +33,11 @@ function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
     worker_id: row.worker_id,
     report_id: row.report_id,
     diary_entry_id: row.diary_entry_id,
-  utility_connection_id: row.utility_connection_id ?? null,
-  photo_phase: row.photo_phase ?? null,
+    utility_connection_id: row.utility_connection_id ?? null,
+    photo_phase: row.photo_phase ?? null,
     construction_point_id: row.construction_point_id ?? null,
     sort_order: Number(row.sort_order ?? 0),
-  order_name: row.job_orders?.name ?? row.order_name,
+    order_name: row.job_orders?.name ?? row.order_name,
     worker_name: row.workers ? `${row.workers.last_name} ${row.workers.first_name}` : row.worker_name,
     creator_name: row.creator?.full_name?.trim() || row.creator?.email || undefined,
     created_by: row.created_by,
@@ -60,16 +55,6 @@ export function getGpsPhotoUrl(filePath: string): string {
   return data.publicUrl
 }
 
-export const GPS_PHOTOS_PAGE_SIZE = 24
-
-/** Menší náhled pro galerii – Supabase transform sníží datový objem. */
-export function getGpsPhotoThumbnailUrl(filePath: string, width = 480, height = 360): string {
-  const { data } = supabase.storage.from('gps-photos').getPublicUrl(filePath, {
-    transform: { width, height, resize: 'cover' },
-  })
-  return data.publicUrl
-}
-
 function applyGpsPhotoFilters(
   query: ReturnType<typeof supabase.from>,
   filters: GpsPhotoFilters
@@ -82,70 +67,10 @@ function applyGpsPhotoFilters(
   return q
 }
 
-export interface GpsPhotosPageResult {
-  photos: GpsPhoto[]
-  total: number
-  hasMore: boolean
-}
-
-export async function fetchGpsPhotosPage(
-  filters: GpsPhotoFilters = {},
-  page = 0,
-  pageSize = GPS_PHOTOS_PAGE_SIZE
-): Promise<GpsPhotosPageResult> {
-  const from = page * pageSize
-  const to = from + pageSize - 1
-
-  let query = supabase
-    .from('gps_photos')
-    .select(
-      '*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)',
-      { count: 'exact' }
-    )
-    .order('captured_at', { ascending: false })
-
-  query = applyGpsPhotoFilters(query, filters)
-  const { data, error, count } = await query.range(from, to)
-
-  if (error) throw new Error(error.message)
-  const photos = ((data ?? []) as GpsPhotoRow[]).map(mapPhotoRow)
-  const total = count ?? photos.length
-  return { photos, total, hasMore: from + photos.length < total }
-}
-
-export async function downloadGpsPhoto(filePath: string, fileName: string): Promise<void> {
-  const url = getGpsPhotoUrl(filePath)
-  const response = await fetch(url)
-  if (!response.ok) throw new Error('Stažení fotografie se nezdařilo.')
-  const blob = await response.blob()
-  const objectUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = objectUrl
-  link.download = fileName
-  link.click()
-  URL.revokeObjectURL(objectUrl)
-}
-
 export async function fetchGpsPhotos(filters: GpsPhotoFilters = {}): Promise<GpsPhoto[]> {
   let query = supabase
     .from('gps_photos')
     .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
-    .order('captured_at', { ascending: false })
-
-  query = applyGpsPhotoFilters(query, filters)
-
-  const { data, error } = await query
-  if (error) throw new Error(error.message)
-  return ((data ?? []) as GpsPhotoRow[]).map(mapPhotoRow)
-}
-
-/** Lehký dotaz pro mapu – bez zbytečných joinů a bez načítání celé galerie v UI. */
-export async function fetchGpsPhotosForMap(filters: GpsPhotoFilters = {}): Promise<GpsPhoto[]> {
-  let query = supabase
-    .from('gps_photos')
-    .select(
-      'id, file_path, file_name, captured_at, captured_date, captured_time, gps_lat, gps_lng, note, order_id, worker_id, job_orders(name)'
-    )
     .order('captured_at', { ascending: false })
 
   query = applyGpsPhotoFilters(query, filters)
@@ -165,31 +90,6 @@ export async function fetchGpsPhotosByIds(ids: string[]): Promise<GpsPhoto[]> {
 
   if (error) throw new Error(error.message)
   return ((data ?? []) as GpsPhotoRow[]).map(mapPhotoRow)
-}
-
-export async function fetchGpsPhotoDetail(id: string): Promise<GpsPhotoDetail | null> {
-  const { data, error } = await supabase
-    .from('gps_photos')
-    .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (error) throw new Error(error.message)
-  if (!data) return null
-
-  const history = await fetchGpsPhotoHistory(id)
-  return { ...mapPhotoRow(data as GpsPhotoRow), history }
-}
-
-async function fetchGpsPhotoHistory(photoId: string): Promise<GpsPhotoHistoryEntry[]> {
-  const { data, error } = await supabase
-    .from('gps_photo_history')
-    .select('*')
-    .eq('photo_id', photoId)
-    .order('created_at', { ascending: false })
-
-  if (error) throw new Error(error.message)
-  return (data ?? []) as GpsPhotoHistoryEntry[]
 }
 
 async function addPhotoHistory(
@@ -212,36 +112,6 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
   const path = `${capturedAt.getFullYear()}/${Date.now()}_${input.file.name}`
   const { error: uploadError } = await supabase.storage.from('gps-photos').upload(path, input.file)
   if (uploadError) throw new Error(uploadError.message)
-
-  let constructionPointId = input.construction_point_id ?? null
-  let sortOrder = 0
-
-  if (constructionPointId) {
-    const { data: maxRow, error: maxError } = await supabase
-      .from('gps_photos')
-      .select('sort_order')
-      .eq('construction_point_id', constructionPointId)
-      .order('sort_order', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (maxError) throw new Error(maxError.message)
-    sortOrder = ((maxRow as { sort_order: number } | null)?.sort_order ?? -1) + 1
-  } else {
-    const point = await createConstructionPoint({
-      order_id: input.order_id ?? null,
-      gps_lat: input.gps_lat,
-      gps_lng: input.gps_lng,
-      gps_accuracy: input.gps_accuracy,
-      address_full: input.address_full,
-      street: input.street,
-      city: input.city,
-      postal_code: input.postal_code,
-      country: input.country,
-      created_by: createdBy,
-    })
-    constructionPointId = point.id
-    sortOrder = 0
-  }
 
   const { data, error } = await supabase
     .from('gps_photos')
@@ -267,8 +137,8 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
       diary_entry_id: input.diary_entry_id ?? null,
       utility_connection_id: input.utility_connection_id ?? null,
       photo_phase: input.photo_phase ?? null,
-      construction_point_id: constructionPointId,
-      sort_order: sortOrder,
+      construction_point_id: input.construction_point_id ?? null,
+      sort_order: 0,
       created_by: createdBy,
     })
     .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
@@ -283,43 +153,9 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
     gps_lat: photo.gps_lat,
     gps_lng: photo.gps_lng,
     device_heading: photo.device_heading,
-    construction_point_id: constructionPointId,
   })
 
-  if (constructionPointId && input.construction_point_id) {
-    const { error: histError } = await supabase.from('construction_point_history').insert({
-      point_id: constructionPointId,
-      action: 'Fotografie přidána do bodu',
-      performed_by: createdBy,
-      details: { photo_id: photo.id, file_name: photo.file_name },
-    })
-    if (histError) throw new Error(histError.message)
-  }
-
   return photo
-}
-
-export async function updateGpsPhotoNote(id: string, note: string, performedBy: string): Promise<void> {
-  const { error } = await supabase.from('gps_photos').update({ note: note.trim() || null }).eq('id', id)
-  if (error) throw new Error(error.message)
-  await addPhotoHistory(id, 'Poznámka upravena', performedBy, { note })
-}
-
-export async function updateGpsPhotoAddress(
-  id: string,
-  address: Pick<GpsPhoto, 'address_full' | 'street' | 'city' | 'postal_code' | 'country'>
-): Promise<void> {
-  const { error } = await supabase
-    .from('gps_photos')
-    .update({
-      address_full: address.address_full,
-      street: address.street,
-      city: address.city,
-      postal_code: address.postal_code,
-      country: address.country,
-    })
-    .eq('id', id)
-  if (error) throw new Error(error.message)
 }
 
 export async function updateGpsPhotoLinks(
@@ -330,10 +166,6 @@ export async function updateGpsPhotoLinks(
   const { error } = await supabase.from('gps_photos').update(links).eq('id', id)
   if (error) throw new Error(error.message)
   await addPhotoHistory(id, 'Propojení upraveno', performedBy, links)
-}
-
-export async function logGpsPhotoShare(id: string, channel: string, performedBy: string): Promise<void> {
-  await addPhotoHistory(id, 'Fotografie sdílena', performedBy, { channel })
 }
 
 export async function deleteGpsPhoto(id: string, filePath: string, performedBy: string): Promise<void> {

@@ -13,7 +13,7 @@ export function DiaryPhotosMap({ photos, className = '' }: DiaryPhotosMapProps) 
   if (photos.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-[var(--border-glass)] px-4 py-8 text-center text-sm text-theme-muted">
-        Pro zobrazení mapy přidejte fotografie z Fotodokumentace.
+        Pro zobrazení mapy přidejte fotografie k zápisu.
       </p>
     )
   }

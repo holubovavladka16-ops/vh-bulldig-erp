@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase'
 import { fetchJobOrder } from '@/lib/orders/api'
-import { fetchGpsPhotos } from '@/lib/photos/api'
 import { PRICE_UNIT_LABELS } from '@/constants/workers'
 import type { PriceUnitType } from '@/types/workers'
 import type { DiaryPrefillData, DiaryPrefillWorker } from '@/types/diary'
@@ -46,7 +45,7 @@ function formatWorkerPerformance(row: AttendancePrefillRow): string {
 }
 
 export async function fetchDiaryPrefill(orderId: string, entryDate: string): Promise<DiaryPrefillData> {
-  const [order, attendanceResult, photos] = await Promise.all([
+  const [order, attendanceResult] = await Promise.all([
     fetchJobOrder(orderId),
     supabase
       .from('worker_attendance_records')
@@ -64,7 +63,6 @@ export async function fetchDiaryPrefill(orderId: string, entryDate: string): Pro
       .eq('order_id', orderId)
       .eq('attendance_date', entryDate)
       .eq('attendance_status', 'pritomen'),
-    fetchGpsPhotos({ orderId, dateFrom: entryDate, dateTo: entryDate }),
   ])
 
   if (attendanceResult.error) throw new Error(attendanceResult.error.message)
@@ -104,6 +102,6 @@ export async function fetchDiaryPrefill(orderId: string, entryDate: string): Pro
     worker_names: workers.map((w) => w.full_name).join(', '),
     performances_summary: performanceLines.join('\n'),
     material_hints: materialHints,
-    photos: photos.filter((p) => !p.diary_entry_id),
+    photos: [],
   }
 }

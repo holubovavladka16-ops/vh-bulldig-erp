@@ -198,11 +198,11 @@ export function DiaryDetailModal({ entryId, onClose }: DiaryDetailModalProps) {
 
             <Card className="space-y-4">
 
-              <h3 className="font-semibold text-theme-primary">Fotodokumentace</h3>
+              <h3 className="font-semibold text-theme-primary">Fotografie</h3>
 
               {detail.photos.length === 0 ? (
 
-                <p className="text-sm text-theme-muted">Bez fotografií z modulu Fotodokumentace.</p>
+                <p className="text-sm text-theme-muted">Bez fotografií u tohoto zápisu.</p>
 
               ) : (
 

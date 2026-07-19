@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { ImagePlus, Loader2, MapPin, X } from 'lucide-react'
+import { Loader2, MapPin, X } from 'lucide-react'
 import { AiPolishTextButton } from '@/components/ai/AiPolishTextButton'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -8,9 +8,6 @@ import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
 import { DiaryWorkersBox } from '@/components/diary/DiaryWorkersBox'
 import { DiaryChipSelect } from '@/components/diary/DiaryChipSelect'
-import { DiaryPhotoPickerModal } from '@/components/diary/DiaryPhotoPickerModal'
-import { DiaryPhotoCard } from '@/components/diary/DiaryPhotoCard'
-import { DiaryPhotosMap } from '@/components/diary/DiaryPhotosMap'
 import { fetchDiaryDetail } from '@/lib/diary/api'
 import { fetchDiaryPrefill } from '@/lib/diary/prefill'
 import { todayIsoDate } from '@/lib/dates'
@@ -28,7 +25,6 @@ import type {
   ConstructionDiaryEntry,
   DiaryPrefillData,
 } from '@/types/diary'
-import type { GpsPhoto } from '@/types/photos'
 
 interface DiaryFormModalProps {
   open: boolean
@@ -66,8 +62,6 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
   const [extraordinaryEvents, setExtraordinaryEvents] = useState('')
   const [prefill, setPrefill] = useState<DiaryPrefillData>(emptyPrefill)
   const [linkedPhotoIds, setLinkedPhotoIds] = useState<string[]>([])
-  const [selectedPhotos, setSelectedPhotos] = useState<GpsPhoto[]>([])
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [prefillLoading, setPrefillLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -85,7 +79,6 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
       setPrefill(data)
       if (!keepManual) {
         setLinkedPhotoIds([])
-        setSelectedPhotos([])
         if (data.material_hints.length > 0) {
           const hints = data.material_hints.flatMap((h) => h.split(/[,;]/).map((x) => x.trim()).filter(Boolean))
           const known = hints.filter((h) => (DIARY_MATERIAL_OPTIONS as readonly string[]).includes(h))
@@ -126,13 +119,10 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
 
       fetchDiaryDetail(initial.id)
         .then((detail) => {
-          const linked = (detail?.photos ?? []).map((p) => p.id)
-          setLinkedPhotoIds(linked)
-          setSelectedPhotos(detail?.photos ?? [])
+          setLinkedPhotoIds((detail?.photos ?? []).map((p) => p.id))
         })
         .catch(() => {
           setLinkedPhotoIds([])
-          setSelectedPhotos([])
         })
 
       void loadPrefill(initial.order_id, initial.entry_date, true)
@@ -153,7 +143,6 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
       setExtraordinaryEvents('')
       setPrefill(emptyPrefill)
       setLinkedPhotoIds([])
-      setSelectedPhotos([])
       setError('')
     }
   }, [open, initial, loadPrefill])
@@ -236,7 +225,7 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
               {initial ? 'Upravit zápis' : 'Nový zápis stavebního deníku'}
             </h2>
             <p className="mt-1 text-sm text-theme-muted">
-              Vyberte zakázku a datum — systém načte dělníky, výkony a fotky. Doplňte počasí, techniku a popis práce.
+              Vyberte zakázku a datum — systém načte dělníky a výkony. Doplňte počasí, techniku a popis práce.
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-white/5" aria-label="Zavřít">
@@ -267,7 +256,7 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
             {prefillLoading && (
               <div className="flex items-center gap-2 text-sm text-theme-muted">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Načítám data z docházky a fotodokumentace…
+                Načítám data z docházky…
               </div>
             )}
 
@@ -298,36 +287,6 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
                   </div>
                 </div>
 
-                <Card className="space-y-4 border-[var(--accent-primary)]/20">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h4 className="font-medium text-theme-primary">Fotodokumentace</h4>
-                      <p className="text-xs text-theme-muted">Pouze z modulu Fotky s GPS — ne z galerie telefonu.</p>
-                    </div>
-                    <Button type="button" size="sm" onClick={() => setPickerOpen(true)}>
-                      <ImagePlus className="h-4 w-4" />
-                      Přidat fotografie z Fotodokumentace
-                    </Button>
-                  </div>
-
-                  {selectedPhotos.length === 0 ? (
-                    <p className="text-sm text-theme-muted">Zatím nejsou vloženy žádné fotografie.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {selectedPhotos.map((photo) => (
-                        <DiaryPhotoCard
-                          key={photo.id}
-                          photo={photo}
-                          onRemove={() => {
-                            setLinkedPhotoIds((prev) => prev.filter((id) => id !== photo.id))
-                            setSelectedPhotos((prev) => prev.filter((p) => p.id !== photo.id))
-                          }}
-                        />
-                      ))}
-                      <DiaryPhotosMap photos={selectedPhotos} />
-                    </div>
-                  )}
-                </Card>
               </Card>
 
               <Card className="space-y-4">
@@ -450,19 +409,6 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
           </div>
         </form>
       </div>
-
-      <DiaryPhotoPickerModal
-        open={pickerOpen}
-        orderId={orderId}
-        entryDate={entryDate}
-        selectedIds={linkedPhotoIds}
-        currentDiaryEntryId={initial?.id}
-        onClose={() => setPickerOpen(false)}
-        onConfirm={(ids, photos) => {
-          setLinkedPhotoIds(ids)
-          setSelectedPhotos(photos)
-        }}
-      />
     </div>
   )
 }

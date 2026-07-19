@@ -72,8 +72,6 @@ export type ModuleId =
   | 'ekonomika'
   | 'paragony'
   | 'pripojky'
-  | 'fotky'
-  | 'fotky-na-mape'
   | 'mapa-vykopu'
   | 'dokumenty'
   | 'statistiky'

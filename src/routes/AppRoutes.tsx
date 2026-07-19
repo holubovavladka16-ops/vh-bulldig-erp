@@ -19,9 +19,6 @@ import { ReportsModulePage } from '@/pages/reports/ReportsModulePage'
 import { OrdersModulePage } from '@/pages/orders/OrdersModulePage'
 import { OrderDetailPage } from '@/pages/orders/OrderDetailPage'
 import { CostsModulePage } from '@/pages/ekonomika/CostsModulePage'
-import { PhotosModulePage } from '@/pages/photos/PhotosModulePage'
-import { PublicPhotoSharePage } from '@/pages/photos/PublicPhotoSharePage'
-import { PhotosMapModulePage } from '@/pages/photos/PhotosMapModulePage'
 import { ExcavationsMapModulePage } from '@/pages/excavations/ExcavationsMapModulePage'
 import { DiaryModulePage } from '@/pages/diary/DiaryModulePage'
 import { ConnectionsModulePage } from '@/pages/pripojky/ConnectionsModulePage'
@@ -49,8 +46,6 @@ const placeholderModules = FUTURE_MODULES.filter(
       'vyplatni-pasky',
       'zakazky',
       'ekonomika',
-      'fotky',
-      'fotky-na-mape',
       'mapa-vykopu',
       'denik',
       'pripojky',
@@ -71,9 +66,6 @@ export function AppRoutes() {
       {/* Portál zaměstnance – veřejný, bez ERP přístupu */}
       <Route path="/portal/:token" element={<EmployeePortalPage />} />
       <Route path="/portal/:token/:tab" element={<EmployeePortalPage />} />
-
-      {/* Veřejné sdílení konkrétní GPS fotografie – read-only, bez přihlášení */}
-      <Route path="/sdileni/fotografie/:id" element={<PublicPhotoSharePage />} />
 
       <Route
         path="/"
@@ -191,24 +183,6 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="ekonomika">
             <CostsModulePage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/fotky"
-        element={
-          <ProtectedRoute requiredModule="fotky">
-            <PhotosModulePage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/fotky-na-mape"
-        element={
-          <ProtectedRoute requiredModule="fotky-na-mape">
-            <PhotosMapModulePage />
           </ProtectedRoute>
         }
       />

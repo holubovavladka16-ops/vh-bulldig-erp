@@ -126,7 +126,7 @@ export function buildDiaryEntryBodyHtml(entry: ConstructionDiaryDetail, company?
 
   const photosHtml =
     entry.photos.length === 0
-      ? '<p>Bez fotografií z modulu Fotodokumentace.</p>'
+      ? '<p>Bez fotografií u tohoto zápisu.</p>'
       : `<div class="diary-photo-grid">${entry.photos.map(buildPhotoBlockHtml).join('')}</div>`
 
   return `
@@ -175,7 +175,7 @@ export function buildDiaryEntryBodyHtml(entry: ConstructionDiaryDetail, company?
     ${entry.extraordinary_events ? `<section class="doc-section"><h2>Mimořádné události</h2><p>${escHtml(entry.extraordinary_events).replace(/\n/g, '<br />')}</p></section>` : ''}
 
     <section class="doc-section">
-      <h2>Fotodokumentace</h2>
+      <h2>Fotografie</h2>
       ${photosHtml}
     </section>
 
