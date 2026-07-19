@@ -85,8 +85,8 @@ export function PublicPhotoSharePage() {
       )}
 
       {!loading && pdfUrl && (
-        <div className="mx-auto flex min-h-dvh w-full max-w-[210mm] flex-col bg-neutral-200 py-3">
-          <div className="mb-3 flex justify-center px-3">
+        <div className="mx-auto flex min-h-dvh flex-col items-center justify-center bg-neutral-200 p-3">
+          <div className="mb-3">
             <button
               type="button"
               onClick={() => void handleDownload()}
@@ -96,13 +96,14 @@ export function PublicPhotoSharePage() {
               Stáhnout PDF
             </button>
           </div>
-          <iframe
-            src={pdfUrl}
+          <object
+            data={pdfUrl}
+            type="application/pdf"
             title="GPS fotodoklad"
-            className="mx-auto w-full border-0 bg-white shadow-lg"
-            style={{ height: 'calc(100dvh - 72px)', maxWidth: '210mm' }}
+            className="w-full max-w-[210mm] bg-white shadow-lg"
+            style={{ height: 'min(297mm, calc(100dvh - 88px))', aspectRatio: '210 / 297' }}
           />
-          <p className="mt-2 px-3 text-center text-xs text-neutral-600">{pdfFileName}</p>
+          <p className="mt-2 text-center text-xs text-neutral-600">{pdfFileName}</p>
         </div>
       )}
     </div>
