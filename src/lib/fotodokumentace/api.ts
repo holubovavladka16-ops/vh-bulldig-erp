@@ -82,7 +82,20 @@ export function getFotoUrl(filePath: string | null | undefined): string {
   return data.publicUrl
 }
 
-function applyFilters(query: ReturnType<typeof supabase.from>, filters: FotoFiltry) {
+function isMissingColumnError(message: string): boolean {
+  const m = message.toLowerCase()
+  return (
+    m.includes('schema cache') ||
+    m.includes('could not find') ||
+    m.includes('column') ||
+    m.includes('does not exist')
+  )
+}
+
+function applyFiltersExtended(
+  query: ReturnType<typeof supabase.from>,
+  filters: FotoFiltry
+) {
   let q = query
   if (!filters.includeDeleted) q = q.is('deleted_at', null)
   if (filters.orderId) q = q.eq('order_id', filters.orderId)
@@ -104,17 +117,63 @@ function applyFilters(query: ReturnType<typeof supabase.from>, filters: FotoFilt
   return q
 }
 
+function applyFiltersLegacy(
+  query: ReturnType<typeof supabase.from>,
+  filters: FotoFiltry
+) {
+  let q = query
+  if (filters.orderId) q = q.eq('order_id', filters.orderId)
+  if (filters.workerId) q = q.eq('worker_id', filters.workerId)
+  if (filters.dateFrom) q = q.gte('captured_date', filters.dateFrom)
+  if (filters.dateTo) q = q.lte('captured_date', filters.dateTo)
+  if (filters.dateExact) q = q.eq('captured_date', filters.dateExact)
+  if (filters.hasGps) q = q.not('gps_lat', 'is', null)
+  if (filters.noGps) q = q.is('gps_lat', null)
+  if (filters.addressQuery?.trim()) {
+    q = q.ilike('address_full', `%${filters.addressQuery.trim()}%`)
+  }
+  if (filters.cityQuery?.trim()) {
+    q = q.ilike('city', `%${filters.cityQuery.trim()}%`)
+  }
+  return q
+}
+
 export async function fetchFotodokumenty(filters: FotoFiltry = {}): Promise<FotoDokument[]> {
   let query = supabase
     .from('gps_photos')
     .select(SELECT_QUERY)
     .order('captured_at', { ascending: false })
 
-  query = applyFilters(query, filters)
+  query = applyFiltersExtended(query, filters)
 
-  const { data, error } = await query
+  let { data, error } = await query
+
+  if (error && isMissingColumnError(error.message)) {
+    let legacyQuery = supabase
+      .from('gps_photos')
+      .select(SELECT_QUERY)
+      .order('captured_at', { ascending: false })
+    legacyQuery = applyFiltersLegacy(legacyQuery, filters)
+    const legacy = await legacyQuery
+    data = legacy.data
+    error = legacy.error
+  }
+
   if (error) throw new Error(error.message)
-  return ((data ?? []) as FotoRow[]).map(mapRow)
+
+  let rows = ((data ?? []) as FotoRow[]).map(mapRow)
+
+  if (!filters.includeDeleted) {
+    rows = rows.filter((r) => !r.deleted_at)
+  }
+  if (filters.photoType) {
+    rows = rows.filter((r) => r.photo_type === filters.photoType)
+  }
+  if (filters.approvalStatus) {
+    rows = rows.filter((r) => r.approval_status === filters.approvalStatus)
+  }
+
+  return rows
 }
 
 export async function fetchFotodokument(id: string): Promise<FotoDokument | null> {
@@ -174,11 +233,6 @@ async function writeAudit(
     performed_by: performedBy,
   })
   if (error) return
-}
-
-function isMissingColumnError(message: string): boolean {
-  const m = message.toLowerCase()
-  return m.includes('schema cache') || m.includes('could not find') || m.includes('column')
 }
 
 function buildLegacyInsertPayload(

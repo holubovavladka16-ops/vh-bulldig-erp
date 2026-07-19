@@ -16,7 +16,8 @@ export function buildStoragePaths(
 ): FotoStoragePaths {
   const year = capturedAt.getFullYear()
   const month = String(capturedAt.getMonth() + 1).padStart(2, '0')
-  const base = `${orderId}/${year}/${month}`
+  const uid = crypto.randomUUID().slice(0, 8)
+  const base = `${orderId}/${year}/${month}/${uid}`
   const stem = fileName.replace(/\.[^.]+$/, '')
 
   return {
@@ -45,11 +46,11 @@ export async function uploadFotoFiles(
 
   for (const { path, file } of uploads) {
     const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-      upsert: false,
+      upsert: true,
       contentType: file.type || 'image/jpeg',
     })
-    if (error && !error.message.includes('already exists')) {
-      throw new Error(error.message)
+    if (error) {
+      throw new Error(`Nahrání souboru selhalo: ${error.message}`)
     }
   }
 }

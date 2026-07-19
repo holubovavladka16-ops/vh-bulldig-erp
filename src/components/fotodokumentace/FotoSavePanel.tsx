@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Save } from 'lucide-react'
+import { CheckCircle, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
@@ -25,6 +25,8 @@ interface FotoSavePanelProps {
   onCancel: () => void
 }
 
+const POVOLENE_ZAKAZKY = ['aktivni', 'pripravuje_se', 'pozastavena'] as const
+
 export function FotoSavePanel({
   capture,
   uploadedBy,
@@ -42,26 +44,44 @@ export function FotoSavePanel({
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   useEffect(() => {
     fetchJobOrders().then((orders) => {
-      const active = orders.filter((o) => o.status === 'aktivni')
+      let eligible = orders.filter((o) =>
+        (POVOLENE_ZAKAZKY as readonly string[]).includes(o.status)
+      )
+      if (eligible.length === 0) {
+        eligible = orders.filter((o) => o.status !== 'archivovana')
+      }
       setOrderOptions([
         { value: '', label: '— Vyberte zakázku —' },
-        ...active.map((o) => ({ value: o.id, label: o.name })),
+        ...eligible.map((o) => ({ value: o.id, label: o.name })),
       ])
       if (defaultOrderId) setOrderId(defaultOrderId)
+      else if (eligible.length === 1) setOrderId(eligible[0].id)
     })
   }, [defaultOrderId])
 
   async function handleSave() {
     if (!orderId) {
-      setError('Vyberte zakázku.')
+      setError('Vyberte zakázku – bez zakázky nelze fotografii uložit.')
+      return
+    }
+
+    if (gps.faze === 'loading') {
+      setError('Počkejte na načtení GPS polohy, nebo zvolte „Uložit bez GPS“.')
+      return
+    }
+
+    if (gps.faze === 'low_accuracy') {
+      setError('Potvrďte polohu tlačítkem „Použít tuto polohu“, nebo zkuste přesnější GPS.')
       return
     }
 
     setSaving(true)
     setError('')
+    setSuccess(false)
 
     const adresa = gps.resolveAdresa()
     const gpsStatus = (gps.gpsStatus as FotoGpsStatus) || 'missing'
@@ -86,7 +106,7 @@ export function FotoSavePanel({
 
       const payload = {
         file: capture.file,
-        thumbnail,
+        thumbnail: thumbnail ?? undefined,
         watermarked: watermarked ?? undefined,
         captured_at: capture.capturedAt,
         gps_lat: gps.poloha?.lat ?? null,
@@ -105,13 +125,17 @@ export function FotoSavePanel({
         await ulozitFotodokument(payload, uploadedBy, orderName)
       }
 
-      onSaved()
+      setSuccess(true)
+      setTimeout(onSaved, 600)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Uložení se nezdařilo.')
     } finally {
       setSaving(false)
     }
   }
+
+  const saveDisabled =
+    saving || gps.faze === 'loading' || success
 
   return (
     <div className="space-y-4">
@@ -128,9 +152,11 @@ export function FotoSavePanel({
         accuracy={gps.accuracy}
         chyba={gps.chyba}
         manualAdresa={gps.manualAdresa}
+        targetMeters={gps.targetMeters}
         onManualChange={gps.setManualAddress}
         onRetry={gps.retry}
         onSaveWithoutGps={gps.saveWithoutGps}
+        onAcceptLowAccuracy={gps.acceptLowAccuracy}
         gpsStatus={gps.gpsStatus}
       />
 
@@ -162,12 +188,18 @@ export function FotoSavePanel({
       />
 
       {error && <p className="text-sm text-red-400">{error}</p>}
+      {success && (
+        <p className="flex items-center gap-2 text-sm text-green-400">
+          <CheckCircle className="h-4 w-4" />
+          Fotografie uložena – otevírám galerii…
+        </p>
+      )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button variant="secondary" className="flex-1" onClick={onCancel} disabled={saving}>
           Zrušit
         </Button>
-        <Button variant="primary" className="flex-1" onClick={handleSave} disabled={saving || gps.faze === 'loading'}>
+        <Button variant="primary" className="flex-1" onClick={handleSave} disabled={saveDisabled}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Uložit fotografii
         </Button>

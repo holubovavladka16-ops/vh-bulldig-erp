@@ -27,7 +27,7 @@ import {
   upravitFotodokument,
 } from '@/lib/fotodokumentace/api'
 import { vytvoritFotodokumentPdf } from '@/lib/fotodokumentace/pdf'
-import { kopirovatOdkaz, sdiletFotografii, stahnoutFotografii } from '@/lib/fotodokumentace/share'
+import { sdiletFotografii, stahnoutFotografii } from '@/lib/fotodokumentace/share'
 import { getMapyCzUrl } from '@/lib/photos/mapLinks'
 import { useAuth } from '@/context/AuthContext'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
@@ -163,22 +163,40 @@ export function FotoDetailModal({ foto, onClose, onUpdated }: FotoDetailModalPro
             foto.note && <p className="text-sm text-theme-secondary"><strong>Poznámka:</strong> {foto.note}</p>
           )}
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setEditMode((v) => !v)}>Upravit údaje</Button>
-            <Button variant="secondary" size="sm" onClick={handleShare}><Share2 className="h-4 w-4" />Sdílet</Button>
-            <Button variant="secondary" size="sm" onClick={() => stahnoutFotografii(foto)}><Download className="h-4 w-4" />Stáhnout</Button>
-            <Button variant="secondary" size="sm" onClick={handlePdf}><FileText className="h-4 w-4" />PDF</Button>
-            {foto.gps_lat != null && foto.gps_lng != null && (
-              <Button variant="secondary" size="sm" onClick={() => window.open(getMapyCzUrl(foto.gps_lat!, foto.gps_lng!), '_blank')}>
-                <ExternalLink className="h-4 w-4" />Mapa
+          <div className="sticky bottom-0 -mx-4 border-t border-[var(--border-glass)] bg-[var(--bg-glass)] p-4 backdrop-blur-md">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-theme-muted">Akce</p>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <Button variant="secondary" size="sm" className="justify-center" onClick={() => setEditMode((v) => !v)}>
+                Upravit
               </Button>
-            )}
-            <Button variant="secondary" size="sm" onClick={() => kopirovatOdkaz(foto).then(() => setMessage('Odkaz zkopírován.'))}>Kopírovat odkaz</Button>
-            <Button variant="secondary" size="sm" onClick={() => handleApprove('schvalena')}><Check className="h-4 w-4" />Schválit</Button>
-            <Button variant="danger" size="sm" onClick={handleDelete}><Trash2 className="h-4 w-4" />Smazat</Button>
+              <Button variant="primary" size="sm" className="justify-center" onClick={handleShare}>
+                <Share2 className="h-4 w-4" />Sdílet foto
+              </Button>
+              <Button variant="secondary" size="sm" className="justify-center" onClick={() => stahnoutFotografii(currentFoto)}>
+                <Download className="h-4 w-4" />Stáhnout
+              </Button>
+              <Button variant="secondary" size="sm" className="justify-center" onClick={handlePdf}>
+                <FileText className="h-4 w-4" />PDF A4
+              </Button>
+              {currentFoto.gps_lat != null && currentFoto.gps_lng != null && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="justify-center"
+                  onClick={() => window.open(getMapyCzUrl(currentFoto.gps_lat!, currentFoto.gps_lng!), '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4" />Mapa
+                </Button>
+              )}
+              <Button variant="secondary" size="sm" className="justify-center" onClick={() => handleApprove('schvalena')}>
+                <Check className="h-4 w-4" />Schválit
+              </Button>
+              <Button variant="danger" size="sm" className="justify-center" onClick={handleDelete}>
+                <Trash2 className="h-4 w-4" />Smazat
+              </Button>
+            </div>
+            {message && <p className="mt-2 text-sm text-theme-muted">{message}</p>}
           </div>
-
-          {message && <p className="text-sm text-theme-muted">{message}</p>}
 
           {audit.length > 0 && (
             <div>

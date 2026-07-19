@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  FOTO_GPS_TARGET_METERS,
   nacistAdresuZPolohy,
   nacistPolohuAAdresu,
   nacistPolohuPoFoto,
 } from '@/lib/fotodokumentace/geolocation'
 import type { FotoAdresa, FotoPoloha } from '@/types/fotodokumentace'
 
-export type FotoGpsFaze = 'idle' | 'loading' | 'ready' | 'error'
+export type FotoGpsFaze =
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'low_accuracy'
+  | 'error'
 
 export function usePostCaptureLocation(active: boolean) {
   const [faze, setFaze] = useState<FotoGpsFaze>('idle')
@@ -15,6 +21,7 @@ export function usePostCaptureLocation(active: boolean) {
   const [accuracy, setAccuracy] = useState<number | null>(null)
   const [chyba, setChyba] = useState<string | null>(null)
   const [manualAdresa, setManualAdresa] = useState('')
+  const [presnostOk, setPresnostOk] = useState(false)
   const startedRef = useRef(false)
 
   const start = useCallback(async () => {
@@ -22,12 +29,15 @@ export function usePostCaptureLocation(active: boolean) {
     setChyba(null)
     setPoloha(null)
     setAdresa(null)
+    setPresnostOk(false)
 
     const vysledek = await nacistPolohuAAdresu((acc) => setAccuracy(acc))
-    if (vysledek.poloha) {
+    if (vysledek.poloha && vysledek.adresa) {
       setPoloha(vysledek.poloha)
       setAdresa(vysledek.adresa)
-      setFaze('ready')
+      setAccuracy(vysledek.poloha.accuracy)
+      setPresnostOk(vysledek.presnostOk)
+      setFaze(vysledek.presnostOk ? 'ready' : 'low_accuracy')
     } else {
       setChyba(vysledek.chyba)
       setFaze('error')
@@ -50,6 +60,10 @@ export function usePostCaptureLocation(active: boolean) {
     void start()
   }, [start])
 
+  const acceptLowAccuracy = useCallback(() => {
+    if (poloha) setFaze('ready')
+  }, [poloha])
+
   const setManualAddress = useCallback((text: string) => {
     setManualAdresa(text)
     setAdresa({
@@ -66,6 +80,7 @@ export function usePostCaptureLocation(active: boolean) {
 
   const saveWithoutGps = useCallback(() => {
     setPoloha(null)
+    setPresnostOk(false)
     setAdresa({
       address_full: manualAdresa || '',
       street: '',
@@ -91,6 +106,16 @@ export function usePostCaptureLocation(active: boolean) {
     }
   }, [adresa, manualAdresa])
 
+  const gpsStatus = poloha
+    ? presnostOk
+      ? 'verified'
+      : 'unverified'
+    : manualAdresa
+      ? 'manual'
+      : 'missing'
+
+  const canSave = faze === 'ready' || faze === 'low_accuracy' || faze === 'error'
+
   return {
     faze,
     poloha,
@@ -102,15 +127,13 @@ export function usePostCaptureLocation(active: boolean) {
     setManualAddress,
     saveWithoutGps,
     retry,
+    acceptLowAccuracy,
     resolveAdresa,
-    gpsStatus: poloha ? 'verified' : manualAdresa ? 'manual' : 'missing',
+    presnostOk,
+    gpsStatus,
+    canSave,
+    targetMeters: FOTO_GPS_TARGET_METERS,
   }
 }
 
-export async function nacistPolohuZnovu(): Promise<FotoPoloha> {
-  return nacistPolohuPoFoto()
-}
-
-export async function doplnitAdresu(lat: number, lng: number): Promise<FotoAdresa> {
-  return nacistAdresuZPolohy(lat, lng)
-}
+export { nacistPolohuPoFoto, nacistAdresuZPolohy as doplnitAdresu }

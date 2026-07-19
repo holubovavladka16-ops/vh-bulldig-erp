@@ -15,31 +15,44 @@ function formatShareText(foto: FotoDokument): string {
   return lines.join('\n')
 }
 
-export async function sdiletFotografii(foto: FotoDokument): Promise<boolean> {
+async function fetchFotoBlob(foto: FotoDokument): Promise<{ blob: Blob; fileName: string }> {
   const url = getFotoUrl(foto.file_path)
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Fotografii se nepodařilo načíst.')
+  const blob = await res.blob()
+  return { blob, fileName: foto.file_name || 'fotografie.jpg' }
+}
+
+export async function sdiletFotografii(foto: FotoDokument): Promise<boolean> {
   const text = formatShareText(foto)
 
   try {
-    const res = await fetch(url)
-    if (!res.ok) throw new Error('fetch failed')
-    const blob = await res.blob()
-    const file = new File([blob], foto.file_name || 'fotografie.jpg', { type: blob.type || 'image/jpeg' })
-
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: foto.order_name ?? 'Fotodokumentace', text })
-      return true
-    }
+    const { blob, fileName } = await fetchFotoBlob(foto)
+    const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' })
 
     if (navigator.share) {
-      await navigator.share({ title: foto.order_name ?? 'Fotodokumentace', text, url })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: foto.order_name ?? 'Fotodokumentace',
+          text,
+        })
+        return true
+      }
+      await navigator.share({ title: foto.order_name ?? 'Fotodokumentace', text })
       return true
     }
-  } catch {
-    // fallback below
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') return false
   }
 
   try {
-    await navigator.clipboard.writeText(`${text}\n${url}`)
+    const { blob, fileName } = await fetchFotoBlob(foto)
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = fileName
+    a.click()
+    URL.revokeObjectURL(a.href)
     return true
   } catch {
     return false
@@ -47,12 +60,10 @@ export async function sdiletFotografii(foto: FotoDokument): Promise<boolean> {
 }
 
 export async function stahnoutFotografii(foto: FotoDokument): Promise<void> {
-  const url = getFotoUrl(foto.file_path)
-  const res = await fetch(url)
-  const blob = await res.blob()
+  const { blob, fileName } = await fetchFotoBlob(foto)
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = foto.file_name || 'fotografie.jpg'
+  a.download = fileName
   a.click()
   URL.revokeObjectURL(a.href)
 }
