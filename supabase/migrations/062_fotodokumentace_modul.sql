@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS gps_photo_series (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+DROP TRIGGER IF EXISTS gps_photo_series_updated_at ON gps_photo_series;
 CREATE TRIGGER gps_photo_series_updated_at
   BEFORE UPDATE ON gps_photo_series
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -114,30 +115,37 @@ ALTER TABLE gps_photo_series ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gps_photo_audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gps_photo_public_galleries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admin čte typy fotografií" ON gps_photo_types;
 CREATE POLICY "Admin čte typy fotografií"
   ON gps_photo_types FOR SELECT
   USING (get_user_role() = 'administrator');
 
+DROP POLICY IF EXISTS "Admin spravuje typy fotografií" ON gps_photo_types;
 CREATE POLICY "Admin spravuje typy fotografií"
   ON gps_photo_types FOR ALL
   USING (get_user_role() = 'administrator');
 
+DROP POLICY IF EXISTS "Admin čte série fotografií" ON gps_photo_series;
 CREATE POLICY "Admin čte série fotografií"
   ON gps_photo_series FOR SELECT
   USING (get_user_role() = 'administrator');
 
+DROP POLICY IF EXISTS "Admin spravuje série fotografií" ON gps_photo_series;
 CREATE POLICY "Admin spravuje série fotografií"
   ON gps_photo_series FOR ALL
   USING (get_user_role() = 'administrator');
 
+DROP POLICY IF EXISTS "Admin čte audit fotografií" ON gps_photo_audit_log;
 CREATE POLICY "Admin čte audit fotografií"
   ON gps_photo_audit_log FOR SELECT
   USING (get_user_role() = 'administrator');
 
+DROP POLICY IF EXISTS "Admin zapisuje audit fotografií" ON gps_photo_audit_log;
 CREATE POLICY "Admin zapisuje audit fotografií"
   ON gps_photo_audit_log FOR INSERT
   WITH CHECK (get_user_role() = 'administrator');
 
+DROP POLICY IF EXISTS "Admin spravuje veřejné galerie" ON gps_photo_public_galleries;
 CREATE POLICY "Admin spravuje veřejné galerie"
   ON gps_photo_public_galleries FOR ALL
   USING (get_user_role() = 'administrator');
