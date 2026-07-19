@@ -1,22 +1,17 @@
 import { reverseGeocode } from '@/lib/photos/geocoding'
-import {
-  buildPhotoPdfShareText,
-  getEmailShareUrl,
-  getWhatsAppShareUrl,
-} from '@/lib/photos/share'
+import { updateGpsPhotoAddress } from '@/lib/photos/api'
 import {
   createPhotoReportPdfFile,
   downloadPhotoReportPdf,
 } from '@/lib/photos/photoReportPdf'
-import { shareWithFiles } from '@/lib/share/webShare'
-import { downloadPdfBlob } from '@/lib/print/pdfDownload'
+import { downloadPdfBlob, sharePdfFile } from '@/lib/print/pdfDownload'
 import type { CompanyHeader } from '@/lib/print/printDocument'
 import type { GpsPhoto } from '@/types/photos'
 import { ADDRESS_GEOCODE_FAILED, ADDRESS_PENDING, formatPhotoShareAddress } from '@/lib/photos/photoDisplay'
 
 export type PhotoShareChannel = 'whatsapp' | 'messenger' | 'email' | 'native'
 
-export type PhotoShareOutcome = 'shared' | 'cancelled' | 'opened' | 'downloaded' | 'copied'
+export type PhotoShareOutcome = 'shared' | 'cancelled' | 'downloaded'
 
 export interface PhotoShareResult {
   outcome: PhotoShareOutcome
@@ -41,7 +36,6 @@ export async function ensurePhotoAddress(photo: GpsPhoto): Promise<GpsPhoto> {
     const geocoded = await reverseGeocode(photo.gps_lat, photo.gps_lng)
     if (!geocoded.address_full?.trim()) return photo
 
-    const { updateGpsPhotoAddress } = await import('@/lib/photos/api')
     await updateGpsPhotoAddress(photo.id, geocoded)
     return {
       ...photo,
@@ -56,55 +50,23 @@ export async function ensurePhotoAddress(photo: GpsPhoto): Promise<GpsPhoto> {
   }
 }
 
-async function tryNativePdfShare(input: {
-  title: string
-  text: string
-  files: File[]
-}): Promise<'shared' | 'cancelled' | null> {
-  const result = await shareWithFiles(input)
-  if (result === 'shared' || result === 'cancelled') return result
+async function tryNativePdfShare(pdfFile: File): Promise<'shared' | 'cancelled' | null> {
+  const result = await sharePdfFile(pdfFile, pdfFile.name)
+  if (result === 'shared') return 'shared'
+  if (result === 'cancelled') return 'cancelled'
   return null
 }
 
-async function fallbackPdfShare(
-  channel: PhotoShareChannel,
-  photo: GpsPhoto,
-  text: string,
-  pdfFile: File
-): Promise<PhotoShareOutcome> {
+function downloadPdfFallback(pdfFile: File): PhotoShareOutcome {
   downloadPdfBlob(pdfFile, pdfFile.name)
-
-  if (channel === 'email') {
-    window.location.href = getEmailShareUrl(
-      `${text}\n\n(PDF doklad „${pdfFile.name}" byl stažen – přiložte ho k e-mailu.)`,
-      `Fotodokumentace VH Bulldig – ${photo.order_name?.trim() || 'zakázka'}`
-    )
-    return 'opened'
-  }
-
-  if (channel === 'whatsapp') {
-    window.open(
-      getWhatsAppShareUrl(
-        `${text}\n\n(PDF doklad „${pdfFile.name}" byl stažen – přiložte ho ke zprávě.)`
-      ),
-      '_blank',
-      'noopener,noreferrer'
-    )
-    return 'opened'
-  }
-
-  if (channel === 'messenger' || channel === 'native') {
-    try {
-      await navigator.clipboard.writeText(text)
-      return 'copied'
-    } catch {
-      return 'downloaded'
-    }
-  }
-
   return 'downloaded'
 }
 
+/**
+ * Sdílí GPS fotodoklad výhradně jako binární PDF.
+ * Web Share API: pouze soubor, bez textu a bez URL.
+ * Fallback: stažení PDF – nikdy wa.me/mailto/veřejný odkaz.
+ */
 export async function shareGpsPhoto(
   photo: GpsPhoto,
   channel: PhotoShareChannel,
@@ -113,20 +75,13 @@ export async function shareGpsPhoto(
   assertPhotoFile(photo)
 
   const enrichedPhoto = await ensurePhotoAddress(photo)
-  const text = buildPhotoPdfShareText(enrichedPhoto)
-  const title = `GPS fotodoklad – ${enrichedPhoto.order_name?.trim() || 'zakázka'}`
   const pdfFile = await createPhotoReportPdfFile(enrichedPhoto, company)
 
-  const nativeResult = await tryNativePdfShare({
-    title,
-    text,
-    files: [pdfFile],
-  })
+  const nativeResult = await tryNativePdfShare(pdfFile)
   if (nativeResult === 'shared') return { outcome: 'shared', channel }
   if (nativeResult === 'cancelled') return { outcome: 'cancelled', channel }
 
-  const outcome = await fallbackPdfShare(channel, enrichedPhoto, text, pdfFile)
-  return { outcome, channel }
+  return { outcome: downloadPdfFallback(pdfFile), channel }
 }
 
 /** Stáhne binární PDF fotodoklad (application/pdf). */

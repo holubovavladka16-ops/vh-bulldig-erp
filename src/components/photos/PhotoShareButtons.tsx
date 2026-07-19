@@ -28,11 +28,8 @@ export function PhotoShareButtons({ photo, userId, note, onShared }: PhotoShareB
     try {
       const result = await shareGpsPhoto(sharePhoto, channel, company)
       if (result.outcome === 'cancelled') return
-      if (result.outcome === 'copied') {
-        window.alert('Text byl zkopírován do schránky. PDF doklad byl stažen – přiložte ho ke sdílení.')
-      }
-      if (result.outcome === 'downloaded' || result.outcome === 'opened') {
-        window.alert('PDF doklad byl stažen. Přiložte ho ke zprávě nebo e-mailu.')
+      if (result.outcome === 'downloaded') {
+        window.alert('Toto zařízení neumí sdílet PDF přímo. Doklad byl stažen – přiložte ho ve WhatsAppu, Messengeru nebo e-mailu ručně.')
       }
       await logShare(channel)
     } catch (err) {
