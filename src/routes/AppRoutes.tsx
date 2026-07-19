@@ -32,6 +32,9 @@ import { PaperFormDetailPage } from '@/pages/paperForms/PaperFormDetailPage'
 import { FormCheckModulePage } from '@/pages/formCheck/FormCheckModulePage'
 import { FormCheckHistoryPage } from '@/pages/formCheck/FormCheckHistoryPage'
 import { FormCheckDetailPage } from '@/pages/formCheck/FormCheckDetailPage'
+import { FotodokumentacePage } from '@/pages/fotodokumentace/FotodokumentacePage'
+import { FotodokumentaceMapPage } from '@/pages/fotodokumentace/FotodokumentaceMapPage'
+import { FotodokumentacePublicPage } from '@/pages/fotodokumentace/FotodokumentacePublicPage'
 import { FUTURE_MODULES } from '@/constants/modules'
 
 const placeholderModules = FUTURE_MODULES.filter(
@@ -47,6 +50,8 @@ const placeholderModules = FUTURE_MODULES.filter(
       'zakazky',
       'ekonomika',
       'mapa-vykopu',
+      'fotky',
+      'fotky-na-mape',
       'denik',
       'pripojky',
       'denni-formulare',
@@ -192,6 +197,25 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="mapa-vykopu">
             <ExcavationsMapModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route path="/sdileni/fotografie/:id" element={<FotodokumentacePublicPage />} />
+
+      <Route
+        path="/fotky"
+        element={
+          <ProtectedRoute requiredModule="fotky">
+            <FotodokumentacePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/fotky-na-mape"
+        element={
+          <ProtectedRoute requiredModule="fotky-na-mape">
+            <FotodokumentaceMapPage />
           </ProtectedRoute>
         }
       />

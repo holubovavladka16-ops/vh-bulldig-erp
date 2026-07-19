@@ -34,6 +34,8 @@ export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   paragony: ['administrator'],
   pripojky: ['administrator'],
   'mapa-vykopu': ['administrator'],
+  fotky: ['administrator'],
+  'fotky-na-mape': ['administrator'],
   dokumenty: ['administrator'],
   statistiky: ['administrator'],
   nastaveni: ['administrator'],

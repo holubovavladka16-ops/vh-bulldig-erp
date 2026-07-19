@@ -18,6 +18,7 @@ export function transitionToConfirm(
 }
 
 export function transitionToScan(_state: FormCheckWorkflowState): FormCheckWorkflowState {
+  void _state
   return createInitialFormCheckState()
 }
 
