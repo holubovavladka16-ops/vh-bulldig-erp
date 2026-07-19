@@ -42,7 +42,7 @@ export function FotoGpsPanel({
           Načítám GPS polohu…
         </div>
         <p className="text-xs text-theme-muted">
-          Přesnost: {accText} · cíl ±{targetMeters} m
+          Přesnost: {accText} · cíl ±{targetMeters} m · max 8 s
         </p>
         {cile && (
           <p className="text-xs text-green-400">Poloha splňuje požadovanou přesnost.</p>

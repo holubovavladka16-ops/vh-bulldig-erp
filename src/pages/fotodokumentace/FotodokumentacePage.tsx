@@ -104,7 +104,7 @@ export function FotodokumentacePage() {
     <AppLayout>
       <PageHeader
         title="Fotodokumentace s GPS"
-        description="Nejdříve pořiďte fotografii, poté se načte GPS (cíl ±2 m) a adresa. Zakázku a poznámku doplníte až na konci."
+        description="Profesionální fotodokumentace: GPS cíl ±3 m, mapa Mapy.cz a Street View pod každou fotkou. Celý proces do 10 s."
       />
 
       <div className="mb-4 flex flex-wrap gap-2">

@@ -44,11 +44,15 @@ export async function uploadFotoFiles(
     uploads.push({ path: paths.watermarked, file: files.watermarked })
   }
 
-  for (const { path, file } of uploads) {
-    const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+  const uploadTasks = uploads.map(({ path, file }) =>
+    supabase.storage.from(BUCKET).upload(path, file, {
       upsert: true,
       contentType: file.type || 'image/jpeg',
     })
+  )
+
+  const results = await Promise.all(uploadTasks)
+  for (const { error } of results) {
     if (error) {
       throw new Error(`Nahrání souboru selhalo: ${error.message}`)
     }

@@ -2,6 +2,17 @@ export function getMapyCzUrl(lat: number, lng: number): string {
   return `https://mapy.cz/zakladni?x=${lng}&y=${lat}&z=18`
 }
 
+/** Interaktivní mapa Mapy.cz se špendlíkem na souřadnicích (pro iframe / nové okno). */
+export function getMapyCzEmbedUrl(lat: number, lng: number, zoom = 18): string {
+  const id = `${lng},${lat}`
+  return `https://mapy.com/zakladni?x=${lng}&y=${lat}&z=${zoom}&source=coor&id=${encodeURIComponent(id)}`
+}
+
+/** Odkaz pro otevření mapy v aplikaci Mapy.com (mobil / desktop). */
+export function getMapyCzShowMapUrl(lat: number, lng: number, zoom = 18): string {
+  return `https://mapy.com/fnc/v1/showmap?mapset=basic&center=${lng},${lat}&zoom=${zoom}&marker=true`
+}
+
 export function getGoogleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat},${lng}`
 }

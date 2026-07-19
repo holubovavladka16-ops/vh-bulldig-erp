@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  FOTO_GPS_ACCEPTABLE_METERS,
   FOTO_GPS_TARGET_METERS,
   nacistAdresuZPolohy,
   nacistPolohuAAdresu,
@@ -13,6 +14,12 @@ export type FotoGpsFaze =
   | 'ready'
   | 'low_accuracy'
   | 'error'
+
+function resolveFaze(poloha: FotoPoloha, presnostOk: boolean): FotoGpsFaze {
+  if (presnostOk) return 'ready'
+  if (poloha.accuracy <= FOTO_GPS_ACCEPTABLE_METERS) return 'ready'
+  return 'low_accuracy'
+}
 
 export function usePostCaptureLocation(active: boolean) {
   const [faze, setFaze] = useState<FotoGpsFaze>('idle')
@@ -37,7 +44,7 @@ export function usePostCaptureLocation(active: boolean) {
       setAdresa(vysledek.adresa)
       setAccuracy(vysledek.poloha.accuracy)
       setPresnostOk(vysledek.presnostOk)
-      setFaze(vysledek.presnostOk ? 'ready' : 'low_accuracy')
+      setFaze(resolveFaze(vysledek.poloha, vysledek.presnostOk))
     } else {
       setChyba(vysledek.chyba)
       setFaze('error')
@@ -114,7 +121,7 @@ export function usePostCaptureLocation(active: boolean) {
       ? 'manual'
       : 'missing'
 
-  const canSave = faze === 'ready' || faze === 'low_accuracy' || faze === 'error'
+  const canSave = faze === 'ready' || faze === 'error'
 
   return {
     faze,

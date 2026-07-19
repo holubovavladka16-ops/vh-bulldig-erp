@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
-import { PhotoMiniMap } from '@/components/photos/PhotoMiniMap'
+import { FotoLokalizacniMapy } from '@/components/fotodokumentace/FotoLokalizacniMapy'
 import {
   FOTO_APPROVAL_LABELS,
   FOTO_GPS_STATUS_LABELS,
@@ -142,7 +142,13 @@ export function FotoDetailModal({ foto, onClose, onUpdated }: FotoDetailModalPro
           </div>
 
           {foto.gps_lat != null && foto.gps_lng != null && (
-            <PhotoMiniMap lat={foto.gps_lat} lng={foto.gps_lng} />
+            <FotoLokalizacniMapy
+              lat={foto.gps_lat}
+              lng={foto.gps_lng}
+              accuracy={foto.gps_accuracy}
+              address={foto.address_full}
+              mapHeight={200}
+            />
           )}
 
           {editMode ? (

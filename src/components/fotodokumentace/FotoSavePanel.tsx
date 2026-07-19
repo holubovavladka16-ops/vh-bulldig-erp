@@ -3,7 +3,9 @@ import { CheckCircle, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { FotoFlowTimer } from '@/components/fotodokumentace/FotoFlowTimer'
 import { FotoGpsPanel } from '@/components/fotodokumentace/FotoGpsPanel'
+import { FotoLokalizacniMapy } from '@/components/fotodokumentace/FotoLokalizacniMapy'
 import { VYCHOZI_TYPY_FOTOGRAFII } from '@/constants/fotodokumentace'
 import { usePostCaptureLocation } from '@/hooks/fotodokumentace/usePostCaptureLocation'
 import { ulozitFotodokument } from '@/lib/fotodokumentace/api'
@@ -88,21 +90,23 @@ export function FotoSavePanel({
     const orderName = orderOptions.find((o) => o.value === orderId)?.label ?? 'zakazka'
 
     try {
-      const thumbnail = await vytvoritMiniaturu(capture.file)
-      const watermarked = company?.watermark_url
-        ? await vytvoritVodotisk({
-            file: capture.file,
-            company,
-            foto: {
-              captured_at: capture.capturedAt.toISOString(),
-              gps_lat: gps.poloha?.lat ?? null,
-              gps_lng: gps.poloha?.lng ?? null,
-              address_full: adresa.address_full,
-              order_name: orderName,
-              creator_name: creatorName,
-            },
-          })
-        : null
+      const [thumbnail, watermarked] = await Promise.all([
+        vytvoritMiniaturu(capture.file),
+        company?.watermark_url
+          ? vytvoritVodotisk({
+              file: capture.file,
+              company,
+              foto: {
+                captured_at: capture.capturedAt.toISOString(),
+                gps_lat: gps.poloha?.lat ?? null,
+                gps_lng: gps.poloha?.lng ?? null,
+                address_full: adresa.address_full,
+                order_name: orderName,
+                creator_name: creatorName,
+              },
+            })
+          : Promise.resolve(null),
+      ])
 
       const payload = {
         file: capture.file,
@@ -126,7 +130,7 @@ export function FotoSavePanel({
       }
 
       setSuccess(true)
-      setTimeout(onSaved, 600)
+      setTimeout(onSaved, 400)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Uložení se nezdařilo.')
     } finally {
@@ -134,15 +138,17 @@ export function FotoSavePanel({
     }
   }
 
-  const saveDisabled =
-    saving || gps.faze === 'loading' || success
+  const saveDisabled = saving || gps.faze === 'loading' || success
+  const showMaps = gps.poloha != null && gps.faze !== 'loading'
 
   return (
     <div className="space-y-4">
+      <FotoFlowTimer active={!success} label="Focení + GPS + ukládání" />
+
       <img
         src={capture.previewUrl}
         alt="Náhled"
-        className="max-h-40 w-full rounded-xl object-cover"
+        className="max-h-48 w-full rounded-xl object-cover shadow-lg"
       />
 
       <FotoGpsPanel
@@ -159,6 +165,16 @@ export function FotoSavePanel({
         onAcceptLowAccuracy={gps.acceptLowAccuracy}
         gpsStatus={gps.gpsStatus}
       />
+
+      {showMaps && (
+        <FotoLokalizacniMapy
+          lat={gps.poloha!.lat}
+          lng={gps.poloha!.lng}
+          accuracy={gps.poloha!.accuracy}
+          address={gps.adresa?.address_full ?? gps.manualAdresa}
+          mapHeight={180}
+        />
+      )}
 
       <Select
         label="Zakázka"
@@ -184,7 +200,7 @@ export function FotoSavePanel({
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="Krátká poznámka k fotografii…"
-        rows={3}
+        rows={2}
       />
 
       {error && <p className="text-sm text-red-400">{error}</p>}

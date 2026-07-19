@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { useCameraStream } from '@/hooks/useCameraStream'
 import { CameraVideoPreview } from '@/components/formCheck/CameraVideoPreview'
+import { spustitPredbezneGps, resetPredbezneGps } from '@/lib/fotodokumentace/geolocation'
 import '@/styles/photoMap.css'
 
 type FotoCaptureFaze = 'camera' | 'preview'
@@ -47,7 +48,10 @@ export function FotoCaptureScreen({ active, onCaptured, onCancel }: FotoCaptureS
   })
 
   useEffect(() => {
-    if (!active) return
+    if (!active) {
+      resetPredbezneGps()
+      return
+    }
     setFaze('camera')
     setPreviewUrl(null)
     setCapturedFile(null)
@@ -70,6 +74,7 @@ export function FotoCaptureScreen({ active, onCaptured, onCancel }: FotoCaptureS
     setFaze('preview')
     setError('')
     camera.stop()
+    spustitPredbezneGps()
   }
 
   async function handleCameraCapture() {
