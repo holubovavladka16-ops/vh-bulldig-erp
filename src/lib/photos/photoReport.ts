@@ -11,10 +11,17 @@ import {
 import { escHtml } from '@/lib/print/printDocument'
 import type { GpsPhoto } from '@/types/photos'
 
+function formatGpsAccuracyLabel(accuracy: number | null): string {
+  if (accuracy == null) return '—'
+  const rounded = Math.round(accuracy)
+  return `±${rounded} m`
+}
+
 export function buildPhotoReportHtml(photo: GpsPhoto): string {
   const photoUrl = getGpsPhotoUrl(photo.file_path)
   const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
-  const mapImageUrl = getStaticMapImageUrl(photo.gps_lat, photo.gps_lng, 640, 180)
+  const streetUrl = getStreetViewUrl(photo.gps_lat, photo.gps_lng)
+  const mapImageUrl = getStaticMapImageUrl(photo.gps_lat, photo.gps_lng, 640, 120)
   const address = formatPhotoAddress(photo)
   const orderName = getOrderDisplayName(photo)
   const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
@@ -22,44 +29,45 @@ export function buildPhotoReportHtml(photo: GpsPhoto): string {
   const weekday = formatCaptureWeekday(photo.captured_date)
   const dateLabel = formatCaptureDateLabel(photo.captured_date)
   const timeLabel = formatCaptureTime(photo.captured_time)
+  const accuracyLabel = formatGpsAccuracyLabel(photo.gps_accuracy)
 
   return `
-    <section class="doc-section">
-      <div class="doc-photo-wrap" style="position:relative">
-        <img src="${escHtml(photoUrl)}" alt="Fotografie" style="max-height:420px;width:100%;object-fit:contain" />
-        <div style="position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,0.75);color:#fff;padding:8px 12px;border-radius:8px;border:1px solid #a3e635">
-          <div style="color:#fcd34d;font-weight:bold;font-size:11px;text-transform:uppercase">${escHtml(orderName)}</div>
-          <div style="font-family:monospace;font-size:11px;margin-top:4px">📍 ${escHtml(coords)}</div>
+    <div class="doc-gps-a4-body">
+      <section class="doc-section doc-section-photo">
+        <div class="doc-photo-wrap doc-photo-wrap-main">
+          <img class="doc-photo-main" src="${escHtml(photoUrl)}" alt="Fotografie" />
+          <div class="doc-photo-badge">
+            <div class="doc-photo-badge-order">${escHtml(orderName)}</div>
+            <div class="doc-photo-badge-coords">📍 ${escHtml(coords)} · ${escHtml(accuracyLabel)}</div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="doc-section">
-      <h2>Údaje o fotografii</h2>
-      <table class="doc-table">
-        <tr><th>Den</th><td>${escHtml(weekday)}</td></tr>
-        <tr><th>Datum pořízení</th><td>${escHtml(dateLabel)}</td></tr>
-        <tr><th>Čas pořízení</th><td>${escHtml(timeLabel)}</td></tr>
-        <tr><th>GPS souřadnice</th><td>${escHtml(coords)}</td></tr>
-        <tr><th>Přesnost GPS</th><td>${photo.gps_accuracy != null ? `±${Math.round(photo.gps_accuracy)} m` : '—'}</td></tr>
-        <tr><th>Adresa</th><td>${escHtml(address)}</td></tr>
-        <tr><th>Popis prací / poznámka</th><td>${escHtml(photo.note ?? '—')}</td></tr>
-        <tr><th>Zakázka</th><td>${escHtml(orderName)}</td></tr>
-        <tr><th>Pořídil</th><td>${escHtml(capturedBy)}</td></tr>
-      </table>
-    </section>
+      <section class="doc-section doc-section-meta">
+        <h2>Údaje o fotografii</h2>
+        <table class="doc-table doc-table-gps">
+          <tr><th>Den</th><td>${escHtml(weekday)}</td></tr>
+          <tr><th>Datum pořízení</th><td>${escHtml(dateLabel)}</td></tr>
+          <tr><th>Čas pořízení</th><td>${escHtml(timeLabel)}</td></tr>
+          <tr><th>GPS souřadnice</th><td>${escHtml(coords)}</td></tr>
+          <tr><th>Přesnost polohy</th><td>${escHtml(accuracyLabel)}</td></tr>
+          <tr><th>Adresa</th><td>${escHtml(address)}</td></tr>
+          <tr><th>Popis prací / poznámka</th><td>${escHtml(photo.note ?? '—')}</td></tr>
+          <tr><th>Zakázka</th><td>${escHtml(orderName)}</td></tr>
+          <tr><th>Pořídil</th><td>${escHtml(capturedBy)}</td></tr>
+        </table>
+      </section>
 
-    <section class="doc-section">
-      <h2>Mapa místa pořízení</h2>
-      <div class="doc-photo-wrap">
-        <a href="${escHtml(mapUrl)}">
-          <img src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" style="max-height:180px;object-fit:cover;width:100%" />
-        </a>
-      </div>
-      <p>
-        <a href="${escHtml(mapUrl)}">Google Maps</a> ·
-        <a href="${escHtml(getStreetViewUrl(photo.gps_lat, photo.gps_lng))}">Street View</a>
-      </p>
-    </section>
+      <section class="doc-section doc-section-map">
+        <h2>Mapa místa pořízení</h2>
+        <div class="doc-photo-wrap doc-photo-wrap-map">
+          <img class="doc-photo-map" src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" />
+        </div>
+        <p class="doc-map-links">
+          <a href="${escHtml(mapUrl)}">Google Maps</a> ·
+          <a href="${escHtml(streetUrl)}">Street View</a>
+        </p>
+      </section>
+    </div>
   `
 }

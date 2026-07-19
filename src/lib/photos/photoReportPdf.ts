@@ -28,43 +28,63 @@ const PRINT_FONT_LINKS = `
 `
 
 const PDF_LOGO_INLINE_STYLE =
-  'width:22mm!important;height:22mm!important;max-width:22mm!important;max-height:22mm!important;object-fit:contain!important;display:block!important;mix-blend-multiply!important;'
+  'width:18mm!important;height:18mm!important;max-width:18mm!important;max-height:18mm!important;object-fit:contain!important;display:block!important;mix-blend-multiply!important;'
+
+const A4_WIDTH_MM = 210
+const A4_HEIGHT_MM = 297
+
+function mmToPx(mm: number): number {
+  return Math.round((mm * 96) / 25.4)
+}
+
+const A4_WIDTH_PX = mmToPx(A4_WIDTH_MM)
+const A4_HEIGHT_PX = mmToPx(A4_HEIGHT_MM)
 
 const PDF_WATERMARK_INLINE_STYLE =
   'position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:120mm!important;height:auto!important;max-width:78%!important;object-fit:contain!important;opacity:0.10!important;z-index:0!important;pointer-events:none!important;'
 
-/** ERP 7 print rozložení – pevná A4 stránka s .pdf-page wrapperem. */
+/** Pevné A4 210×297 mm – celý GPS fotodoklad na jedné stránce bez posouvání. */
 const PHOTO_REPORT_ERP7_EXTRA_STYLES = `
   @page { size: A4 portrait; margin: 0 !important; }
-  html, body, .doc-shell {
-    max-height: none !important;
-    min-height: auto !important;
-    height: auto !important;
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
     width: 210mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    overflow: hidden !important;
     background: #ffffff !important;
     color: #111111 !important;
+  }
+  .doc-shell {
+    width: 100% !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .pdf-page {
     position: relative;
     width: 210mm;
+    height: 297mm;
     min-height: 297mm;
     max-height: 297mm;
-    height: auto;
-    padding: 12mm 14mm;
+    padding: 10mm 12mm 12mm;
     box-sizing: border-box;
     background: #ffffff;
     color: #111111;
-    overflow: visible;
+    overflow: hidden;
   }
   .pdf-content {
     position: relative;
     z-index: 1;
+    height: calc(297mm - 22mm - 11mm);
+    overflow: hidden;
   }
   .pdf-logo-box {
-    width: 22mm;
-    height: 22mm;
-    max-width: 22mm;
-    max-height: 22mm;
+    width: 18mm;
+    height: 18mm;
+    max-width: 18mm;
+    max-height: 18mm;
     flex-shrink: 0;
     overflow: hidden;
     display: flex;
@@ -72,10 +92,10 @@ const PHOTO_REPORT_ERP7_EXTRA_STYLES = `
     justify-content: center;
   }
   .pdf-company-logo {
-    width: 22mm !important;
-    height: 22mm !important;
-    max-width: 22mm !important;
-    max-height: 22mm !important;
+    width: 18mm !important;
+    height: 18mm !important;
+    max-width: 18mm !important;
+    max-height: 18mm !important;
     object-fit: contain !important;
     display: block !important;
     mix-blend-multiply !important;
@@ -93,15 +113,144 @@ const PHOTO_REPORT_ERP7_EXTRA_STYLES = `
     z-index: 0 !important;
     pointer-events: none !important;
   }
+  .pdf-page .doc-header {
+    display: grid;
+    grid-template-columns: 18mm 1fr;
+    gap: 8px;
+    margin-bottom: 2mm !important;
+    padding-bottom: 2mm !important;
+    border-bottom: 2px solid #1e3a5f;
+  }
+  .pdf-page .doc-company-name {
+    margin: 0;
+    font-size: 12pt !important;
+    line-height: 1.15;
+  }
+  .pdf-page .doc-company-meta {
+    margin: 0 !important;
+    font-size: 7.5pt !important;
+    line-height: 1.25;
+  }
+  .pdf-page .doc-title-block {
+    margin: 0 0 2mm !important;
+    text-align: center;
+  }
+  .pdf-page .doc-title {
+    margin: 0 0 1mm !important;
+    font-size: 13pt !important;
+    line-height: 1.15;
+  }
+  .pdf-page .doc-meta-line {
+    margin: 0 !important;
+    font-size: 8pt !important;
+    line-height: 1.2;
+  }
+  .pdf-page .doc-footer {
+    left: 12mm !important;
+    right: 12mm !important;
+    bottom: 7mm !important;
+    padding-top: 4px !important;
+    font-size: 7.5pt !important;
+  }
+  body.has-doc-footer {
+    padding-bottom: 0 !important;
+  }
+  .doc-gps-a4-body {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .doc-gps-a4-body .doc-section {
+    margin: 1mm 0 !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+  .doc-gps-a4-body h2 {
+    margin: 0 0 1mm !important;
+    font-size: 9pt !important;
+    padding-bottom: 1px !important;
+    line-height: 1.2;
+  }
+  .doc-gps-a4-body .doc-photo-wrap {
+    margin: 0 0 1mm !important;
+    page-break-inside: avoid;
+  }
+  .doc-gps-a4-body .doc-photo-wrap-main {
+    position: relative;
+  }
+  .doc-gps-a4-body .doc-photo-main {
+    display: block;
+    width: 100%;
+    max-height: 86mm !important;
+    object-fit: contain;
+    border: 1px solid #c5d0de;
+  }
+  .doc-gps-a4-body .doc-photo-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    background: rgba(0, 0, 0, 0.78);
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid #a3e635;
+    max-width: calc(100% - 12px);
+  }
+  .doc-gps-a4-body .doc-photo-badge-order {
+    color: #fcd34d;
+    font-weight: 700;
+    font-size: 8px;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+  .doc-gps-a4-body .doc-photo-badge-coords {
+    font-family: monospace;
+    font-size: 8px;
+    margin-top: 1px;
+    line-height: 1.2;
+    word-break: break-all;
+  }
+  .doc-gps-a4-body .doc-table-gps {
+    width: 100%;
+    margin: 0 0 1mm !important;
+    font-size: 7.5pt !important;
+    border-collapse: collapse;
+  }
+  .doc-gps-a4-body .doc-table-gps th,
+  .doc-gps-a4-body .doc-table-gps td {
+    padding: 2px 4px !important;
+    line-height: 1.2 !important;
+    vertical-align: top;
+    word-break: break-word;
+  }
+  .doc-gps-a4-body .doc-table-gps th {
+    width: 32%;
+  }
+  .doc-gps-a4-body .doc-photo-map {
+    display: block;
+    width: 100%;
+    max-height: 24mm !important;
+    object-fit: cover;
+    border: 1px solid #c5d0de;
+  }
+  .doc-gps-a4-body .doc-map-links {
+    margin: 1mm 0 0 !important;
+    font-size: 7.5pt !important;
+    line-height: 1.2;
+  }
+  .doc-gps-a4-body .doc-map-links a {
+    color: #1e3a5f;
+    text-decoration: underline;
+  }
   @media print {
-    .pdf-page {
-      overflow: visible;
-      min-height: 297mm;
-      max-height: 297mm;
-      height: auto;
+    html, body, .pdf-page {
+      overflow: hidden !important;
+      height: 297mm !important;
+      max-height: 297mm !important;
     }
     .pdf-watermark,
-    .pdf-company-logo {
+    .pdf-company-logo,
+    .doc-gps-a4-body .doc-photo-main,
+    .doc-gps-a4-body .doc-photo-map {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
@@ -273,10 +422,10 @@ function enforcePdfImageDimensions(doc: Document): void {
   doc.querySelectorAll<HTMLImageElement>('.pdf-company-logo').forEach((img) => {
     img.removeAttribute('width')
     img.removeAttribute('height')
-    img.style.setProperty('width', '22mm', 'important')
-    img.style.setProperty('height', '22mm', 'important')
-    img.style.setProperty('max-width', '22mm', 'important')
-    img.style.setProperty('max-height', '22mm', 'important')
+    img.style.setProperty('width', '18mm', 'important')
+    img.style.setProperty('height', '18mm', 'important')
+    img.style.setProperty('max-width', '18mm', 'important')
+    img.style.setProperty('max-height', '18mm', 'important')
     img.style.setProperty('object-fit', 'contain', 'important')
     img.style.setProperty('display', 'block', 'important')
     img.style.setProperty('mix-blend-multiply', 'multiply', 'important')
@@ -300,11 +449,22 @@ function enforcePdfImageDimensions(doc: Document): void {
 
   const page = doc.querySelector<HTMLElement>('.pdf-page')
   if (page) {
-    page.style.setProperty('overflow', 'visible', 'important')
+    page.style.setProperty('width', `${A4_WIDTH_MM}mm`, 'important')
+    page.style.setProperty('height', `${A4_HEIGHT_MM}mm`, 'important')
+    page.style.setProperty('max-height', `${A4_HEIGHT_MM}mm`, 'important')
+    page.style.setProperty('overflow', 'hidden', 'important')
     page.style.setProperty('background', '#ffffff', 'important')
-    page.style.setProperty('height', 'auto', 'important')
-    page.style.setProperty('max-height', '297mm', 'important')
-    page.style.setProperty('width', '210mm', 'important')
+    page.style.setProperty('transform', 'none', 'important')
+    page.style.setProperty('transform-origin', 'top left', 'important')
+
+    const shell = page.querySelector<HTMLElement>('.doc-shell')
+    const contentHeight = shell?.scrollHeight ?? page.scrollHeight
+    if (contentHeight > A4_HEIGHT_PX) {
+      const scale = A4_HEIGHT_PX / contentHeight
+      page.style.setProperty('transform', `scale(${scale})`, 'important')
+      page.style.setProperty('transform-origin', 'top left', 'important')
+      page.style.setProperty('width', `${A4_WIDTH_MM / scale}mm`, 'important')
+    }
   }
 }
 
@@ -341,8 +501,6 @@ export async function htmlToPhotoReportPdfBlob(html: string): Promise<Blob> {
     await new Promise((resolve) => window.setTimeout(resolve, 350))
 
     const pageEl = frameDoc.querySelector<HTMLElement>('.pdf-page') ?? frameDoc.body
-    const captureWidth = pageEl.offsetWidth || pageEl.scrollWidth
-    const captureHeight = pageEl.offsetHeight || pageEl.scrollHeight
 
     const html2pdf = await getHtml2PdfFactory()
     const blob = await html2pdf()
@@ -356,18 +514,18 @@ export async function htmlToPhotoReportPdfBlob(html: string): Promise<Blob> {
           logging: false,
           letterRendering: true,
           backgroundColor: '#ffffff',
-          width: captureWidth,
-          height: captureHeight,
-          windowWidth: captureWidth,
-          windowHeight: captureHeight,
+          width: A4_WIDTH_PX,
+          height: A4_HEIGHT_PX,
+          windowWidth: A4_WIDTH_PX,
+          windowHeight: A4_HEIGHT_PX,
           scrollX: 0,
           scrollY: 0,
           onclone: (clonedDoc: Document) => {
             enforcePdfImageDimensions(clonedDoc)
           },
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        pagebreak: { mode: ['avoid-all'] },
       })
       .from(pageEl)
       .outputPdf('blob')
