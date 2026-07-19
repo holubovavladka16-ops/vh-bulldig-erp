@@ -164,7 +164,7 @@ async function writeAudit(
   performedBy: string,
   details?: { field_name?: string; old_value?: string; new_value?: string; reason?: string }
 ): Promise<void> {
-  await supabase.from('gps_photo_audit_log').insert({
+  const { error } = await supabase.from('gps_photo_audit_log').insert({
     photo_id: photoId,
     action,
     field_name: details?.field_name ?? null,
@@ -173,6 +173,91 @@ async function writeAudit(
     reason: details?.reason ?? null,
     performed_by: performedBy,
   })
+  if (error) return
+}
+
+function isMissingColumnError(message: string): boolean {
+  const m = message.toLowerCase()
+  return m.includes('schema cache') || m.includes('could not find') || m.includes('column')
+}
+
+function buildLegacyInsertPayload(
+  input: FotoUlozitVstup,
+  paths: ReturnType<typeof buildStoragePaths>,
+  fileName: string,
+  capturedAt: Date,
+  createdBy: string
+) {
+  return {
+    file_path: paths.display,
+    file_name: fileName,
+    captured_at: capturedAt.toISOString(),
+    captured_date: capturedAt.toISOString().slice(0, 10),
+    captured_time: formatTime(capturedAt),
+    gps_lat: input.gps_lat ?? 0,
+    gps_lng: input.gps_lng ?? 0,
+    gps_accuracy: input.gps_accuracy,
+    device_heading: input.device_heading ?? null,
+    address_full: input.address.address_full,
+    street: input.address.street,
+    city: input.address.city,
+    postal_code: input.address.postal_code,
+    country: input.address.country,
+    note: input.note?.trim() || null,
+    order_id: input.order_id,
+    worker_id: input.worker_id ?? null,
+    report_id: input.report_id ?? null,
+    diary_entry_id: input.diary_entry_id ?? null,
+    utility_connection_id: input.utility_connection_id ?? null,
+    sort_order: 0,
+    created_by: createdBy,
+  }
+}
+
+function buildFullInsertPayload(
+  input: FotoUlozitVstup,
+  paths: ReturnType<typeof buildStoragePaths>,
+  fileName: string,
+  capturedAt: Date,
+  createdBy: string,
+  mapUrl: string | null
+) {
+  return {
+    file_path: paths.display,
+    file_name: fileName,
+    original_file_path: paths.original,
+    thumbnail_path: paths.thumbnail,
+    watermarked_file_path: paths.watermarked,
+    captured_at: capturedAt.toISOString(),
+    captured_date: capturedAt.toISOString().slice(0, 10),
+    captured_time: formatTime(capturedAt),
+    uploaded_at: new Date().toISOString(),
+    gps_lat: input.gps_lat,
+    gps_lng: input.gps_lng,
+    gps_accuracy: input.gps_accuracy,
+    gps_status: input.gps_status,
+    device_heading: input.device_heading ?? null,
+    address_full: input.address.address_full,
+    street: input.address.street,
+    city: input.address.city,
+    postal_code: input.address.postal_code,
+    district: input.address.district,
+    region: input.address.region,
+    country: input.address.country,
+    map_url: mapUrl,
+    note: input.note?.trim() || null,
+    photo_type: input.photo_type ?? null,
+    order_id: input.order_id,
+    worker_id: input.worker_id ?? null,
+    report_id: input.report_id ?? null,
+    diary_entry_id: input.diary_entry_id ?? null,
+    utility_connection_id: input.utility_connection_id ?? null,
+    series_id: input.series_id ?? null,
+    approval_status: 'nova',
+    sync_status: 'synced',
+    sort_order: 0,
+    created_by: createdBy,
+  }
 }
 
 export async function ulozitFotodokument(
@@ -201,51 +286,31 @@ export async function ulozitFotodokument(
       ? getMapyCzUrl(input.gps_lat, input.gps_lng)
       : null)
 
-  const { data, error } = await supabase
-    .from('gps_photos')
-    .insert({
-      file_path: paths.display,
-      file_name: fileName,
-      original_file_path: paths.original,
-      thumbnail_path: paths.thumbnail,
-      watermarked_file_path: paths.watermarked,
-      captured_at: capturedAt.toISOString(),
-      captured_date: capturedAt.toISOString().slice(0, 10),
-      captured_time: formatTime(capturedAt),
-      uploaded_at: new Date().toISOString(),
-      gps_lat: input.gps_lat,
-      gps_lng: input.gps_lng,
-      gps_accuracy: input.gps_accuracy,
-      gps_status: input.gps_status,
-      device_heading: input.device_heading ?? null,
-      address_full: input.address.address_full,
-      street: input.address.street,
-      city: input.address.city,
-      postal_code: input.address.postal_code,
-      district: input.address.district,
-      region: input.address.region,
-      country: input.address.country,
-      map_url: mapUrl,
-      note: input.note?.trim() || null,
-      photo_type: input.photo_type ?? null,
-      order_id: input.order_id,
-      worker_id: input.worker_id ?? null,
-      report_id: input.report_id ?? null,
-      diary_entry_id: input.diary_entry_id ?? null,
-      utility_connection_id: input.utility_connection_id ?? null,
-      series_id: input.series_id ?? null,
-      approval_status: 'nova',
-      sync_status: 'synced',
-      sort_order: 0,
-      created_by: createdBy,
-    })
-    .select(SELECT_QUERY)
-    .single()
+  const fullPayload = buildFullInsertPayload(
+    input,
+    paths,
+    fileName,
+    capturedAt,
+    createdBy,
+    mapUrl
+  )
 
+  let result = await supabase.from('gps_photos').insert(fullPayload).select(SELECT_QUERY).single()
+
+  if (result.error && isMissingColumnError(result.error.message)) {
+    const legacyPayload = buildLegacyInsertPayload(input, paths, fileName, capturedAt, createdBy)
+    result = await supabase.from('gps_photos').insert(legacyPayload).select(SELECT_QUERY).single()
+  }
+
+  const { data, error } = result
   if (error) throw new Error(error.message)
 
   const foto = mapRow(data as FotoRow)
-  await writeAudit(foto.id, 'Fotografie vytvořena', createdBy)
+  try {
+    await writeAudit(foto.id, 'Fotografie vytvořena', createdBy)
+  } catch {
+    // audit tabulka nemusí existovat před migrací 062
+  }
   return foto
 }
 

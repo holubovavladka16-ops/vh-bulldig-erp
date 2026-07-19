@@ -160,3 +160,6 @@ ON CONFLICT (id) DO UPDATE SET
   is_implemented = true,
   module_version = '2.0.0',
   label = EXCLUDED.label;
+
+-- Obnovit PostgREST schema cache (oprava "Could not find column in schema cache")
+NOTIFY pgrst, 'reload schema';
