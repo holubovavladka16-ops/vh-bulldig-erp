@@ -29,7 +29,7 @@ import {
   smazatFotodokument,
   upravitFotodokument,
 } from '@/lib/fotodokumentace/api'
-import { vytvoritFotodokumentPdf } from '@/lib/fotodokumentace/pdf'
+import { vytvoritFotodokumentPdf, getFotoReportPdfFileName } from '@/lib/fotodokumentace/pdf'
 import { stahnoutFotografii } from '@/lib/fotodokumentace/share'
 import { getMapyCzUrl } from '@/lib/photos/mapLinks'
 import { useAuth } from '@/context/AuthContext'
@@ -121,7 +121,7 @@ export function FotoDetailModal({ foto, onClose, onUpdated }: FotoDetailModalPro
     const blob = await vytvoritFotodokumentPdf([currentFoto], company)
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `fotodokumentace_${currentFoto.file_name.replace(/\.[^.]+$/, '')}.pdf`
+    a.download = getFotoReportPdfFileName(currentFoto)
     a.click()
     URL.revokeObjectURL(a.href)
   }

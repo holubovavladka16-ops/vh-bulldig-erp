@@ -7,6 +7,7 @@ import {
   sdiletPresMessenger,
   sdiletPresWhatsApp,
 } from '@/lib/fotodokumentace/share'
+import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { FotoDokument } from '@/types/fotodokumentace'
 
 interface FotoShareButtonsProps {
@@ -16,14 +17,16 @@ interface FotoShareButtonsProps {
 }
 
 export function FotoShareButtons({ foto, onMessage, compact = false }: FotoShareButtonsProps) {
+  const { settings: company } = useCompanySettings()
+
   async function handleCopy() {
     await kopirovatOdkaz(foto)
     onMessage?.('Odkaz zkopírován.')
   }
 
   async function handleNativeShare() {
-    const ok = await sdiletFotografii(foto)
-    onMessage?.(ok ? 'Sdíleno.' : 'Sdílení se nezdařilo.')
+    const ok = await sdiletFotografii(foto, company)
+    onMessage?.(ok ? 'Sdíleno (PDF).' : 'Sdílení se nezdařilo.')
   }
 
   const btnClass = compact ? 'justify-center' : 'justify-center flex-1'
