@@ -1,7 +1,7 @@
 {
   "name": "vh-bulldig-erp",
   "private": true,
-  "version": "1.8.0",
+  "version": "1.8.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -33,6 +33,7 @@
     "apply-paper-migrations": "node scripts/apply-paper-migrations-053-058.mjs",
     "apply-fotodokumentace-migration": "node scripts/apply-fotodokumentace-migration-062.mjs",
     "verify-fotodokumentace-production": "node scripts/verify-fotodokumentace-production.mjs",
+    "deploy:vercel": "node scripts/deploy-vercel-production.mjs",
     "test-paper-form-pdf": "node scripts/test-paper-form-pdf.mjs",
     "verify-gemini-ai": "node scripts/verify-gemini-ai.mjs",
     "verify-all-modules": "node scripts/verify-all-modules.mjs",
