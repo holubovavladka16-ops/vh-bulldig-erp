@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import {
+  BookOpen,
   Clock,
   Eye,
   FileDown,
@@ -15,7 +16,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { PhotoMiniMap } from '@/components/photos/PhotoMiniMap'
-import { getGpsPhotoUrl, logGpsPhotoShare } from '@/lib/photos/api'
+import { getGpsPhotoUrl, linkPhotoToDiary, logGpsPhotoShare } from '@/lib/photos/api'
 import {
   getGoogleMapsUrl,
   getMapyCzUrl,
@@ -49,6 +50,8 @@ interface PhotoDocumentViewProps {
   onShared?: () => void
   /** Kompaktní náhled v galerii – bez akcí PDF/sdílení. */
   compact?: boolean
+  /** ID záznamu stavebního deníku pro přidání fotografie */
+  diaryEntryId?: string | null
 }
 
 export function PhotoDocumentView({
@@ -62,6 +65,7 @@ export function PhotoDocumentView({
   deleting = false,
   onShared,
   compact = false,
+  diaryEntryId,
 }: PhotoDocumentViewProps) {
   const { settings: company } = useCompanySettings()
   const sharePhoto = { ...photo, note: note || photo.note }
@@ -104,6 +108,20 @@ export function PhotoDocumentView({
       await logShare(channel === 'native' ? 'native_share' : channel)
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Sdílení PDF se nezdařilo.')
+    }
+  }
+
+  async function handleAddToDiary() {
+    if (!userId || !diaryEntryId) {
+      window.alert('Pro přidání do stavebního deníku musíte být přihlášeni a vybrat záznam deníku.')
+      return
+    }
+    try {
+      await linkPhotoToDiary(photo.id, diaryEntryId, userId)
+      window.alert('Fotografie byla přidána do stavebního deníku.')
+      onShared?.()
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Přidání do stavebního deníku se nezdařilo.')
     }
   }
 
@@ -303,6 +321,20 @@ export function PhotoDocumentView({
               className="border-amber-500/40"
             />
           </div>
+
+          {/* Přidat do stavebního deníku */}
+          {diaryEntryId && userId && (
+            <div className="border-t border-[var(--accent-primary)]/20 px-4 py-4">
+              <Button
+                type="button"
+                className="w-full justify-center py-3 text-sm font-semibold uppercase tracking-wide"
+                onClick={handleAddToDiary}
+              >
+                <BookOpen className="h-5 w-5" />
+                Přidat do stavebního deníku
+              </Button>
+            </div>
+          )}
         </>
       )}
     </article>

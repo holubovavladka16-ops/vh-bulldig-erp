@@ -41,6 +41,7 @@ export interface PaperMonthlyForm {
   worker_id: string | null
   supervisor_id: string | null
   status: PaperFormStatus
+  form_variant?: 'worker_first' | 'order_first' | null
   worker_snapshot: PaperWorkerSnapshot | null
   order_legend: PaperOrderLegendItem[]
   blank_pdf_path: string | null

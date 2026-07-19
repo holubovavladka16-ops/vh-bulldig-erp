@@ -1,4 +1,4 @@
-import { getGoogleMapsUrl, getStaticMapImageUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
+import { getMapyCzUrl, getGoogleMapsUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
 import { getGpsPhotoUrl } from '@/lib/photos/api'
 import {
   formatCaptureDateLabel,
@@ -19,9 +19,9 @@ function formatGpsAccuracyLabel(accuracy: number | null): string {
 
 export function buildPhotoReportHtml(photo: GpsPhoto): string {
   const photoUrl = getGpsPhotoUrl(photo.file_path)
-  const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
-  const streetUrl = getStreetViewUrl(photo.gps_lat, photo.gps_lng)
-  const mapImageUrl = getStaticMapImageUrl(photo.gps_lat, photo.gps_lng, 640, 120)
+  const mapyCzUrl = getMapyCzUrl(photo.gps_lat, photo.gps_lng)
+  const googleMapsUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
+  const streetViewUrl = getStreetViewUrl(photo.gps_lat, photo.gps_lng)
   const address = formatPhotoAddress(photo)
   const orderName = getOrderDisplayName(photo)
   const coords = formatGpsCoordinatesCompact(photo.gps_lat, photo.gps_lng)
@@ -36,10 +36,6 @@ export function buildPhotoReportHtml(photo: GpsPhoto): string {
       <section class="doc-section doc-section-photo">
         <div class="doc-photo-wrap doc-photo-wrap-main">
           <img class="doc-photo-main" src="${escHtml(photoUrl)}" alt="Fotografie" />
-          <div class="doc-photo-badge">
-            <div class="doc-photo-badge-order">${escHtml(orderName)}</div>
-            <div class="doc-photo-badge-coords">📍 ${escHtml(coords)} · ${escHtml(accuracyLabel)}</div>
-          </div>
         </div>
       </section>
 
@@ -58,15 +54,13 @@ export function buildPhotoReportHtml(photo: GpsPhoto): string {
         </table>
       </section>
 
-      <section class="doc-section doc-section-map">
-        <h2>Mapa místa pořízení</h2>
-        <div class="doc-photo-wrap doc-photo-wrap-map">
-          <img class="doc-photo-map" src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" />
+      <section class="doc-section doc-section-links">
+        <h2>Odkazy na mapy</h2>
+        <div class="doc-map-links">
+          <a href="${escHtml(mapyCzUrl)}" target="_blank">Mapy.cz</a>
+          <a href="${escHtml(googleMapsUrl)}" target="_blank">Google Maps</a>
+          <a href="${escHtml(streetViewUrl)}" target="_blank">Street View</a>
         </div>
-        <p class="doc-map-links">
-          <a href="${escHtml(mapUrl)}">Google Maps</a> ·
-          <a href="${escHtml(streetUrl)}">Street View</a>
-        </p>
       </section>
     </div>
   `

@@ -332,6 +332,10 @@ export async function updateGpsPhotoLinks(
   await addPhotoHistory(id, 'Propojení upraveno', performedBy, links)
 }
 
+export async function linkPhotoToDiary(photoId: string, diaryEntryId: string, performedBy: string): Promise<void> {
+  await updateGpsPhotoLinks(photoId, { diary_entry_id: diaryEntryId }, performedBy)
+}
+
 export async function logGpsPhotoShare(id: string, channel: string, performedBy: string): Promise<void> {
   await addPhotoHistory(id, 'Fotografie sdílena', performedBy, { channel })
 }

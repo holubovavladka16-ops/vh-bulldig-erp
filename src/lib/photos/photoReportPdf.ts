@@ -1,5 +1,6 @@
 import { DEFAULT_APP_LOGO_URL } from '@/constants/branding'
 import { buildPhotoReportHtml } from '@/lib/photos/photoReport'
+import { assertGpsPhotoPdfBlob } from '@/lib/photos/photoReportPdfSpec'
 import {
   assertValidPdfBlob,
   downloadPdfBlob,
@@ -180,66 +181,53 @@ const PHOTO_REPORT_ERP7_EXTRA_STYLES = `
   .doc-gps-a4-body .doc-photo-main {
     display: block;
     width: 100%;
-    max-height: 86mm !important;
+    max-height: 140mm !important;
     object-fit: contain;
     border: 1px solid #c5d0de;
   }
-  .doc-gps-a4-body .doc-photo-badge {
-    position: absolute;
-    bottom: 6px;
-    left: 6px;
-    background: rgba(0, 0, 0, 0.78);
-    color: #fff;
-    padding: 4px 8px;
-    border-radius: 6px;
-    border: 1px solid #a3e635;
-    max-width: calc(100% - 12px);
+  .doc-gps-a4-body .doc-section-photo {
+    margin: 0 0 2mm !important;
   }
-  .doc-gps-a4-body .doc-photo-badge-order {
-    color: #fcd34d;
-    font-weight: 700;
-    font-size: 8px;
-    text-transform: uppercase;
-    line-height: 1.2;
+  .doc-gps-a4-body .doc-section-meta {
+    margin: 0 0 2mm !important;
   }
-  .doc-gps-a4-body .doc-photo-badge-coords {
-    font-family: monospace;
-    font-size: 8px;
-    margin-top: 1px;
-    line-height: 1.2;
-    word-break: break-all;
-  }
-  .doc-gps-a4-body .doc-table-gps {
-    width: 100%;
-    margin: 0 0 1mm !important;
-    font-size: 7.5pt !important;
-    border-collapse: collapse;
-  }
-  .doc-gps-a4-body .doc-table-gps th,
-  .doc-gps-a4-body .doc-table-gps td {
-    padding: 2px 4px !important;
-    line-height: 1.2 !important;
-    vertical-align: top;
-    word-break: break-word;
-  }
-  .doc-gps-a4-body .doc-table-gps th {
-    width: 32%;
-  }
-  .doc-gps-a4-body .doc-photo-map {
-    display: block;
-    width: 100%;
-    max-height: 24mm !important;
-    object-fit: cover;
-    border: 1px solid #c5d0de;
+  .doc-gps-a4-body .doc-section-links {
+    margin: 0 0 2mm !important;
   }
   .doc-gps-a4-body .doc-map-links {
-    margin: 1mm 0 0 !important;
-    font-size: 7.5pt !important;
-    line-height: 1.2;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 4px 0;
   }
   .doc-gps-a4-body .doc-map-links a {
     color: #1e3a5f;
     text-decoration: underline;
+    font-size: 9pt;
+  }
+  .doc-gps-a4-body .doc-map-links a:hover {
+    color: #3b82f6;
+  }
+  .doc-gps-a4-body .doc-table-gps {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 8.5pt;
+  }
+  .doc-gps-a4-body .doc-table-gps th {
+    width: 35%;
+    text-align: left;
+    padding: 3px 6px;
+    background: #f0f7ff;
+    border: 1px solid #c5d0de;
+    font-weight: 600;
+    color: #1e3a5f;
+  }
+  .doc-gps-a4-body .doc-table-gps td {
+    text-align: left;
+    padding: 3px 6px;
+    border: 1px solid #c5d0de;
+    color: #111111;
   }
   @media print {
     html, body, .pdf-page {
@@ -536,6 +524,7 @@ export async function htmlToPhotoReportPdfBlob(html: string): Promise<Blob> {
 
     const pdfBlob = blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' })
     await assertValidPdfBlob(pdfBlob)
+    await assertGpsPhotoPdfBlob(pdfBlob)
     return pdfBlob
   } finally {
     iframe.remove()
