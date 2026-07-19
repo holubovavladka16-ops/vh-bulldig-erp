@@ -1,5 +1,7 @@
 import type { FotoDokument } from '@/types/fotodokumentace'
+import type { CompanySettings } from '@/types'
 import { getFotoUrl } from '@/lib/fotodokumentace/api'
+import { createFotoReportPdfFile } from '@/lib/fotodokumentace/fotoReportPdf'
 import { getMapyCzUrl } from '@/lib/photos/mapLinks'
 
 function formatShareText(foto: FotoDokument): string {
@@ -58,23 +60,25 @@ export function sdiletPresEmail(foto: FotoDokument): void {
   window.location.href = getEmailShareUrl(text, subject)
 }
 
-export async function sdiletFotografii(foto: FotoDokument): Promise<boolean> {
+export async function sdiletFotografii(
+  foto: FotoDokument,
+  company?: CompanySettings | null
+): Promise<boolean> {
   const text = formatShareText(foto)
 
   try {
-    const { blob, fileName } = await fetchFotoBlob(foto)
-    const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' })
+    const file = await createFotoReportPdfFile(foto, company)
 
     if (navigator.share) {
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: foto.order_name ?? 'Fotodokumentace',
+          title: foto.order_name ?? 'GPS fotodoklad',
           text,
         })
         return true
       }
-      await navigator.share({ title: foto.order_name ?? 'Fotodokumentace', text })
+      await navigator.share({ title: foto.order_name ?? 'GPS fotodoklad', text })
       return true
     }
   } catch (err) {
@@ -82,10 +86,10 @@ export async function sdiletFotografii(foto: FotoDokument): Promise<boolean> {
   }
 
   try {
-    const { blob, fileName } = await fetchFotoBlob(foto)
+    const file = await createFotoReportPdfFile(foto, company)
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = fileName
+    a.href = URL.createObjectURL(file)
+    a.download = file.name
     a.click()
     URL.revokeObjectURL(a.href)
     return true

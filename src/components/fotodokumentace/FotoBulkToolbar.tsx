@@ -1,7 +1,7 @@
 import { FileText, Link2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { vytvoritVerejnouGalerii } from '@/lib/fotodokumentace/api'
-import { vytvoritFotodokumentPdf } from '@/lib/fotodokumentace/pdf'
+import { vytvoritFotodokumentPdf, getBulkFotodokumentPdfFileName } from '@/lib/fotodokumentace/pdf'
 import { kopirovatText } from '@/lib/fotodokumentace/share'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { FotoDokument } from '@/types/fotodokumentace'
@@ -22,7 +22,7 @@ export function FotoBulkToolbar({ selected, userId, onClear, onMessage }: FotoBu
     const blob = await vytvoritFotodokumentPdf(selected, company)
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `fotodokumentace_${selected.length}_fotek.pdf`
+    a.download = getBulkFotodokumentPdfFileName(selected.length)
     a.click()
     URL.revokeObjectURL(a.href)
     onMessage(`PDF exportováno (${selected.length} fotografií).`)
