@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { MapPin } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getFotoUrl } from '@/lib/fotodokumentace/api'
+import { getMapyCzUrl, getStreetViewUrl } from '@/lib/photos/mapLinks'
 import { formatDate, formatTime } from '@/constants/workers'
 
 interface PublicFoto {
@@ -13,6 +15,8 @@ interface PublicFoto {
   address_full: string
   note: string | null
   order_name: string | null
+  gps_lat?: number | null
+  gps_lng?: number | null
 }
 
 export function FotodokumentacePublicPage() {
@@ -58,12 +62,33 @@ export function FotodokumentacePublicPage() {
           alt=""
           className="w-full rounded-xl border border-[var(--border-glass)]"
         />
-        <div className="text-sm text-theme-secondary space-y-1">
+        <div className="space-y-1 text-sm text-theme-secondary">
           <p><strong>Zakázka:</strong> {foto.order_name ?? '—'}</p>
           <p><strong>Datum:</strong> {formatDate(foto.captured_date)} · {formatTime(foto.captured_time)}</p>
           <p><strong>Adresa:</strong> {foto.address_full}</p>
           {foto.note && <p><strong>Poznámka:</strong> {foto.note}</p>}
         </div>
+        {foto.gps_lat != null && foto.gps_lng != null && (
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={getMapyCzUrl(foto.gps_lat, foto.gps_lng)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-glass)] px-3 py-2 text-sm text-theme-primary"
+            >
+              <MapPin className="h-4 w-4 text-red-400" />
+              Mapy.cz
+            </a>
+            <a
+              href={getStreetViewUrl(foto.gps_lat, foto.gps_lng)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-glass)] px-3 py-2 text-sm text-theme-primary"
+            >
+              Street View
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )

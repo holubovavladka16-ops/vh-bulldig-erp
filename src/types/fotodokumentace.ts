@@ -147,6 +147,19 @@ export interface FotoFiltry {
   seriesId?: string
 }
 
+export interface FotoVerejnaGalerie {
+  id: string
+  order_id: string
+  token: string
+  expires_at: string | null
+  allow_download: boolean
+  show_address: boolean
+  show_gps: boolean
+  photo_ids: string[]
+  created_at: string
+  order_name?: string
+}
+
 export interface FotoOfflineZaznam {
   localId: string
   payload: FotoUlozitVstup

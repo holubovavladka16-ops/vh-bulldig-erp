@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Camera, LayoutGrid, List, Loader2, Map, MapPin } from 'lucide-react'
+import { Camera, CheckSquare, LayoutGrid, List, Loader2, Map, MapPin, Square } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -14,9 +14,12 @@ import { FotoKarta } from '@/components/fotodokumentace/FotoKarta'
 import { FotoDetailModal } from '@/components/fotodokumentace/FotoDetailModal'
 import { FotoFiltryPanel } from '@/components/fotodokumentace/FotoFiltryPanel'
 import { FotoMapView } from '@/components/fotodokumentace/FotoMapView'
+import { FotoBulkToolbar } from '@/components/fotodokumentace/FotoBulkToolbar'
+import { FotoOfflineBanner } from '@/components/fotodokumentace/FotoOfflineBanner'
+import { FotoSpecPanel } from '@/components/fotodokumentace/FotoSpecPanel'
 import { useAuth } from '@/context/AuthContext'
 import { useOfflineSync } from '@/hooks/fotodokumentace/useOfflineSync'
-import { fetchFotodokumenty } from '@/lib/fotodokumentace/api'
+import { fetchFotoSerie, fetchFotodokumenty } from '@/lib/fotodokumentace/api'
 import { fetchJobOrders } from '@/lib/orders/api'
 import { fetchWorkers } from '@/lib/workers/api'
 import type { FotoDokument, FotoFiltry } from '@/types/fotodokumentace'
@@ -32,13 +35,18 @@ export function FotodokumentacePage() {
   const [pohled, setPohled] = useState<HlavniPohled>('capture')
   const [galeriePohled, setGaleriePohled] = useState<GaleriePohled>('grid')
   const [capture, setCapture] = useState<FotoCaptureResult | null>(null)
+  const [activeSeriesId, setActiveSeriesId] = useState<string | null>(null)
   const [fotografie, setFotografie] = useState<FotoDokument[]>([])
   const [filters, setFilters] = useState<FotoFiltry>({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectMode, setSelectMode] = useState(false)
+  const [bulkMessage, setBulkMessage] = useState('')
   const [orderOptions, setOrderOptions] = useState([{ value: '', label: 'Všechny zakázky' }])
   const [workerOptions, setWorkerOptions] = useState([{ value: '', label: 'Všichni' }])
+  const [seriesOptions, setSeriesOptions] = useState([{ value: '', label: 'Všechny série' }])
 
   const defaultOrderId = searchParams.get('zakazka') ?? undefined
 
@@ -55,7 +63,7 @@ export function FotodokumentacePage() {
     }
   }, [filters])
 
-  useOfflineSync(load)
+  const { syncNow } = useOfflineSync(load)
 
   useEffect(() => {
     Promise.all([
@@ -67,9 +75,14 @@ export function FotodokumentacePage() {
         { value: '', label: 'Všichni' },
         ...workers.map((w) => ({ value: w.id, label: `${w.last_name} ${w.first_name}` })),
       ]),
-    ]).then(([orders, workers]) => {
+      fetchFotoSerie().then((serie) => [
+        { value: '', label: 'Všechny série' },
+        ...serie.map((s) => ({ value: s.id, label: s.name })),
+      ]),
+    ]).then(([orders, workers, series]) => {
       setOrderOptions(orders)
       setWorkerOptions(workers)
+      setSeriesOptions(series)
     })
   }, [])
 
@@ -93,19 +106,40 @@ export function FotodokumentacePage() {
 
   function handleSaved() {
     setCapture(null)
+    setActiveSeriesId(null)
     setPohled('gallery')
     void load()
   }
 
+  function handleSavedAndNext(seriesId: string) {
+    setActiveSeriesId(seriesId)
+    setCapture(null)
+    setPohled('capture')
+    void load()
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const selectedFotos = fotografie.filter((f) => selectedIds.has(f.id))
   const selectedFoto = fotografie.find((f) => f.id === selectedId) ?? null
-  const posledniFotky = fotografie.slice(0, 6)
+  const posledniFotky = fotografie.filter((f) => !f.deleted_at).slice(0, 6)
 
   return (
     <AppLayout>
       <PageHeader
         title="Fotodokumentace s GPS"
-        description="Profesionální fotodokumentace: GPS cíl ±3 m, mapa Mapy.cz a Street View pod každou fotkou. Celý proces do 10 s."
+        description="Enterprise modul: GPS ±3 m, Mapy.cz + Street View, schvalování, série, bulk PDF, veřejná galerie, offline fronta."
       />
+
+      <FotoSpecPanel />
+      <FotoOfflineBanner onSync={() => void syncNow()} />
 
       <div className="mb-4 flex flex-wrap gap-2">
         <Button
@@ -133,6 +167,19 @@ export function FotodokumentacePage() {
             Mapa
           </Button>
         </Link>
+        {pohled === 'gallery' && (
+          <Button
+            size="sm"
+            variant={selectMode ? 'primary' : 'secondary'}
+            onClick={() => {
+              setSelectMode((v) => !v)
+              setSelectedIds(new Set())
+            }}
+          >
+            {selectMode ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+            {selectMode ? 'Výběr zapnut' : 'Vybrat fotky'}
+          </Button>
+        )}
       </div>
 
       {(pohled === 'capture' || pohled === 'save') && (
@@ -151,9 +198,12 @@ export function FotodokumentacePage() {
               creatorName={creatorName}
               defaultOrderId={defaultOrderId}
               lockOrder={Boolean(defaultOrderId)}
+              activeSeriesId={activeSeriesId}
               onSaved={handleSaved}
+              onSavedAndNext={handleSavedAndNext}
               onCancel={() => {
                 setCapture(null)
+                setActiveSeriesId(null)
                 setPohled('capture')
               }}
             />
@@ -185,8 +235,22 @@ export function FotodokumentacePage() {
               onChange={setFilters}
               orderOptions={orderOptions}
               workerOptions={workerOptions}
+              seriesOptions={seriesOptions}
             />
           </Card>
+
+          {selectMode && user && (
+            <FotoBulkToolbar
+              selected={selectedFotos}
+              userId={user.id}
+              onClear={() => {
+                setSelectedIds(new Set())
+                setSelectMode(false)
+              }}
+              onMessage={setBulkMessage}
+            />
+          )}
+          {bulkMessage && <p className="mb-2 text-sm text-theme-muted">{bulkMessage}</p>}
 
           <div className="mb-4 flex flex-wrap gap-2">
             <Button size="sm" variant={galeriePohled === 'grid' ? 'primary' : 'secondary'} onClick={() => setGaleriePohled('grid')}>
@@ -229,6 +293,9 @@ export function FotodokumentacePage() {
                     key={foto.id}
                     foto={foto}
                     view={galeriePohled}
+                    selectable={selectMode}
+                    selected={selectedIds.has(foto.id)}
+                    onToggleSelect={toggleSelect}
                     onClick={() => setSelectedId(foto.id)}
                   />
                 ))

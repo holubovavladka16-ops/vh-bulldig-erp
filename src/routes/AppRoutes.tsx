@@ -35,6 +35,7 @@ import { FormCheckDetailPage } from '@/pages/formCheck/FormCheckDetailPage'
 import { FotodokumentacePage } from '@/pages/fotodokumentace/FotodokumentacePage'
 import { FotodokumentaceMapPage } from '@/pages/fotodokumentace/FotodokumentaceMapPage'
 import { FotodokumentacePublicPage } from '@/pages/fotodokumentace/FotodokumentacePublicPage'
+import { FotodokumentacePublicGalleryPage } from '@/pages/fotodokumentace/FotodokumentacePublicGalleryPage'
 import { FUTURE_MODULES } from '@/constants/modules'
 
 const placeholderModules = FUTURE_MODULES.filter(
@@ -202,6 +203,7 @@ export function AppRoutes() {
       />
 
       <Route path="/sdileni/fotografie/:id" element={<FotodokumentacePublicPage />} />
+      <Route path="/sdileni/galerie/:token" element={<FotodokumentacePublicGalleryPage />} />
 
       <Route
         path="/fotky"

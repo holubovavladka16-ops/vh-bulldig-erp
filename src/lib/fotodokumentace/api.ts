@@ -502,10 +502,55 @@ export async function propojitSDenikem(
 
 export async function schvalitFotodokument(
   id: string,
-  status: 'schvalena' | 'zamitnuta' | 'ke_kontrole',
+  status: 'schvalena' | 'zamitnuta' | 'ke_kontrole' | 'archivovana' | 'nova',
   performedBy: string,
   reason?: string
 ): Promise<void> {
   await upravitFotodokument(id, { approval_status: status }, performedBy, reason)
   await writeAudit(id, `Stav schválení: ${status}`, performedBy, { reason })
+}
+
+export async function fetchFotoSerie(filters?: { orderId?: string }): Promise<FotoSerie[]> {
+  let query = supabase
+    .from('gps_photo_series')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (filters?.orderId) query = query.eq('order_id', filters.orderId)
+
+  const { data, error } = await query
+  if (error) return []
+  return (data ?? []) as FotoSerie[]
+}
+
+export async function vytvoritVerejnouGalerii(
+  orderId: string,
+  photoIds: string[],
+  createdBy: string,
+  options?: {
+    allowDownload?: boolean
+    showAddress?: boolean
+    showGps?: boolean
+    expiresAt?: string
+  }
+): Promise<{ token: string; url: string }> {
+  const { data, error } = await supabase
+    .from('gps_photo_public_galleries')
+    .insert({
+      order_id: orderId,
+      photo_ids: photoIds,
+      allow_download: options?.allowDownload ?? true,
+      show_address: options?.showAddress ?? true,
+      show_gps: options?.showGps ?? false,
+      expires_at: options?.expiresAt ?? null,
+      created_by: createdBy,
+    })
+    .select('token')
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  const token = (data as { token: string }).token
+  const url = `${window.location.origin}/sdileni/galerie/${token}`
+  return { token, url }
 }

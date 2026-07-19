@@ -1,5 +1,6 @@
 import type { FotoDokument } from '@/types/fotodokumentace'
 import { getFotoUrl } from '@/lib/fotodokumentace/api'
+import { getMapyCzUrl } from '@/lib/photos/mapLinks'
 
 function formatShareText(foto: FotoDokument): string {
   const lines = [
@@ -9,6 +10,7 @@ function formatShareText(foto: FotoDokument): string {
   ]
   if (foto.gps_lat != null && foto.gps_lng != null) {
     lines.push(`GPS: ${foto.gps_lat.toFixed(6)}, ${foto.gps_lng.toFixed(6)}`)
+    lines.push(`Mapa: ${getMapyCzUrl(foto.gps_lat, foto.gps_lng)}`)
   }
   if (foto.note?.trim()) lines.push(`Poznámka: ${foto.note.trim()}`)
   if (foto.creator_name) lines.push(`Autor: ${foto.creator_name}`)
@@ -21,6 +23,39 @@ async function fetchFotoBlob(foto: FotoDokument): Promise<{ blob: Blob; fileName
   if (!res.ok) throw new Error('Fotografii se nepodařilo načíst.')
   const blob = await res.blob()
   return { blob, fileName: foto.file_name || 'fotografie.jpg' }
+}
+
+export function getPublicFotoUrl(fotoId: string): string {
+  return `${window.location.origin}/sdileni/fotografie/${fotoId}`
+}
+
+export function getWhatsAppShareUrl(text: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(text)}`
+}
+
+export function getMessengerShareUrl(text: string): string {
+  const redirect = encodeURIComponent(window.location.href)
+  return `https://www.facebook.com/dialog/send?app_id=0&redirect_uri=${redirect}&quote=${encodeURIComponent(text)}`
+}
+
+export function getEmailShareUrl(text: string, subject: string): string {
+  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`
+}
+
+export function sdiletPresWhatsApp(foto: FotoDokument): void {
+  const text = `${formatShareText(foto)}\n\nOdkaz: ${getPublicFotoUrl(foto.id)}`
+  window.open(getWhatsAppShareUrl(text), '_blank')
+}
+
+export function sdiletPresMessenger(foto: FotoDokument): void {
+  const text = `${formatShareText(foto)}\n\nOdkaz: ${getPublicFotoUrl(foto.id)}`
+  window.open(getMessengerShareUrl(text), '_blank')
+}
+
+export function sdiletPresEmail(foto: FotoDokument): void {
+  const subject = `Fotodokumentace – ${foto.order_name ?? 'VH Bulldig'}`
+  const text = `${formatShareText(foto)}\n\nOdkaz: ${getPublicFotoUrl(foto.id)}`
+  window.location.href = getEmailShareUrl(text, subject)
 }
 
 export async function sdiletFotografii(foto: FotoDokument): Promise<boolean> {
@@ -68,6 +103,10 @@ export async function stahnoutFotografii(foto: FotoDokument): Promise<void> {
   URL.revokeObjectURL(a.href)
 }
 
-export function kopirovatOdkaz(foto: FotoDokument): Promise<void> {
-  return navigator.clipboard.writeText(getFotoUrl(foto.file_path))
+export async function kopirovatOdkaz(foto: FotoDokument): Promise<void> {
+  await navigator.clipboard.writeText(getPublicFotoUrl(foto.id))
+}
+
+export async function kopirovatText(text: string): Promise<void> {
+  await navigator.clipboard.writeText(text)
 }

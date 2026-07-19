@@ -1,13 +1,18 @@
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { RYCHLE_FILTRY, VYCHOZI_TYPY_FOTOGRAFII } from '@/constants/fotodokumentace'
-import type { FotoFiltry } from '@/types/fotodokumentace'
+import {
+  FOTO_SCHVALENI_OPTIONS,
+  RYCHLE_FILTRY,
+  VYCHOZI_TYPY_FOTOGRAFII,
+} from '@/constants/fotodokumentace'
+import type { FotoApprovalStatus, FotoFiltry } from '@/types/fotodokumentace'
 
 interface FotoFiltryPanelProps {
   filters: FotoFiltry
   onChange: (filters: FotoFiltry) => void
   orderOptions: { value: string; label: string }[]
   workerOptions: { value: string; label: string }[]
+  seriesOptions?: { value: string; label: string }[]
 }
 
 function todayIso(): string {
@@ -37,9 +42,17 @@ export function FotoFiltryPanel({
   onChange,
   orderOptions,
   workerOptions,
+  seriesOptions = [],
 }: FotoFiltryPanelProps) {
   function applyQuick(id: string) {
-    const base: FotoFiltry = { ...filters, dateExact: undefined, hasGps: undefined, noGps: undefined, approvalStatus: undefined }
+    const base: FotoFiltry = {
+      ...filters,
+      dateExact: undefined,
+      hasGps: undefined,
+      noGps: undefined,
+      approvalStatus: undefined,
+      includeDeleted: undefined,
+    }
     switch (id) {
       case 'dnes':
         onChange({ ...base, dateFrom: todayIso(), dateTo: todayIso() })
@@ -58,6 +71,12 @@ export function FotoFiltryPanel({
         break
       case 'ke_kontrole':
         onChange({ ...base, approvalStatus: 'ke_kontrole' })
+        break
+      case 'schvalena':
+        onChange({ ...base, approvalStatus: 'schvalena' })
+        break
+      case 'kos':
+        onChange({ ...base, includeDeleted: true })
         break
     }
   }
@@ -99,6 +118,25 @@ export function FotoFiltryPanel({
             ...VYCHOZI_TYPY_FOTOGRAFII.map((t) => ({ value: t.code, label: t.label })),
           ]}
         />
+        <Select
+          label="Stav schválení"
+          value={filters.approvalStatus ?? ''}
+          onChange={(e) =>
+            onChange({
+              ...filters,
+              approvalStatus: (e.target.value || undefined) as FotoApprovalStatus | undefined,
+            })
+          }
+          options={[...FOTO_SCHVALENI_OPTIONS]}
+        />
+        {seriesOptions.length > 1 && (
+          <Select
+            label="Série"
+            value={filters.seriesId ?? ''}
+            onChange={(e) => onChange({ ...filters, seriesId: e.target.value || undefined })}
+            options={seriesOptions}
+          />
+        )}
         <Input
           label="Obec / adresa"
           value={filters.cityQuery ?? filters.addressQuery ?? ''}
@@ -117,7 +155,17 @@ export function FotoFiltryPanel({
           value={filters.dateTo ?? ''}
           onChange={(e) => onChange({ ...filters, dateTo: e.target.value || undefined })}
         />
+        <Input
+          label="Přesné datum"
+          type="date"
+          value={filters.dateExact ?? ''}
+          onChange={(e) => onChange({ ...filters, dateExact: e.target.value || undefined })}
+        />
       </div>
+
+      {filters.includeDeleted && (
+        <p className="text-xs text-amber-300">Zobrazen koš – smazané fotografie lze obnovit z detailu.</p>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle, Loader2, Save } from 'lucide-react'
+import { Camera, CheckCircle, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
@@ -8,11 +8,13 @@ import { FotoGpsPanel } from '@/components/fotodokumentace/FotoGpsPanel'
 import { FotoLokalizacniMapy } from '@/components/fotodokumentace/FotoLokalizacniMapy'
 import { VYCHOZI_TYPY_FOTOGRAFII } from '@/constants/fotodokumentace'
 import { usePostCaptureLocation } from '@/hooks/fotodokumentace/usePostCaptureLocation'
-import { ulozitFotodokument } from '@/lib/fotodokumentace/api'
+import { useVoiceDictation } from '@/hooks/fotodokumentace/useVoiceDictation'
+import { fetchFotoSerie, ulozitFotodokument, vytvoritSerii } from '@/lib/fotodokumentace/api'
 import { vytvoritMiniaturu } from '@/lib/fotodokumentace/geolocation'
 import { ulozitDoOfflineFronty } from '@/lib/fotodokumentace/offlineQueue'
 import { vytvoritVodotisk } from '@/lib/fotodokumentace/watermark'
 import { fetchJobOrders } from '@/lib/orders/api'
+import { fetchWorkers } from '@/lib/workers/api'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { FotoCaptureResult } from '@/components/fotodokumentace/FotoCaptureScreen'
 import type { FotoGpsStatus } from '@/types/fotodokumentace'
@@ -23,7 +25,9 @@ interface FotoSavePanelProps {
   creatorName: string
   defaultOrderId?: string
   lockOrder?: boolean
+  activeSeriesId?: string | null
   onSaved: () => void
+  onSavedAndNext?: (seriesId: string) => void
   onCancel: () => void
 }
 
@@ -35,21 +39,32 @@ export function FotoSavePanel({
   creatorName,
   defaultOrderId,
   lockOrder = false,
+  activeSeriesId = null,
   onSaved,
+  onSavedAndNext,
   onCancel,
 }: FotoSavePanelProps) {
   const { settings: company } = useCompanySettings()
   const gps = usePostCaptureLocation(true)
+  const voice = useVoiceDictation((text, append) => {
+    setNote((prev) => (append && prev ? `${prev} ${text}` : text))
+  })
+
   const [orderId, setOrderId] = useState(defaultOrderId ?? '')
+  const [workerId, setWorkerId] = useState('')
   const [photoType, setPhotoType] = useState('')
   const [note, setNote] = useState('')
+  const [seriesMode, setSeriesMode] = useState(Boolean(activeSeriesId))
+  const [seriesId, setSeriesId] = useState(activeSeriesId ?? '')
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
+  const [workerOptions, setWorkerOptions] = useState<{ value: string; label: string }[]>([])
+  const [seriesOptions, setSeriesOptions] = useState<{ value: string; label: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    fetchJobOrders().then((orders) => {
+    Promise.all([fetchJobOrders(), fetchWorkers('aktivni')]).then(([orders, workers]) => {
       let eligible = orders.filter((o) =>
         (POVOLENE_ZAKAZKY as readonly string[]).includes(o.status)
       )
@@ -60,22 +75,34 @@ export function FotoSavePanel({
         { value: '', label: '— Vyberte zakázku —' },
         ...eligible.map((o) => ({ value: o.id, label: o.name })),
       ])
+      setWorkerOptions([
+        { value: '', label: '— Nepovinné —' },
+        ...workers.map((w) => ({ value: w.id, label: `${w.last_name} ${w.first_name}` })),
+      ])
       if (defaultOrderId) setOrderId(defaultOrderId)
       else if (eligible.length === 1) setOrderId(eligible[0].id)
     })
   }, [defaultOrderId])
 
-  async function handleSave() {
+  useEffect(() => {
+    if (!orderId) return
+    void fetchFotoSerie({ orderId }).then((serie) => {
+      setSeriesOptions([
+        { value: '', label: '— Nová série —' },
+        ...serie.map((s) => ({ value: s.id, label: s.name })),
+      ])
+    })
+  }, [orderId])
+
+  async function persist(andNext: boolean) {
     if (!orderId) {
       setError('Vyberte zakázku – bez zakázky nelze fotografii uložit.')
       return
     }
-
     if (gps.faze === 'loading') {
       setError('Počkejte na načtení GPS polohy, nebo zvolte „Uložit bez GPS“.')
       return
     }
-
     if (gps.faze === 'low_accuracy') {
       setError('Potvrďte polohu tlačítkem „Použít tuto polohu“, nebo zkuste přesnější GPS.')
       return
@@ -90,6 +117,18 @@ export function FotoSavePanel({
     const orderName = orderOptions.find((o) => o.value === orderId)?.label ?? 'zakazka'
 
     try {
+      let resolvedSeriesId = seriesId
+      if (seriesMode && !resolvedSeriesId) {
+        const serie = await vytvoritSerii(
+          `Série ${new Date().toLocaleString('cs-CZ')}`,
+          orderId,
+          uploadedBy,
+          note || undefined
+        )
+        resolvedSeriesId = serie.id
+        setSeriesId(serie.id)
+      }
+
       const [thumbnail, watermarked] = await Promise.all([
         vytvoritMiniaturu(capture.file),
         company?.watermark_url
@@ -121,6 +160,8 @@ export function FotoSavePanel({
         note,
         photo_type: photoType || null,
         order_id: orderId,
+        worker_id: workerId || null,
+        series_id: seriesMode ? resolvedSeriesId || null : null,
       }
 
       if (!navigator.onLine) {
@@ -130,7 +171,11 @@ export function FotoSavePanel({
       }
 
       setSuccess(true)
-      setTimeout(onSaved, 400)
+      if (andNext && seriesMode && resolvedSeriesId && onSavedAndNext) {
+        setTimeout(() => onSavedAndNext(resolvedSeriesId), 400)
+      } else {
+        setTimeout(onSaved, 400)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Uložení se nezdařilo.')
     } finally {
@@ -143,7 +188,7 @@ export function FotoSavePanel({
 
   return (
     <div className="space-y-4">
-      <FotoFlowTimer active={!success} label="Focení + GPS + ukládání" />
+      <FotoFlowTimer active={!success} label="Focení + GPS + ukládání (max 10 s)" />
 
       <img
         src={capture.previewUrl}
@@ -177,12 +222,19 @@ export function FotoSavePanel({
       )}
 
       <Select
-        label="Zakázka"
+        label="Zakázka *"
         value={orderId}
         onChange={(e) => setOrderId(e.target.value)}
         options={orderOptions}
         disabled={lockOrder}
         required
+      />
+
+      <Select
+        label="Zaměstnanec"
+        value={workerId}
+        onChange={(e) => setWorkerId(e.target.value)}
+        options={workerOptions}
       />
 
       <Select
@@ -195,19 +247,52 @@ export function FotoSavePanel({
         ]}
       />
 
-      <Textarea
-        label="Poznámka"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        placeholder="Krátká poznámka k fotografii…"
-        rows={2}
-      />
+      <label className="flex items-center gap-2 text-sm text-theme-secondary">
+        <input
+          type="checkbox"
+          checked={seriesMode}
+          onChange={(e) => setSeriesMode(e.target.checked)}
+          className="h-4 w-4"
+        />
+        Série fotografií (po uložení pokračovat další fotkou)
+      </label>
+
+      {seriesMode && seriesOptions.length > 0 && (
+        <Select
+          label="Existující série"
+          value={seriesId}
+          onChange={(e) => setSeriesId(e.target.value)}
+          options={seriesOptions}
+        />
+      )}
+
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-theme-secondary">Poznámka</span>
+          {voice.supported && (
+            <button
+              type="button"
+              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs ${voice.listening ? 'bg-red-500/20 text-red-300' : 'bg-white/5 text-theme-muted'}`}
+              onClick={voice.toggle}
+            >
+              <voice.MicIcon className="h-3.5 w-3.5" />
+              {voice.listening ? 'Nahrávám…' : 'Diktovat'}
+            </button>
+          )}
+        </div>
+        <Textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Krátká poznámka k fotografii…"
+          rows={2}
+        />
+      </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
       {success && (
         <p className="flex items-center gap-2 text-sm text-green-400">
           <CheckCircle className="h-4 w-4" />
-          Fotografie uložena – otevírám galerii…
+          Fotografie uložena…
         </p>
       )}
 
@@ -215,10 +300,16 @@ export function FotoSavePanel({
         <Button variant="secondary" className="flex-1" onClick={onCancel} disabled={saving}>
           Zrušit
         </Button>
-        <Button variant="primary" className="flex-1" onClick={handleSave} disabled={saveDisabled}>
+        <Button variant="primary" className="flex-1" onClick={() => persist(false)} disabled={saveDisabled}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Uložit fotografii
+          Uložit
         </Button>
+        {seriesMode && onSavedAndNext && (
+          <Button variant="primary" className="flex-1" onClick={() => persist(true)} disabled={saveDisabled}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            Uložit a další
+          </Button>
+        )}
       </div>
     </div>
   )
