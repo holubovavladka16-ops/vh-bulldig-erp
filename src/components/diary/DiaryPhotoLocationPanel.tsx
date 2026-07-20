@@ -22,12 +22,20 @@ interface DiaryPhotoLocationPanelProps {
 }
 
 export function DiaryPhotoLocationPanel({ photo, showMeta = true }: DiaryPhotoLocationPanelProps) {
+  if (photo.gps_lat == null || photo.gps_lng == null) {
+    return (
+      <p className="text-sm text-theme-muted">Fotografie nemá GPS souřadnice.</p>
+    )
+  }
+
+  const lat = photo.gps_lat
+  const lng = photo.gps_lng
   const { geocoded, structured } = getPhotoAddressDetails(photo)
-  const coords = formatGpsLocationLabel(photo.gps_lat, photo.gps_lng, photo.gps_accuracy)
-  const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
-  const mapyUrl = getMapyCzUrl(photo.gps_lat, photo.gps_lng)
-  const streetViewUrl = getStreetViewUrl(photo.gps_lat, photo.gps_lng)
-  const mapThumb = getStaticMapImageUrl(photo.gps_lat, photo.gps_lng, 220, 140)
+  const coords = formatGpsLocationLabel(lat, lng, photo.gps_accuracy)
+  const mapUrl = getGoogleMapsUrl(lat, lng)
+  const mapyUrl = getMapyCzUrl(lat, lng)
+  const streetViewUrl = getStreetViewUrl(lat, lng)
+  const mapThumb = getStaticMapImageUrl(lat, lng, 220, 140)
   const author = photo.creator_name?.trim() || photo.worker_name?.trim() || '—'
 
   return (
@@ -56,7 +64,7 @@ export function DiaryPhotoLocationPanel({ photo, showMeta = true }: DiaryPhotoLo
         </div>
       </div>
 
-      <PhotoMiniMap lat={photo.gps_lat} lng={photo.gps_lng} height={150} />
+      <PhotoMiniMap lat={lat} lng={lng} height={150} />
 
       <div className="space-y-2 text-sm">
         <div>

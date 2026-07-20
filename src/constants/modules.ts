@@ -30,6 +30,13 @@ export const FUTURE_MODULES: NavItem[] = [
   { id: 'kontrola-formulare', label: 'Kontrola formuláře', path: '/kontrola-formulare', icon: 'ScanLine', module: 'kontrola-formulare' },
   { id: 'vyplatni-pasky', label: 'Výplatní pásky', path: '/vyplatni-pasky', icon: 'Wallet', module: 'vyplatni-pasky' },
   { id: 'denik', label: 'Stavební deník', path: '/denik', icon: 'BookOpen', module: 'denik' },
+  {
+    id: 'fotodokumentace-gps',
+    label: 'Fotodokumentace s GPS',
+    path: '/fotodokumentace',
+    icon: 'Camera',
+    module: 'fotodokumentace-gps',
+  },
   { id: 'ekonomika', label: 'Náklady', path: '/ekonomika', icon: 'Landmark', module: 'ekonomika' },
   { id: 'paragony', label: 'Paragony', path: '/paragony', icon: 'Receipt', module: 'paragony' },
   { id: 'pripojky', label: 'Přípojky', path: '/pripojky', icon: 'Cable', module: 'pripojky' },

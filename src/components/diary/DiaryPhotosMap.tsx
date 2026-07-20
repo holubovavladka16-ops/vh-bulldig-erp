@@ -32,7 +32,11 @@ export function DiaryPhotosMap({ photos, className = '' }: DiaryPhotosMapProps) 
       />
       {selected && (
         <p className="text-xs text-theme-muted">
-          Vybraná poloha: {selected.address_full || `${selected.gps_lat.toFixed(5)}, ${selected.gps_lng.toFixed(5)}`}
+          Vybraná poloha:{' '}
+          {selected.address_full ||
+            (selected.gps_lat != null && selected.gps_lng != null
+              ? `${selected.gps_lat.toFixed(5)}, ${selected.gps_lng.toFixed(5)}`
+              : '—')}
         </p>
       )}
     </div>

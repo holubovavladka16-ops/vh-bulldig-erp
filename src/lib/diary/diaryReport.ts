@@ -74,13 +74,24 @@ function formatOrderLabel(entry: ConstructionDiaryDetail): string {
 }
 
 function buildPhotoBlockHtml(photo: GpsPhoto): string {
+  if (photo.gps_lat == null || photo.gps_lng == null) {
+    const photoUrl = getGpsPhotoUrl(photo.file_path)
+    return `
+    <div class="diary-photo-item">
+      <img class="photo-main" src="${escHtml(photoUrl)}" alt="Fotografie" />
+      <div class="diary-photo-meta"><p>GPS souřadnice nejsou k dispozici.</p></div>
+    </div>`
+  }
+
+  const lat = photo.gps_lat
+  const lng = photo.gps_lng
   const photoUrl = getGpsPhotoUrl(photo.file_path)
-  const mapUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
-  const mapyUrl = getMapyCzUrl(photo.gps_lat, photo.gps_lng)
-  const streetViewUrl = getStreetViewUrl(photo.gps_lat, photo.gps_lng)
-  const mapImageUrl = getStaticMapImageUrl(photo.gps_lat, photo.gps_lng, 560, 140)
+  const mapUrl = getGoogleMapsUrl(lat, lng)
+  const mapyUrl = getMapyCzUrl(lat, lng)
+  const streetViewUrl = getStreetViewUrl(lat, lng)
+  const mapImageUrl = getStaticMapImageUrl(lat, lng, 560, 140)
   const { geocoded, structured } = getPhotoAddressDetails(photo)
-  const coords = formatGpsLocationLabel(photo.gps_lat, photo.gps_lng, photo.gps_accuracy)
+  const coords = formatGpsLocationLabel(lat, lng, photo.gps_accuracy)
   const author = photo.creator_name?.trim() || photo.worker_name?.trim() || '—'
   const orderName = getOrderDisplayName(photo)
 

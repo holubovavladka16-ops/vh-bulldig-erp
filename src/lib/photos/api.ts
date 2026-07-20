@@ -19,8 +19,8 @@ function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
     captured_at: row.captured_at,
     captured_date: row.captured_date,
     captured_time: row.captured_time,
-    gps_lat: Number(row.gps_lat),
-    gps_lng: Number(row.gps_lng),
+    gps_lat: row.gps_lat != null ? Number(row.gps_lat) : null,
+    gps_lng: row.gps_lng != null ? Number(row.gps_lng) : null,
     gps_accuracy: row.gps_accuracy != null ? Number(row.gps_accuracy) : null,
     device_heading: row.device_heading != null ? Number(row.device_heading) : null,
     address_full: row.address_full,
@@ -43,6 +43,12 @@ function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    gps_verified: row.gps_verified ?? true,
+    sync_status: row.sync_status ?? null,
+    district: row.district ?? '',
+    region: row.region ?? '',
+    uploaded_at: row.uploaded_at ?? null,
+    thumbnail_path: row.thumbnail_path ?? null,
   }
 }
 
@@ -64,6 +70,8 @@ function applyGpsPhotoFilters(
   if (filters.workerId) q = q.eq('worker_id', filters.workerId)
   if (filters.dateFrom) q = q.gte('captured_date', filters.dateFrom)
   if (filters.dateTo) q = q.lte('captured_date', filters.dateTo)
+  if (filters.hasGps === true) q = q.not('gps_lat', 'is', null).not('gps_lng', 'is', null)
+  if (filters.hasGps === false) q = q.or('gps_lat.is.null,gps_lng.is.null')
   return q
 }
 
@@ -124,6 +132,12 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
       gps_lat: input.gps_lat,
       gps_lng: input.gps_lng,
       gps_accuracy: input.gps_accuracy,
+      gps_verified: input.gps_verified ?? (input.gps_lat != null && input.gps_lng != null),
+      sync_status: input.sync_status ?? 'synced',
+      district: input.district ?? '',
+      region: input.region ?? '',
+      uploaded_at: new Date().toISOString(),
+      thumbnail_path: input.thumbnail_path ?? null,
       device_heading: input.device_heading ?? null,
       address_full: input.address_full,
       street: input.street,
@@ -156,6 +170,32 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
   })
 
   return photo
+}
+
+export async function updateGpsPhoto(
+  id: string,
+  patch: Partial<{
+    note: string | null
+    order_id: string | null
+    worker_id: string | null
+    address_full: string
+    street: string
+    city: string
+    postal_code: string
+    district: string
+    region: string
+    country: string
+    gps_lat: number | null
+    gps_lng: number | null
+    gps_accuracy: number | null
+    gps_verified: boolean
+    sync_status: string | null
+  }>,
+  performedBy: string
+): Promise<void> {
+  const { error } = await supabase.from('gps_photos').update(patch).eq('id', id)
+  if (error) throw new Error(error.message)
+  await addPhotoHistory(id, 'Fotografie upravena', performedBy, patch)
 }
 
 export async function updateGpsPhotoLinks(
