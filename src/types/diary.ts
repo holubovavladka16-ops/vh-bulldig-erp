@@ -46,7 +46,7 @@ export interface ConstructionDiaryCreateInput {
   ai_assisted: boolean
   note: string
   extraordinary_events: string
-  /** ID fotek z fotodokumentace k propojení se zápisem */
+  /** ID propojených fotografií k zápisu ve stavebním deníku */
   linked_photo_ids?: string[]
 }
 

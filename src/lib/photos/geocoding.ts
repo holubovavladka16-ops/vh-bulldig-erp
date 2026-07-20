@@ -20,10 +20,10 @@ interface NominatimAddress {
 /** Požadovaná přesnost GPS pro výkopy a starší preflight logiku (metry). */
 export const GPS_TARGET_ACCURACY_METERS = 2
 
-/** Fotodokumentace – výborná přesnost (metry). */
+/** GPS fotografie – výborná přesnost (metry). */
 export const GPS_EXCELLENT_ACCURACY_METERS = 5
 
-/** Fotodokumentace – maximální přesnost pro uložení bez varování (metry). */
+/** GPS fotografie – maximální přesnost pro uložení bez varování (metry). */
 export const GPS_PHOTO_SAVE_MAX_ACCURACY_METERS = 10
 
 const GPS_CAPTURE_MAX_WAIT_MS = GPS_MAX_WAIT_MS

@@ -50,7 +50,7 @@ export function DiaryPhotoCapture({ pendingPhotos, existingPhotos = [], onChange
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-2 text-sm font-medium text-theme-secondary">Fotodokumentace</p>
+        <p className="mb-2 text-sm font-medium text-theme-secondary">Fotografie</p>
         <p className="mb-3 text-xs text-theme-muted">
           Ke každé fotografii se automaticky uloží datum, čas, GPS a adresa.
         </p>

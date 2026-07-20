@@ -67,7 +67,7 @@ export function ConnectionDetailModal({ connectionId, onClose }: ConnectionDetai
             </Card>
 
             <Card>
-              <h3 className="mb-3 font-semibold text-theme-primary">Fotodokumentace</h3>
+              <h3 className="mb-3 font-semibold text-theme-primary">Fotografie</h3>
               {detail.photos.length === 0 ? (
                 <p className="text-sm text-theme-muted">Bez fotografií.</p>
               ) : (

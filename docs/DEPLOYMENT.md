@@ -86,7 +86,6 @@ vercel domains add erp.vhbulldig.cz
 
 - [ ] `https://erp.vhbulldig.cz/prihlaseni` – přihlášení
 - [ ] Mobilní zobrazení (Chrome DevTools nebo telefon)
-- [ ] Modul Fotodokumentace – GPS a kamera (HTTPS je povinné pro geolokaci)
 - [ ] `/statistiky` – Přehled hospodaření a zisku
 
 ---

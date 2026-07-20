@@ -41,7 +41,7 @@ npm run dev
 
 - Modul **Přípojky** (`/pripojky`) – evidence přípojek na zakázkách
 - Povinná pole: datum, zaměstnanec, zakázka, adresa, popis, délka (m), počet průrazů
-- Fotodokumentace max. 4 fotky (2× před / 2× po) s GPS a adresou
+- Fotografie max. 4 fotky (2× před / 2× po) s GPS a adresou
 - CRUD (administrátor), filtry podle zakázky a data
 - Typ práce **Přípojka** → automatický zápis ve Stavebním deníku (bez duplicit)
 
@@ -49,19 +49,11 @@ npm run dev
 
 - Modul **Stavební deník** (`/denik`) – denní zápisy ze stavby
 - Povinná pole: datum, zakázka, počasí, počet dělníků, jména, technika, popis prací
-- Fotodokumentace pořízená v aplikaci s GPS a adresou, uložená se zápisem
+- Fotografie pořízené v aplikaci s GPS a adresou, uložené se zápisem
 - CRUD (administrátor), filtry podle zakázky a data
 - Export PDF (A4), sdílení WhatsApp / Messenger / e-mail
 
-## Modul 9 – Fotodokumentace s GPS
-
-- Modul **Fotodokumentace** (`/fotky`) – pořizování fotek s GPS a adresou
-- Vyfotit nebo vybrat z galerie; automaticky datum, čas, GPS, adresa (ulice, město, PSČ, stát)
-- Mapa a Street View u každé fotografie
-- Poznámka, historie, PDF report (A4), sdílení WhatsApp / Messenger / e-mail
-- Propojení se zakázkou, zaměstnancem, denním výkazem a stavebním deníkem (připraveno)
-
-## Automatické vyplnění pracovní smlouvy
+## Modul 7 – Náklady
 
 - V kartě zaměstnance → **Dokumenty** → **Vytvořit smlouvu** (HPP, DPP, DPČ)
 - Automaticky z karty: jméno, adresa, kontakt, pozice, poměr, nástup

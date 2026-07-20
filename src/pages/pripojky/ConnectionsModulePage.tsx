@@ -83,7 +83,7 @@ export function ConnectionsModulePage() {
     <AppLayout>
       <PageHeader
         title="Přípojky"
-        description="Evidence přípojek s fotodokumentací a automatickým zápisem do stavebního deníku."
+        description="Evidence přípojek s fotografiemi a automatickým zápisem do stavebního deníku."
         action={
           isAdmin ? (
             <Button onClick={() => { setEditConnection(null); setFormOpen(true) }}>

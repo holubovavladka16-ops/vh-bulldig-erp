@@ -1,0 +1,17 @@
+# Modul Fotodokumentace s GPS – trvale zrušen
+
+Modul **Fotodokumentace s GPS** (`/fotky`, `/fotky-na-mape`) byl definitivně odstraněn z aplikace (v1.8.2+).
+
+## Pravidla pro další vývoj
+
+- **Nepoužívej** žádný kód, soubory, názvy, migrace ani logiku z tohoto modulu.
+- **Nevytvářej** odkazy na `/fotky`, `/fotky-na-mape`, `/sdileni/fotografie/*`, `/sdileni/galerie/*`.
+- **Nepřebírej** komponenty, API, typy ani PDF šablony z bývalého modulu.
+- **Nové moduly** navrhuj vždy od nuly – nespoíjej je s tímto modulem.
+- Tabulka `gps_photos` zůstává v databázi kvůli **deníku, přípojkám a mapě výkopů** – to není samostatný modul Fotodokumentace s GPS.
+
+## Co bylo odstraněno
+
+- Frontend: `src/components/fotodokumentace/`, `src/lib/fotodokumentace/`, `src/pages/fotodokumentace/`
+- Migrace modulu: `062_*`, `063_*` (nahrazeno `064_remove_fotodokumentace_module.sql`)
+- Registrace v `erp_modules` pro `fotky` a `fotky-na-mape`
