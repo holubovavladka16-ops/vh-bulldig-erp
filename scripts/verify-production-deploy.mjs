@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Ověří, zda produkce obsahuje nový build fotodokumentace (v1.8.1+). */
+/** Ověří, zda produkce obsahuje aktuální build (v1.8.2+ bez modulu fotodokumentace). */
 const URL = process.env.PRODUCTION_URL || 'https://vh-bulldig-erp.vercel.app'
 
 async function main() {
@@ -12,17 +12,24 @@ async function main() {
   const jsUrl = `${URL}/${jsMatch[0]}`
   const js = await fetch(jsUrl).then((r) => r.text())
 
-  const markers = ['Specifikace modulu', 'FotoLokalizacniMapy', 'Enterprise modul', '1.8.1']
-  const found = markers.filter((m) => js.includes(m))
+  const removedMarkers = ['FotodokumentacePage', 'FotoCaptureScreen', 'FotoLokalizacniMapy', 'Specifikace modulu']
+  const stillPresent = removedMarkers.filter((m) => js.includes(m))
+  const versionMatch = js.match(/1\.8\.[2-9]|1\.9\.|2\./)
+
   console.log('URL:', URL)
   console.log('Bundle:', jsMatch[0])
-  console.log('Nalezeno:', found.join(', ') || '(nic)')
+  console.log('Odstraněné moduly stále v bundlu:', stillPresent.join(', ') || '(žádné)')
 
-  if (found.length >= 2) {
-    console.log('OK – nový build je na produkci.')
+  if (stillPresent.length === 0) {
+    console.log('OK – modul fotodokumentace není v produkčním buildu.')
     process.exit(0)
   }
-  console.error('STARÝ BUILD – deploy neproběhl. Nastavte VERCEL secrets nebo spusťte deploy z Vercel dashboardu.')
+
+  if (versionMatch) {
+    console.log('Verze:', versionMatch[0])
+  }
+
+  console.error('STARÝ BUILD – modul fotodokumentace stále v produkci. Spusťte deploy z Vercel dashboardu.')
   process.exit(1)
 }
 

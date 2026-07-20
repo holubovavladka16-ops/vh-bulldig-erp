@@ -71,7 +71,6 @@ const checks = [
   { name: 'Výkazy', table: 'worker_reports', select: 'id', limit: 1 },
   { name: 'Výplatní pásky (RPC)', rpc: 'get_payroll_slip_summaries', params: { p_date_from: '2026-01-01', p_date_to: '2026-12-31', p_worker_id: null, p_include_pending: true } },
   { name: 'Stavební deník', table: 'construction_diary_entries', select: 'id', limit: 1 },
-  { name: 'Fotodokumentace GPS', table: 'gps_photos', select: 'id', limit: 1 },
   { name: 'Náklady', table: 'job_costs', select: 'id', limit: 1 },
   { name: 'Smlouvy (dokumenty)', table: 'worker_documents', select: 'id', limit: 1 },
   { name: 'Paragony', table: 'receipts', select: 'id', limit: 1 },
