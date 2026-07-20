@@ -2,7 +2,7 @@
 -- VH Bulldig ERP - All Migrations
 -- Project: khhalcjgvqoyskkjlkyg
 -- Run in Supabase Dashboard -> SQL Editor -> New query
--- Generated: 2026-07-20 09:09
+-- Generated: 2026-07-20 09:37
 -- =============================================================================
 
 
@@ -9414,8 +9414,7 @@ NOTIFY pgrst, 'reload schema';
 -- MIGRATION: 066_remove_module13_fotodokumentace_gps.sql
 -- =============================================================================
 
--- Modul 13 Fotodokumentace s GPS – definitivně odstraněn z aplikace (v1.9.1+).
--- Tabulka gps_photos zůstává – používají ji deník, přípojky a mapa výkopů.
+-- Odstranění modulu Fotodokumentace s GPS z ERP (tabulka gps_photos zůstává pro deník a přípojky).
 
 DELETE FROM erp_modules WHERE id = 'fotodokumentace-gps';
 

@@ -1,5 +1,4 @@
--- Modul 13 Fotodokumentace s GPS – definitivně odstraněn z aplikace (v1.9.1+).
--- Tabulka gps_photos zůstává – používají ji deník, přípojky a mapa výkopů.
+-- Odstranění modulu Fotodokumentace s GPS z ERP (tabulka gps_photos zůstává pro deník a přípojky).
 
 DELETE FROM erp_modules WHERE id = 'fotodokumentace-gps';
 
