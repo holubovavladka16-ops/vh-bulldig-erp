@@ -2,14 +2,23 @@
 
 Modul **Fotodokumentace s GPS** v této aplikaci **neexistuje**. Nepracuj s ním, neodkazuj na něj, neobnovuj ho.
 
-## Povinná pravidla
+## Povinná pravidla (vždy)
 
 - **Nikdy** nepoužívej kód, soubory, názvy, migrace, routes ani logiku související s tímto modulem.
 - **Nikdy** nevytvářej odkazy na `/fotky`, `/fotky-na-mape`, `/fotodokumentace` ani sdílené veřejné galerie fotografií.
-- **Nikdy** nespojuj budoucí práci se starými verzemi, zálohami, commity ani větvemi tohoto modulu.
-- **Nikdy** nepiš, že jde o „novou verzi“, „Modul 13“, „opravu starého modulu“ nebo „návrat funkcí“ – modul je zrušen, bez návaznosti.
-- Každý budoucí fotografický modul (pokud bude zadán) musí být **úplně nový projekt od nuly**, bez vazby na cokoli dřívějšího.
+- **Nikdy** nehledej v git historii, zálohách ani větvích (`backup/*`, `cursor/fotodok*`, `cursor/gps-*`) inspiraci ani zdrojový kód.
+- **Nikdy** nepiš, že jde o „novou verzi“, „Modul 13“, „opravu“, „návrat“ nebo „vylepšení“ starého modulu.
+
+## Budoucí nový modul (fotografie, GPS, PDF, cokoli podobného)
+
+Když uživatel zadá **jakýkoli nový modul**, i když dělá podobnou věc (fotky, GPS, mapy, PDF):
+
+- **Nepropojuj** ho se starým modulem Fotodokumentace s GPS – ani v kódu, ani v komentářích, ani v commit zprávách, ani v odpovědích uživateli.
+- **Nepoužívej** stejné názvy složek, routes, ID modulu, názvy migrací ani komponent ze starého modulu.
+- **Nepřebírej** PDF šablony, capture flow, sdílení ani offline logiku ze starého modulu.
+- **Neříkej** „podobně jako dřív“, „jako ve starém modulu“ nebo „navazujeme na…“.
+- Nový modul = **samostatný**, nové názvy, nové routes, nové migrace, nový kód od nuly podle **aktuálního zadání**.
 
 ## Výjimka v databázi
 
-Tabulka `gps_photos` patří **deníku, přípojkám a mapě výkopů**. To není modul Fotodokumentace s GPS.
+Tabulka `gps_photos` patří **deníku, přípojkám a mapě výkopů**. Použití této tabulky v jiných modulech **není** Fotodokumentace s GPS a **nesmí** být důvodem k propojování se zrušeným modulem.
