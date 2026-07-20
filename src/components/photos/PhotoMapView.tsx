@@ -85,8 +85,6 @@ export function PhotoMapView({
     const bounds = L.latLngBounds([])
 
     photos.forEach((photo) => {
-      if (photo.gps_lat == null || photo.gps_lng == null) return
-
       const latlng = L.latLng(photo.gps_lat, photo.gps_lng)
       bounds.extend(latlng)
 
@@ -112,7 +110,7 @@ export function PhotoMapView({
     if (bounds.isValid()) {
       if (selectedPhotoId && flyToSelected) {
         const selected = photos.find((p) => p.id === selectedPhotoId)
-        if (selected?.gps_lat != null && selected.gps_lng != null) {
+        if (selected) {
           map.flyTo([selected.gps_lat, selected.gps_lng], Math.max(map.getZoom(), 16), { duration: 0.6 })
         }
       } else {

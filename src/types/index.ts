@@ -69,7 +69,6 @@ export type ModuleId =
   | 'kontrola-formulare'
   | 'vyplatni-pasky'
   | 'denik'
-  | 'fotodokumentace-gps'
   | 'ekonomika'
   | 'paragony'
   | 'pripojky'

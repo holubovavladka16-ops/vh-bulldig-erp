@@ -113,8 +113,6 @@ export async function reverseGeocode(lat: number, lng: number): Promise<Geocoded
       street: streetParts.join(' '),
       city: localityParts.join(', '),
       postal_code: address.postcode ?? '',
-      district: address.county ?? '',
-      region: address.state ?? '',
       country: address.country ?? '',
     }
   } catch {

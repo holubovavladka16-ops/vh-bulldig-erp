@@ -2,7 +2,7 @@
 -- VH Bulldig ERP - All Migrations
 -- Project: khhalcjgvqoyskkjlkyg
 -- Run in Supabase Dashboard -> SQL Editor -> New query
--- Generated: 2026-07-20 07:18
+-- Generated: 2026-07-20 09:09
 -- =============================================================================
 
 
@@ -9411,42 +9411,32 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =============================================================================
--- MIGRATION: 065_module13_fotodokumentace_gps.sql
+-- MIGRATION: 066_remove_module13_fotodokumentace_gps.sql
 -- =============================================================================
 
--- Modul 13 – Fotodokumentace s GPS (nová implementace od nuly, v1.9.0)
--- Tabulka gps_photos zůstává sdílená s deníkem a přípojkami.
+-- Modul 13 Fotodokumentace s GPS – definitivně odstraněn z aplikace (v1.9.1+).
+-- Tabulka gps_photos zůstává – používají ji deník, přípojky a mapa výkopů.
+
+DELETE FROM erp_modules WHERE id = 'fotodokumentace-gps';
+
+DROP INDEX IF EXISTS idx_gps_photos_gps_verified;
+DROP INDEX IF EXISTS idx_gps_photos_sync_status;
 
 ALTER TABLE gps_photos
-  ADD COLUMN IF NOT EXISTS gps_verified BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS sync_status TEXT,
-  ADD COLUMN IF NOT EXISTS district TEXT NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS region TEXT NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS thumbnail_path TEXT;
+  DROP COLUMN IF EXISTS gps_verified,
+  DROP COLUMN IF EXISTS sync_status,
+  DROP COLUMN IF EXISTS district,
+  DROP COLUMN IF EXISTS region,
+  DROP COLUMN IF EXISTS uploaded_at,
+  DROP COLUMN IF EXISTS thumbnail_path;
 
-ALTER TABLE gps_photos ALTER COLUMN gps_lat DROP NOT NULL;
-ALTER TABLE gps_photos ALTER COLUMN gps_lng DROP NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_gps_photos_gps_verified ON gps_photos(gps_verified);
-CREATE INDEX IF NOT EXISTS idx_gps_photos_sync_status ON gps_photos(sync_status) WHERE sync_status IS NOT NULL;
-
-INSERT INTO erp_modules (id, label, path, icon, sort_order, is_implemented, module_version)
-VALUES (
-  'fotodokumentace-gps',
-  'Fotodokumentace s GPS',
-  '/fotodokumentace',
-  'Camera',
-  9,
-  true,
-  '1.0.0'
-)
-ON CONFLICT (id) DO UPDATE SET
-  label = EXCLUDED.label,
-  path = EXCLUDED.path,
-  icon = EXCLUDED.icon,
-  sort_order = EXCLUDED.sort_order,
-  is_implemented = true,
-  module_version = EXCLUDED.module_version;
+-- Obnovení NOT NULL pouze pokud žádný řádek nemá NULL (deník vždy ukládá GPS)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM gps_photos WHERE gps_lat IS NULL OR gps_lng IS NULL) THEN
+    ALTER TABLE gps_photos ALTER COLUMN gps_lat SET NOT NULL;
+    ALTER TABLE gps_photos ALTER COLUMN gps_lng SET NOT NULL;
+  END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';

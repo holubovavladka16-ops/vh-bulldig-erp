@@ -5,8 +5,8 @@ export interface GpsPhoto {
   captured_at: string
   captured_date: string
   captured_time: string
-  gps_lat: number | null
-  gps_lng: number | null
+  gps_lat: number
+  gps_lng: number
   gps_accuracy: number | null
   device_heading: number | null
   address_full: string
@@ -29,12 +29,6 @@ export interface GpsPhoto {
   created_by: string | null
   created_at: string
   updated_at: string
-  gps_verified?: boolean
-  sync_status?: string | null
-  district?: string
-  region?: string
-  uploaded_at?: string | null
-  thumbnail_path?: string | null
 }
 
 export interface GpsPhotoHistoryEntry {
@@ -48,14 +42,9 @@ export interface GpsPhotoHistoryEntry {
 
 export interface GpsPhotoCreateInput {
   file: File
-  gps_lat: number | null
-  gps_lng: number | null
+  gps_lat: number
+  gps_lng: number
   gps_accuracy: number | null
-  gps_verified?: boolean
-  sync_status?: string | null
-  district?: string
-  region?: string
-  thumbnail_path?: string | null
   device_heading?: number | null
   address_full: string
   street: string
@@ -78,7 +67,6 @@ export interface GpsPhotoFilters {
   workerId?: string
   dateFrom?: string
   dateTo?: string
-  hasGps?: boolean
 }
 
 export interface GeocodedAddress {
@@ -86,8 +74,6 @@ export interface GeocodedAddress {
   street: string
   city: string
   postal_code: string
-  district?: string
-  region?: string
   country: string
 }
 
