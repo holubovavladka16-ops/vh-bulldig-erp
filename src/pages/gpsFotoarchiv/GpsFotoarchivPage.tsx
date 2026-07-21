@@ -12,7 +12,12 @@ import { GfaDetailModal } from '@/components/gpsFotoarchiv/GfaDetailModal'
 import { useAuth } from '@/context/AuthContext'
 import { useGpsPreflight } from '@/hooks/useGpsPreflight'
 import { isAdministrator } from '@/constants/permissions'
-import { GPS_FOTOARCHIV_LABEL, GPS_FOTOARCHIV_VIEW_LABELS, type GpsFotoarchivView } from '@/constants/gpsFotoarchiv'
+import {
+  GPS_FOTOARCHIV_LABEL,
+  GPS_FOTOARCHIV_MAX_ACCURACY_METERS,
+  GPS_FOTOARCHIV_VIEW_LABELS,
+  type GpsFotoarchivView,
+} from '@/constants/gpsFotoarchiv'
 import { fetchArchivePhotos, fetchAuthorOptions } from '@/lib/gpsFotoarchiv/service'
 import { exportArchivePhotosPdf } from '@/lib/gpsFotoarchiv/pdfExport'
 import { fetchJobOrders } from '@/lib/orders/api'
@@ -39,8 +44,19 @@ export function GpsFotoarchivPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [detailId, setDetailId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [locationArmed, setLocationArmed] = useState(false)
 
-  const gps = useGpsPreflight(view === 'capture' || view === 'map')
+  const captureGps = useGpsPreflight(locationArmed, {
+    maxAccuracyMeters: GPS_FOTOARCHIV_MAX_ACCURACY_METERS,
+    requireAddressLoaded: true,
+  })
+  const mapGps = useGpsPreflight(view === 'map')
+
+  useEffect(() => {
+    if (view !== 'capture') {
+      setLocationArmed(false)
+    }
+  }, [view])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -75,7 +91,7 @@ export function GpsFotoarchivPage() {
     <AppLayout>
       <PageHeader
         title={GPS_FOTOARCHIV_LABEL}
-        description="Profesionální archiv fotografií s přesnou polohou. Po zaměření GPS ±2 m pořiďte snímek, uložte ho k zakázce a sdílejte nebo exportujte do PDF."
+        description={`Profesionální archiv fotografií s přesnou polohou. Klepněte pro zaměření GPS, počkejte na adresu a souřadnice (±${GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m), poté vyfotíte a uložíte.`}
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -108,9 +124,9 @@ export function GpsFotoarchivPage() {
       {view === 'capture' && (
         <div className="grid gap-4 lg:grid-cols-2">
           <GfaLocationMap
-            userLat={gps.position?.lat}
-            userLng={gps.position?.lng}
-            userAccuracy={gps.position?.accuracy}
+            userLat={captureGps.position?.lat}
+            userLng={captureGps.position?.lng}
+            userAccuracy={captureGps.position?.accuracy}
             photos={photos.slice(0, 20)}
             fullHeight
           />
@@ -118,6 +134,10 @@ export function GpsFotoarchivPage() {
             <GfaCapturePanel
               userId={user.id}
               orderOptions={orderOptions}
+              gps={captureGps}
+              locationArmed={locationArmed}
+              onArmLocation={() => setLocationArmed(true)}
+              onResetLocation={() => setLocationArmed(false)}
               onSaved={() => {
                 void load()
                 setView('gallery')
@@ -168,9 +188,9 @@ export function GpsFotoarchivPage() {
       {view === 'map' && (
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <GfaLocationMap
-            userLat={gps.position?.lat}
-            userLng={gps.position?.lng}
-            userAccuracy={gps.position?.accuracy}
+            userLat={mapGps.position?.lat}
+            userLng={mapGps.position?.lng}
+            userAccuracy={mapGps.position?.accuracy}
             photos={photos}
             selectedPhotoId={detailId}
             onPhotoSelect={setDetailId}

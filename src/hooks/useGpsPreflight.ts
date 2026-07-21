@@ -63,7 +63,16 @@ export function getAddressDisplayLabel(
   return '—'
 }
 
-export function useGpsPreflight(enabled: boolean) {
+export interface GpsPreflightOptions {
+  /** Cílová přesnost v metrech (výchozí ±2 m). */
+  maxAccuracyMeters?: number
+  /** Vyžadovat dokončené načtení adresy před povolením capture. */
+  requireAddressLoaded?: boolean
+}
+
+export function useGpsPreflight(enabled: boolean, options: GpsPreflightOptions = {}) {
+  const maxAccuracyMeters = options.maxAccuracyMeters ?? GPS_TARGET_ACCURACY_METERS
+  const requireAddressLoaded = options.requireAddressLoaded ?? false
   const [phase, setPhase] = useState<GpsPreflightPhase>('initializing')
   const [position, setPosition] = useState<GpsPositionState | null>(null)
   const [address, setAddress] = useState<GeocodedAddress | null>(null)
@@ -134,7 +143,7 @@ export function useGpsPreflight(enabled: boolean) {
         setError(null)
         scheduleGeocode(state)
 
-        if (state.accuracy <= GPS_TARGET_ACCURACY_METERS) {
+        if (state.accuracy <= maxAccuracyMeters) {
           setPhase('ready')
         } else {
           setPhase((current) =>
@@ -163,7 +172,7 @@ export function useGpsPreflight(enabled: boolean) {
       resetTimeoutRef.current = null
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current)
     }
-  }, [enabled, scheduleGeocode])
+  }, [enabled, maxAccuracyMeters, scheduleGeocode])
 
   const acceptRelaxedAccuracy = useCallback(() => {
     setPhase('relaxed')
@@ -177,7 +186,14 @@ export function useGpsPreflight(enabled: boolean) {
   }, [])
 
   const hasLocation = position != null
-  const canCapture = hasLocation && (phase === 'ready' || phase === 'relaxed')
+  const accuracyOk = position != null && position.accuracy <= maxAccuracyMeters
+  const addressLoaded =
+    !requireAddressLoaded || addressStatus === 'ready' || addressStatus === 'unavailable'
+  const canCapture =
+    hasLocation &&
+    accuracyOk &&
+    addressLoaded &&
+    (phase === 'ready' || (!requireAddressLoaded && phase === 'relaxed'))
   const addressLoading = addressStatus === 'loading'
   const addressDisplayLabel = getAddressDisplayLabel(address, addressStatus)
 
@@ -198,7 +214,8 @@ export function useGpsPreflight(enabled: boolean) {
     resolveAddressForCapture,
     error,
     canCapture,
-    accuracyReady: position != null && position.accuracy <= GPS_TARGET_ACCURACY_METERS,
+    accuracyReady: position != null && position.accuracy <= maxAccuracyMeters,
+    maxAccuracyMeters,
     acceptRelaxedAccuracy,
     continueSearching,
   }
