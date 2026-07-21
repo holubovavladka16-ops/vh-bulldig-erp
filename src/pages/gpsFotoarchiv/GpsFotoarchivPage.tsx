@@ -44,19 +44,12 @@ export function GpsFotoarchivPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [detailId, setDetailId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [locationArmed, setLocationArmed] = useState(false)
 
-  const captureGps = useGpsPreflight(locationArmed, {
+  const captureGps = useGpsPreflight(view === 'capture', {
     maxAccuracyMeters: GPS_FOTOARCHIV_MAX_ACCURACY_METERS,
     requireAddressLoaded: true,
   })
   const mapGps = useGpsPreflight(view === 'map')
-
-  useEffect(() => {
-    if (view !== 'capture') {
-      setLocationArmed(false)
-    }
-  }, [view])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -91,7 +84,7 @@ export function GpsFotoarchivPage() {
     <AppLayout>
       <PageHeader
         title={GPS_FOTOARCHIV_LABEL}
-        description={`Profesionální archiv fotografií s přesnou polohou. Klepněte pro zaměření GPS, počkejte na adresu a souřadnice (±${GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m), poté vyfotíte a uložíte.`}
+        description={`Foťák se otevře hned, GPS zaměřuje polohu na pozadí. Při přesnosti ±${GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m se fotografie automaticky uloží.`}
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -135,9 +128,6 @@ export function GpsFotoarchivPage() {
               userId={user.id}
               orderOptions={orderOptions}
               gps={captureGps}
-              locationArmed={locationArmed}
-              onArmLocation={() => setLocationArmed(true)}
-              onResetLocation={() => setLocationArmed(false)}
               onSaved={() => {
                 void load()
                 setView('gallery')
