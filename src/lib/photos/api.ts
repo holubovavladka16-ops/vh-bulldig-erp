@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   GpsPhoto,
   GpsPhotoCreateInput,
+  GpsPhotoDetail,
   GpsPhotoFilters,
 } from '@/types/photos'
 
@@ -29,6 +30,8 @@ function mapPhotoRow(row: GpsPhotoRow): GpsPhoto {
     postal_code: row.postal_code,
     country: row.country,
     note: row.note,
+    title: row.title ?? null,
+    device_info: row.device_info ?? null,
     order_id: row.order_id,
     worker_id: row.worker_id,
     report_id: row.report_id,
@@ -62,6 +65,7 @@ function applyGpsPhotoFilters(
   let q = query
   if (filters.orderId) q = q.eq('order_id', filters.orderId)
   if (filters.workerId) q = q.eq('worker_id', filters.workerId)
+  if (filters.createdBy) q = q.eq('created_by', filters.createdBy)
   if (filters.dateFrom) q = q.gte('captured_date', filters.dateFrom)
   if (filters.dateTo) q = q.lte('captured_date', filters.dateTo)
   return q
@@ -131,6 +135,8 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
       postal_code: input.postal_code,
       country: input.country,
       note: input.note?.trim() || null,
+      title: input.title?.trim() || null,
+      device_info: input.device_info?.trim() || null,
       order_id: input.order_id ?? null,
       worker_id: input.worker_id ?? null,
       report_id: input.report_id ?? null,
@@ -160,12 +166,19 @@ export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: stri
 
 export async function updateGpsPhotoLinks(
   id: string,
-  links: { order_id?: string | null; worker_id?: string | null; report_id?: string | null; diary_entry_id?: string | null },
+  links: {
+    order_id?: string | null
+    worker_id?: string | null
+    report_id?: string | null
+    diary_entry_id?: string | null
+    title?: string | null
+    note?: string | null
+  },
   performedBy: string
 ): Promise<void> {
   const { error } = await supabase.from('gps_photos').update(links).eq('id', id)
   if (error) throw new Error(error.message)
-  await addPhotoHistory(id, 'Propojení upraveno', performedBy, links)
+  await addPhotoHistory(id, 'Údaje fotografie upraveny', performedBy, links)
 }
 
 export async function deleteGpsPhoto(id: string, filePath: string, performedBy: string): Promise<void> {
@@ -173,6 +186,29 @@ export async function deleteGpsPhoto(id: string, filePath: string, performedBy: 
   await supabase.storage.from('gps-photos').remove([filePath])
   const { error } = await supabase.from('gps_photos').delete().eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+export async function fetchGpsPhotoDetail(id: string): Promise<GpsPhotoDetail> {
+  const { data, error } = await supabase
+    .from('gps_photos')
+    .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
+    .eq('id', id)
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  const { data: history, error: historyError } = await supabase
+    .from('gps_photo_history')
+    .select('*')
+    .eq('photo_id', id)
+    .order('created_at', { ascending: false })
+
+  if (historyError) throw new Error(historyError.message)
+
+  return {
+    ...mapPhotoRow(data as GpsPhotoRow),
+    history: (history ?? []) as GpsPhotoDetail['history'],
+  }
 }
 
 export async function fetchReportOptions(): Promise<{ value: string; label: string }[]> {
