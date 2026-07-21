@@ -32,6 +32,7 @@ import { PaperFormDetailPage } from '@/pages/paperForms/PaperFormDetailPage'
 import { FormCheckModulePage } from '@/pages/formCheck/FormCheckModulePage'
 import { FormCheckHistoryPage } from '@/pages/formCheck/FormCheckHistoryPage'
 import { FormCheckDetailPage } from '@/pages/formCheck/FormCheckDetailPage'
+import { GpsFotoarchivPage } from '@/pages/gpsFotoarchiv/GpsFotoarchivPage'
 import { FUTURE_MODULES } from '@/constants/modules'
 
 const placeholderModules = FUTURE_MODULES.filter(
@@ -49,6 +50,7 @@ const placeholderModules = FUTURE_MODULES.filter(
       'mapa-vykopu',
       'denik',
       'pripojky',
+      'gps-fotoarchiv',
       'denni-formulare',
       'paragony',
       'dokumenty',
@@ -219,6 +221,15 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="pripojky">
             <ConnectionsModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/gps-fotoarchiv"
+        element={
+          <ProtectedRoute requiredModule="gps-fotoarchiv">
+            <GpsFotoarchivPage />
           </ProtectedRoute>
         }
       />

@@ -33,6 +33,7 @@ export const FUTURE_MODULES: NavItem[] = [
   { id: 'ekonomika', label: 'Náklady', path: '/ekonomika', icon: 'Landmark', module: 'ekonomika' },
   { id: 'paragony', label: 'Paragony', path: '/paragony', icon: 'Receipt', module: 'paragony' },
   { id: 'pripojky', label: 'Přípojky', path: '/pripojky', icon: 'Cable', module: 'pripojky' },
+  { id: 'gps-fotoarchiv', label: 'Fotodokumentace s GPS', path: '/gps-fotoarchiv', icon: 'Camera', module: 'gps-fotoarchiv' },
   { id: 'mapa-vykopu', label: 'Mapa výkopů', path: '/mapa-vykopu', icon: 'Route', module: 'mapa-vykopu' },
   { id: 'dokumenty', label: 'Dokumenty', path: '/dokumenty', icon: 'FileText', module: 'dokumenty' },
   { id: 'statistiky', label: 'Přehled hospodaření a zisku', path: '/statistiky', icon: 'BarChart3', module: 'statistiky' },

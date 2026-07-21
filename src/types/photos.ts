@@ -15,6 +15,8 @@ export interface GpsPhoto {
   postal_code: string
   country: string
   note: string | null
+  title: string | null
+  device_info: string | null
   order_id: string | null
   worker_id: string | null
   report_id: string | null
@@ -53,6 +55,8 @@ export interface GpsPhotoCreateInput {
   country: string
   captured_at: Date
   note?: string
+  title?: string | null
+  device_info?: string | null
   order_id?: string | null
   worker_id?: string | null
   report_id?: string | null
@@ -65,6 +69,7 @@ export interface GpsPhotoCreateInput {
 export interface GpsPhotoFilters {
   orderId?: string
   workerId?: string
+  createdBy?: string
   dateFrom?: string
   dateTo?: string
 }
