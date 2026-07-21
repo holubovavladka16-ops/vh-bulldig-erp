@@ -129,11 +129,27 @@ export function GfaCapturePanel({ userId, orderOptions, onSaved, gps }: GfaCaptu
     setError(null)
 
     try {
-      if (camera.needsUserStart && !camera.isActive) {
-        await camera.start()
+      if (!camera.isActive) {
+        const started = await camera.start()
+        if (!started.ok) {
+          setError(started.message)
+          return
+        }
       }
 
-      const result = await camera.captureFrame()
+      try {
+        await camera.waitForStreamReady(12000)
+      } catch (waitErr) {
+        setError(waitErr instanceof Error ? waitErr.message : 'Kamera není připravena.')
+        return
+      }
+
+      let result = await camera.captureFrame()
+      if (!result.file) {
+        await new Promise((resolve) => window.setTimeout(resolve, 250))
+        result = await camera.captureFrame()
+      }
+
       if (!result.file) {
         setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
         return
@@ -297,14 +313,24 @@ export function GfaCapturePanel({ userId, orderOptions, onSaved, gps }: GfaCaptu
         <div className="photo-camera-actions">
           <button
             type="button"
-            className={`photo-capture-btn photo-capture-btn--primary ${capturing ? 'photo-capture-btn--disabled' : ''}`}
-            disabled={capturing}
+            className={`photo-capture-btn photo-capture-btn--primary ${capturing ? 'photo-capture-btn--busy' : ''}`}
+            aria-disabled={capturing || undefined}
             onClick={() => void handleCameraCapture()}
           >
             {capturing ? (
               <>
                 <Loader2 className="h-6 w-6 animate-spin" />
-                Pořizuji…
+                {camera.needsUserStart && !camera.isActive ? 'Spouštím kameru…' : 'Pořizuji…'}
+              </>
+            ) : camera.needsUserStart && !camera.isActive ? (
+              <>
+                <Camera className="h-6 w-6" />
+                Spustit kameru a vyfotit
+              </>
+            ) : !camera.isStreamReady && camera.isActive ? (
+              <>
+                <Loader2 className="h-6 w-6 animate-spin" />
+                Připravuji náhled…
               </>
             ) : gps.canCapture ? (
               <>
@@ -332,6 +358,8 @@ export function GfaCapturePanel({ userId, orderOptions, onSaved, gps }: GfaCaptu
           </label>
         </div>
 
+        {error && <p className="text-center text-sm text-red-400">{error}</p>}
+
         {camera.errorMessage && (camera.phase === 'denied' || camera.phase === 'unavailable') && (
           <div className="space-y-1 text-center text-xs">
             <p className="text-red-400">{camera.errorMessage}</p>
@@ -358,7 +386,6 @@ export function GfaCapturePanel({ userId, orderOptions, onSaved, gps }: GfaCaptu
       </dl>
 
       {gps.error && <p className="text-sm text-amber-300">{gps.error}</p>}
-      {error && <p className="text-sm text-red-400">{error}</p>}
     </Card>
   )
 }

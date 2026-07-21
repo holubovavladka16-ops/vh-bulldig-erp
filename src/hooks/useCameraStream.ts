@@ -23,6 +23,8 @@ export interface CaptureFrameResult {
   error: CameraError | null
 }
 
+export type CameraStartResult = { ok: true } | { ok: false; message: string }
+
 export type GetUserMediaStatus = 'idle' | 'pending' | 'ok' | 'error'
 
 export interface CameraStartupDiagnostics {
@@ -362,25 +364,28 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
   }, [collectVideoDiagnostics])
 
   /** Volat přímo z onClick — getUserMedia musí běžet v user-gesture řetězci (Android). */
-  const start = useCallback(async () => {
-    if (!enabledRef.current || startingRef.current) return
+  const start = useCallback(async (): Promise<CameraStartResult> => {
+    if (!enabledRef.current || startingRef.current) {
+      return streamRef.current?.active ? { ok: true } : { ok: false, message: 'Kamera se spouští…' }
+    }
     if (streamRef.current?.active) {
       await attachStreamToVideo()
-      return
+      return { ok: true }
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
+      const message = 'Prohlížeč nepodporuje getUserMedia.'
       setPhase('unavailable')
       setError({
         code: 'not_supported',
-        message: 'Prohlížeč nepodporuje getUserMedia.',
+        message,
       })
       patchDiagnostics({
         step: 'not_supported',
         getUserMediaStatus: 'error',
         getUserMediaError: 'navigator.mediaDevices.getUserMedia missing',
       })
-      return
+      return { ok: false, message }
     }
 
     startingRef.current = true
@@ -409,7 +414,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
 
       if (!enabledRef.current) {
         stream.getTracks().forEach((track) => track.stop())
-        return
+        return { ok: false, message: 'Kamera byla zrušena.' }
       }
 
       streamRef.current = stream
@@ -424,8 +429,9 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       })
 
       await attachStreamToVideo()
+      return { ok: true }
     } catch (err: unknown) {
-      if (!enabledRef.current) return
+      if (!enabledRef.current) return { ok: false, message: 'Kamera byla zrušena.' }
       const classified = classifyGetUserMediaError(err)
       const errText =
         err instanceof DOMException
@@ -441,6 +447,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
         getUserMediaError: errText,
         isStreamReady: false,
       })
+      return { ok: false, message: classified.message }
     } finally {
       startingRef.current = false
     }
@@ -530,6 +537,36 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [enabled, collectVideoDiagnostics])
+
+  const waitForStreamReady = useCallback((timeoutMs = 10000): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const deadline = Date.now() + timeoutMs
+
+      const tick = () => {
+        const video = videoRef.current
+        const stream = streamRef.current
+        if (video && stream && isVideoStreamReady(video, stream)) {
+          streamLatchReadyRef.current = true
+          setIsStreamReady(true)
+          resolve()
+          return
+        }
+
+        if (Date.now() >= deadline) {
+          reject(
+            new Error(
+              'Kamerový náhled není připraven. Počkejte na živý obraz nebo klepněte na „Spustit kameru“.'
+            )
+          )
+          return
+        }
+
+        window.setTimeout(tick, 50)
+      }
+
+      tick()
+    })
+  }, [])
 
   const captureFrame = useCallback(async (): Promise<CaptureFrameResult> => {
     const video = videoRef.current
@@ -661,6 +698,7 @@ export function useCameraStream({ enabled, facingMode = 'environment' }: UseCame
       phase === 'active' && (isStreamReady || streamLatchReadyRef.current),
     needsUserStart,
     start,
+    waitForStreamReady,
     captureFrame,
     stop,
     retry,
