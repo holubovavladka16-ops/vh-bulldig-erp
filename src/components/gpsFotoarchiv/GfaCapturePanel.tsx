@@ -1,34 +1,48 @@
-import { useState } from 'react'
-import { Camera, MapPin, RefreshCw } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { Camera, ImagePlus, Loader2, MapPin, Save } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
+import { CameraVideoPreview } from '@/components/formCheck/CameraVideoPreview'
 import { useCameraStream } from '@/hooks/useCameraStream'
-import { useGpsPreflight } from '@/hooks/useGpsPreflight'
-import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
+import type { useGpsPreflight } from '@/hooks/useGpsPreflight'
+import { GPS_FOTOARCHIV_MAX_ACCURACY_METERS } from '@/constants/gpsFotoarchiv'
 import { formatGpsLocationLabel } from '@/lib/photos/photoDisplay'
 import { getDeviceLabel, saveArchivePhoto } from '@/lib/gpsFotoarchiv/service'
 import { fetchReportOptions } from '@/lib/photos/api'
-import { useEffect } from 'react'
+import type { GeocodedAddress } from '@/types/photos'
+import '@/styles/photoMap.css'
+
+type GpsState = ReturnType<typeof useGpsPreflight>
 
 interface GfaCapturePanelProps {
   userId: string
   orderOptions: { value: string; label: string }[]
   onSaved: () => void
+  gps: GpsState
 }
 
-export function GfaCapturePanel({ userId, orderOptions, onSaved }: GfaCapturePanelProps) {
-  const [cameraOpen, setCameraOpen] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+interface CaptureSnapshot {
+  capturedAt: Date
+  gps_lat: number
+  gps_lng: number
+  gps_accuracy: number | null
+  address: GeocodedAddress
+}
+
+export function GfaCapturePanel({ userId, orderOptions, onSaved, gps }: GfaCapturePanelProps) {
   const [previewFile, setPreviewFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [orderId, setOrderId] = useState('')
   const [reportId, setReportId] = useState('')
   const [reportOptions, setReportOptions] = useState<{ value: string; label: string }[]>([])
   const [saving, setSaving] = useState(false)
+  const [capturing, setCapturing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const capturingRef = useRef(false)
+  const autoSaveAttemptedRef = useRef(false)
 
-  const gps = useGpsPreflight(true)
-  const camera = useCameraStream({ enabled: cameraOpen })
+  const camera = useCameraStream({ enabled: !previewUrl, facingMode: 'environment' })
 
   useEffect(() => {
     fetchReportOptions()
@@ -36,52 +50,47 @@ export function GfaCapturePanel({ userId, orderOptions, onSaved }: GfaCapturePan
       .catch(() => {})
   }, [])
 
-  async function handleCapture() {
-    setError(null)
-    if (!gps.canCapture || !gps.position) {
-      setError('Počkejte na zaměření polohy s přesností ±2 m.')
-      return
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
-    if (!cameraOpen) {
-      setCameraOpen(true)
-      if (camera.needsUserStart) {
-        await camera.start()
-      }
-      return
+  }, [previewUrl])
+
+  function buildSnapshot(): CaptureSnapshot | null {
+    if (!gps.position) return null
+    return {
+      capturedAt: new Date(),
+      gps_lat: gps.position.lat,
+      gps_lng: gps.position.lng,
+      gps_accuracy: gps.position.accuracy,
+      address: gps.resolveAddressForCapture(),
     }
-    const result = await camera.captureFrame()
-    if (result.error || !result.file) {
-      setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
-      return
-    }
-    setPreviewFile(result.file)
-    setPreviewUrl(URL.createObjectURL(result.file))
-    camera.stop()
-    setCameraOpen(false)
   }
 
-  async function handleSave() {
-    if (!previewFile || !gps.position) return
+  async function persistPhoto(file: File, snap: CaptureSnapshot) {
     if (!orderId) {
-      setError('Vyberte zakázku.')
+      setPreviewFile(file)
+      setPreviewUrl(URL.createObjectURL(file))
+      camera.stop()
+      setError('Vyberte zakázku – fotografie čeká na uložení.')
       return
     }
+
     setSaving(true)
     setError(null)
     try {
-      const address = gps.resolveAddressForCapture()
       await saveArchivePhoto(
         {
-          file: previewFile,
-          gps_lat: gps.position.lat,
-          gps_lng: gps.position.lng,
-          gps_accuracy: gps.position.accuracy,
-          address_full: address.address_full,
-          street: address.street,
-          city: address.city,
-          postal_code: address.postal_code,
-          country: address.country,
-          captured_at: new Date(),
+          file,
+          gps_lat: snap.gps_lat,
+          gps_lng: snap.gps_lng,
+          gps_accuracy: snap.gps_accuracy,
+          address_full: snap.address.address_full,
+          street: snap.address.street,
+          city: snap.address.city,
+          postal_code: snap.address.postal_code,
+          country: snap.address.country,
+          captured_at: snap.capturedAt,
           order_id: orderId,
           report_id: reportId || null,
           device_info: getDeviceLabel(),
@@ -89,102 +98,267 @@ export function GfaCapturePanel({ userId, orderOptions, onSaved }: GfaCapturePan
         userId
       )
       if (previewUrl) URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
       setPreviewFile(null)
-      setOrderId('')
-      setReportId('')
+      setPreviewUrl(null)
+      autoSaveAttemptedRef.current = false
       onSaved()
     } catch (err) {
+      autoSaveAttemptedRef.current = false
       setError(err instanceof Error ? err.message : 'Uložení se nezdařilo.')
     } finally {
       setSaving(false)
     }
   }
 
-  function resetPreview() {
+  useEffect(() => {
+    if (!previewFile || !gps.canCapture || !orderId || saving) return
+    if (autoSaveAttemptedRef.current) return
+
+    const snap = buildSnapshot()
+    if (!snap) return
+
+    autoSaveAttemptedRef.current = true
+    void persistPhoto(previewFile, snap)
+  }, [previewFile, gps.canCapture, orderId, saving, gps.position, gps.address])
+
+  async function handleCameraCapture() {
+    if (capturingRef.current) return
+
+    capturingRef.current = true
+    setCapturing(true)
+    setError(null)
+
+    try {
+      if (camera.needsUserStart && !camera.isActive) {
+        await camera.start()
+      }
+
+      const result = await camera.captureFrame()
+      if (!result.file) {
+        setError(result.error?.message ?? 'Snímek se nepodařilo pořídit.')
+        return
+      }
+
+      autoSaveAttemptedRef.current = false
+      setPreviewFile(result.file)
+
+      if (gps.canCapture) {
+        const snap = buildSnapshot()
+        if (snap) await persistPhoto(result.file, snap)
+      } else {
+        setPreviewUrl(URL.createObjectURL(result.file))
+        setError(null)
+        camera.stop()
+      }
+    } finally {
+      capturingRef.current = false
+      setCapturing(false)
+    }
+  }
+
+  function handleNativeFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    autoSaveAttemptedRef.current = false
+    setPreviewFile(file)
+
+    if (gps.canCapture) {
+      const snap = buildSnapshot()
+      if (snap) void persistPhoto(file, snap)
+    } else {
+      setPreviewUrl(URL.createObjectURL(file))
+      camera.stop()
+    }
+  }
+
+  function resetCapture() {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setPreviewUrl(null)
     setPreviewFile(null)
+    setPreviewUrl(null)
+    autoSaveAttemptedRef.current = false
+    setError(null)
   }
 
   const accuracyLabel = gps.position
     ? formatGpsLocationLabel(gps.position.lat, gps.position.lng, gps.position.accuracy)
     : '—'
 
+  if (previewUrl && previewFile) {
+    return (
+      <Card className="space-y-4 p-4">
+        <h3 className="text-lg font-semibold">
+          {gps.canCapture ? 'Ukládám fotografii…' : 'Čekám na GPS…'}
+        </h3>
+        <img src={previewUrl} alt="Náhled" className="max-h-56 w-full rounded-xl object-contain" />
+
+        {!gps.canCapture ? (
+          <div className="flex items-center gap-2 text-sm text-amber-300">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Zaměřuji polohu (cíl ±{GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m)…
+          </div>
+        ) : saving ? (
+          <div className="flex items-center gap-2 text-sm text-emerald-300">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Ukládám do archivu…
+          </div>
+        ) : null}
+
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-[var(--text-muted)]">Přesnost GPS</dt>
+            <dd className={gps.accuracyReady ? 'text-emerald-400' : ''}>
+              {gps.position ? `±${Math.round(gps.position.accuracy)} m` : '—'}
+            </dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-xs text-[var(--text-muted)]">Adresa</dt>
+            <dd>{gps.addressDisplayLabel}</dd>
+          </div>
+        </dl>
+
+        <Select
+          label="Zakázka *"
+          value={orderId}
+          onChange={(e) => {
+            setOrderId(e.target.value)
+            autoSaveAttemptedRef.current = false
+          }}
+          options={[{ value: '', label: 'Vyberte zakázku' }, ...orderOptions]}
+        />
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
+
+        <Button variant="secondary" onClick={resetCapture} disabled={saving}>
+          Zrušit a vyfotit znovu
+        </Button>
+      </Card>
+    )
+  }
+
   return (
     <Card className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-          <MapPin className="h-4 w-4 text-amber-400" />
-          <span>
-            {gps.accuracyReady
-              ? `Poloha připravena (${accuracyLabel})`
-              : gps.position
-                ? `Zaměřování… ${accuracyLabel} (cíl ±${GPS_TARGET_ACCURACY_METERS} m)`
-                : 'Čekám na GPS…'}
-          </span>
+      <p className="text-sm text-[var(--text-muted)]">
+        1. Foťák je otevřený · 2. GPS zaměřuje polohu · 3. Při ±{GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m se
+        fotografie uloží
+      </p>
+
+      <Select
+        label="Zakázka *"
+        value={orderId}
+        onChange={(e) => setOrderId(e.target.value)}
+        options={[{ value: '', label: 'Vyberte zakázku' }, ...orderOptions]}
+      />
+      <Select
+        label="Výkaz (volitelné)"
+        value={reportId}
+        onChange={(e) => setReportId(e.target.value)}
+        options={[{ value: '', label: 'Bez propojení' }, ...reportOptions]}
+      />
+
+      <div className="photo-camera-shell">
+        <div className="photo-camera-viewport">
+          <CameraVideoPreview
+            setVideoRef={camera.setVideoRef}
+            phase={camera.phase}
+            isStreamReady={camera.isStreamReady}
+            errorMessage={camera.errorMessage}
+            needsUserStart={camera.needsUserStart}
+            onStart={camera.start}
+            diagnostics={camera.diagnostics}
+          />
+          <div className="photo-camera-overlay pointer-events-none">
+            <div
+              className={`rounded-lg px-3 py-2 text-center text-sm font-medium ${
+                gps.canCapture
+                  ? 'bg-emerald-500/80 text-white'
+                  : 'bg-black/60 text-white'
+              }`}
+            >
+              {gps.canCapture ? (
+                <span className="flex items-center justify-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  GPS ±{Math.round(gps.position?.accuracy ?? 0)} m – můžete uložit
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Zaměřuji… {gps.position ? `±${Math.round(gps.position.accuracy)} m` : ''}
+                </span>
+              )}
+            </div>
+            <p className="mt-2 truncate text-center text-xs text-white/90 drop-shadow">
+              {gps.addressLoading ? 'Načítám adresu…' : gps.addressDisplayLabel}
+            </p>
+          </div>
         </div>
-        {!gps.accuracyReady && gps.phase === 'timeout_prompt' && (
-          <Button size="sm" variant="secondary" onClick={gps.continueSearching}>
-            <RefreshCw className="h-4 w-4" />
-            Hledat dál
-          </Button>
+
+        <div className="photo-camera-actions">
+          <button
+            type="button"
+            className={`photo-capture-btn photo-capture-btn--primary ${capturing ? 'photo-capture-btn--disabled' : ''}`}
+            disabled={capturing}
+            onClick={() => void handleCameraCapture()}
+          >
+            {capturing ? (
+              <>
+                <Loader2 className="h-6 w-6 animate-spin" />
+                Pořizuji…
+              </>
+            ) : gps.canCapture ? (
+              <>
+                <Save className="h-6 w-6" />
+                Vyfotit a uložit
+              </>
+            ) : (
+              <>
+                <Camera className="h-6 w-6" />
+                Vyfotit
+              </>
+            )}
+          </button>
+
+          <label className="photo-capture-btn photo-capture-btn--secondary">
+            <ImagePlus className="h-5 w-5" />
+            Nativní foťák
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleNativeFile}
+            />
+          </label>
+        </div>
+
+        {camera.errorMessage && (camera.phase === 'denied' || camera.phase === 'unavailable') && (
+          <div className="space-y-1 text-center text-xs">
+            <p className="text-red-400">{camera.errorMessage}</p>
+            <button type="button" className="text-sky-400 underline" onClick={camera.retry}>
+              Zkusit kameru znovu
+            </button>
+          </div>
         )}
       </div>
 
-      <p className="text-sm text-[var(--text-muted)]">{gps.addressDisplayLabel}</p>
+      <dl className="grid gap-2 rounded-xl border border-[var(--border-glass)] p-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs text-[var(--text-muted)]">Souřadnice</dt>
+          <dd className="font-mono text-xs">
+            {gps.position
+              ? `${gps.position.lat.toFixed(6)}, ${gps.position.lng.toFixed(6)}`
+              : '—'}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-[var(--text-muted)]">Přesnost</dt>
+          <dd className={gps.accuracyReady ? 'text-emerald-400' : ''}>{accuracyLabel}</dd>
+        </div>
+      </dl>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
       {gps.error && <p className="text-sm text-amber-300">{gps.error}</p>}
-
-      {!previewUrl ? (
-        <div className="space-y-3">
-          {cameraOpen && (
-            <div className="overflow-hidden rounded-xl border border-[var(--border-glass)] bg-black">
-              <video
-                ref={camera.setVideoRef}
-                className="aspect-[4/3] w-full object-cover"
-                playsInline
-                muted
-                autoPlay
-              />
-            </div>
-          )}
-          <Button
-            onClick={() => void handleCapture()}
-            disabled={!gps.canCapture || camera.phase === 'starting'}
-            loading={camera.phase === 'starting'}
-            className="w-full"
-          >
-            <Camera className="h-5 w-5" />
-            {cameraOpen ? 'Vyfotit' : 'Spustit kameru a vyfotit'}
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <img src={previewUrl} alt="Náhled" className="max-h-72 w-full rounded-xl object-contain" />
-          <Select
-            label="Zakázka *"
-            value={orderId}
-            onChange={(e) => setOrderId(e.target.value)}
-            options={[{ value: '', label: 'Vyberte zakázku' }, ...orderOptions]}
-          />
-          <Select
-            label="Výkaz (volitelné)"
-            value={reportId}
-            onChange={(e) => setReportId(e.target.value)}
-            options={[{ value: '', label: 'Bez propojení' }, ...reportOptions]}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void handleSave()} loading={saving} disabled={!orderId}>
-              Uložit fotografii
-            </Button>
-            <Button variant="secondary" onClick={resetPreview}>
-              Zrušit
-            </Button>
-          </div>
-        </div>
-      )}
+      {error && <p className="text-sm text-red-400">{error}</p>}
     </Card>
   )
 }

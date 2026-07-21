@@ -1,79 +1,162 @@
-import { getGoogleMapsUrl, getMapyCzShowMapUrl } from '@/lib/photos/mapLinks'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
+import { getMapyCzShowMapUrl } from '@/lib/photos/mapLinks'
 import {
   formatCaptureDateLabel,
   formatCaptureTime,
   formatGpsLocationLabel,
   formatPhotoAddress,
   getOrderDisplayName,
-  getPhotoAuthorName,
 } from '@/lib/photos/photoDisplay'
 import { getGpsPhotoUrl } from '@/lib/photos/api'
 import {
-  buildProfessionalPrintDocument,
   downloadHtmlDocument,
-  escHtml,
   openPrintDocument,
   type CompanyHeader,
 } from '@/lib/print/printDocument'
-import { downloadPdfBlob, htmlToPdfBlob } from '@/lib/print/pdfDownload'
+import {
+  assertValidPdfBlob,
+  downloadPdfBlob,
+  ensurePdfBlob,
+} from '@/lib/print/pdfDownload'
 import type { GpsPhoto } from '@/types/photos'
+import {
+  buildGfaPhotosPrintDocument,
+  probeImageOrientation,
+  type GfaPhotoOrientation,
+} from '@/lib/gpsFotoarchiv/gpsFotoarchivPdfLayout'
 
-const PHOTO_PDF_EXTRA = `
-  .gfa-photo-page { page-break-before: always; }
-  .gfa-photo-page:first-child { page-break-before: auto; }
-  .gfa-photo-wrap { page-break-inside: avoid; border: 1px solid #d9e2ef; border-radius: 6px; padding: 12px; margin-bottom: 16px; }
-  .gfa-photo-wrap img.main { max-height: 360px; width: 100%; object-fit: contain; border: 1px solid #ddd; }
-  .gfa-meta { font-size: 10pt; line-height: 1.5; margin-top: 10px; color: #333; }
-  .gfa-meta a { color: #1e3a5f; }
-`
+async function waitForDocumentImages(doc: Document): Promise<void> {
+  const images = Array.from(doc.images)
+  if (images.length === 0) return
 
-function buildPhotoPageHtml(photo: GpsPhoto, index: number, total: number): string {
-  const photoUrl = getGpsPhotoUrl(photo.file_path)
-  const address = formatPhotoAddress(photo)
-  const gps = formatGpsLocationLabel(photo.gps_lat, photo.gps_lng, photo.gps_accuracy)
-  const mapUrl = getMapyCzShowMapUrl(photo.gps_lat, photo.gps_lng)
-  const googleUrl = getGoogleMapsUrl(photo.gps_lat, photo.gps_lng)
-  const title = photo.title?.trim() || `Fotografie ${index + 1} / ${total}`
-
-  return `
-    <div class="gfa-photo-page gfa-photo-wrap">
-      <h2>${escHtml(title)}</h2>
-      <img class="main" src="${escHtml(photoUrl)}" alt="${escHtml(title)}" />
-      <div class="gfa-meta">
-        <div><strong>Datum a čas:</strong> ${escHtml(formatCaptureDateLabel(photo.captured_date))} ${escHtml(formatCaptureTime(photo.captured_time))}</div>
-        <div><strong>Adresa:</strong> <a href="${escHtml(mapUrl)}">${escHtml(address)}</a></div>
-        <div><strong>GPS:</strong> <a href="${escHtml(googleUrl)}">${escHtml(gps)}</a></div>
-        <div><strong>Zakázka:</strong> ${escHtml(getOrderDisplayName(photo))}</div>
-        <div><strong>Autor:</strong> ${escHtml(getPhotoAuthorName(photo))}</div>
-        ${photo.device_info ? `<div><strong>Zařízení:</strong> ${escHtml(photo.device_info)}</div>` : ''}
-        ${photo.note?.trim() ? `<div><strong>Poznámka:</strong> ${escHtml(photo.note.trim())}</div>` : ''}
-      </div>
-    </div>
-  `
+  await Promise.all(
+    images.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete) {
+            resolve()
+            return
+          }
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+        })
+    )
+  )
 }
 
-export function buildArchivePhotosHtml(photos: GpsPhoto[], company?: CompanyHeader | null): string {
-  const body = photos.map((photo, index) => buildPhotoPageHtml(photo, index, photos.length)).join('')
-  return buildProfessionalPrintDocument('Fotodokumentace s GPS', body, {
-    company,
-    extraStyles: PHOTO_PDF_EXTRA,
+async function capturePageElementToCanvas(pageEl: HTMLElement): Promise<HTMLCanvasElement> {
+  const width = Math.max(pageEl.offsetWidth, pageEl.scrollWidth, 794)
+  const height = Math.max(pageEl.offsetHeight, pageEl.scrollHeight, 1123)
+
+  return html2canvas(pageEl, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    backgroundColor: '#ffffff',
+    width,
+    height,
+    windowWidth: width,
+    windowHeight: height,
+    scrollX: 0,
+    scrollY: 0,
   })
 }
 
+async function htmlToGfaPdfBlob(html: string): Promise<Blob> {
+  if (typeof document === 'undefined') {
+    throw new Error('PDF generování není dostupné mimo prohlížeč.')
+  }
+
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.style.position = 'fixed'
+  iframe.style.left = '-10000px'
+  iframe.style.top = '0'
+  iframe.style.width = '210mm'
+  iframe.style.height = '297mm'
+  iframe.style.border = '0'
+  document.body.appendChild(iframe)
+
+  try {
+    const frameWindow = iframe.contentWindow
+    const frameDoc = frameWindow?.document
+    if (!frameWindow || !frameDoc) {
+      throw new Error('Nelze připravit dokument pro PDF.')
+    }
+
+    frameDoc.open()
+    frameDoc.write(html)
+    frameDoc.close()
+
+    await new Promise<void>((resolve) => {
+      if (frameDoc.readyState === 'complete') resolve()
+      else iframe.onload = () => resolve()
+    })
+
+    if (frameDoc.fonts?.ready) {
+      await frameDoc.fonts.ready.catch(() => undefined)
+    }
+
+    await waitForDocumentImages(frameDoc)
+    await new Promise((resolve) => window.setTimeout(resolve, 300))
+
+    const pages = Array.from(frameDoc.querySelectorAll<HTMLElement>('.gfa-pdf-page'))
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+
+    const targets = pages.length > 0 ? pages : [frameDoc.body]
+
+    for (let index = 0; index < targets.length; index += 1) {
+      const canvas = await capturePageElementToCanvas(targets[index]!)
+      const imgData = canvas.toDataURL('image/jpeg', 0.92)
+      if (index > 0) pdf.addPage()
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST')
+    }
+
+    const blob = ensurePdfBlob(pdf.output('blob') as Blob)
+    await assertValidPdfBlob(blob)
+    return blob
+  } finally {
+    iframe.remove()
+  }
+}
+
+async function resolvePhotoOrientations(photos: GpsPhoto[]): Promise<GfaPhotoOrientation[]> {
+  return Promise.all(photos.map((photo) => probeImageOrientation(getGpsPhotoUrl(photo.file_path))))
+}
+
+export function buildArchivePhotosHtml(photos: GpsPhoto[], company?: CompanyHeader | null): string {
+  const orientations = photos.map(() => 'landscape' as GfaPhotoOrientation)
+  return buildGfaPhotosPrintDocument(photos, orientations, company)
+}
+
+export async function buildArchivePhotosHtmlAsync(
+  photos: GpsPhoto[],
+  company?: CompanyHeader | null
+): Promise<string> {
+  const orientations = await resolvePhotoOrientations(photos)
+  return buildGfaPhotosPrintDocument(photos, orientations, company)
+}
+
 export function openArchivePhotosPrint(photos: GpsPhoto[], company?: CompanyHeader | null): void {
-  openPrintDocument(buildArchivePhotosHtml(photos, company))
+  void buildArchivePhotosHtmlAsync(photos, company).then(openPrintDocument)
 }
 
 export function downloadArchivePhotosHtml(photos: GpsPhoto[], company?: CompanyHeader | null): void {
-  downloadHtmlDocument(buildArchivePhotosHtml(photos, company), 'fotodokumentace-gps.html')
+  void buildArchivePhotosHtmlAsync(photos, company).then((html) =>
+    downloadHtmlDocument(html, 'fotodokumentace-gps.html')
+  )
 }
 
 export async function generateArchivePhotosPdf(
   photos: GpsPhoto[],
   company?: CompanyHeader | null
 ): Promise<Blob> {
-  const html = buildArchivePhotosHtml(photos, company)
-  return htmlToPdfBlob(html)
+  const html = await buildArchivePhotosHtmlAsync(photos, company)
+  return htmlToGfaPdfBlob(html)
 }
 
 export async function exportArchivePhotosPdf(
