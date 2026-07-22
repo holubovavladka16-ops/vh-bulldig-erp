@@ -30,6 +30,7 @@ interface DiaryFormModalProps {
   open: boolean
   initial?: ConstructionDiaryEntry | null
   orderOptions: { value: string; label: string }[]
+  defaultOrderId?: string
   onClose: () => void
   onSubmit: (data: ConstructionDiaryCreateInput) => Promise<void>
 }
@@ -45,7 +46,7 @@ const emptyPrefill: DiaryPrefillData = {
   photos: [],
 }
 
-export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit }: DiaryFormModalProps) {
+export function DiaryFormModal({ open, initial, orderOptions, defaultOrderId, onClose, onSubmit }: DiaryFormModalProps) {
   const [entryDate, setEntryDate] = useState(todayIsoDate())
   const [orderId, setOrderId] = useState('')
   const [weatherType, setWeatherType] = useState<DiaryWeatherType | ''>('')
@@ -128,7 +129,7 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
       void loadPrefill(initial.order_id, initial.entry_date, true)
     } else {
       setEntryDate(todayIsoDate())
-      setOrderId('')
+      setOrderId(defaultOrderId ?? '')
       setWeatherType('')
       setTemperature('')
       setEquipmentSelected([])
@@ -145,7 +146,7 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
       setLinkedPhotoIds([])
       setError('')
     }
-  }, [open, initial, loadPrefill])
+  }, [open, initial, defaultOrderId, loadPrefill])
 
   useEffect(() => {
     if (!open || initial) return

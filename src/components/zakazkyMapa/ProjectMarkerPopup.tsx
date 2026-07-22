@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/Badge'
 import { MarkerColorBadge } from '@/components/zakazkyMapa/MarkerColorBadge'
+import { ProjectDiaryList } from '@/components/zakazkyMapa/ProjectDiaryList'
 import { JOB_ORDER_STATUS_LABELS } from '@/constants/orders'
 import { formatDate } from '@/constants/workers'
 import type { JobOrderStatus } from '@/types/orders'
@@ -13,6 +14,9 @@ interface ProjectMarkerPopupProps {
   item: ProjectMapMarkerWithOrder
   onClose: () => void
   className?: string
+  canCreateDiaryEntry?: boolean
+  onCreateDiaryEntry?: (orderId: string) => void
+  diaryRefreshToken?: number
 }
 
 function getOrderStatusVariant(status: JobOrderStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
@@ -27,14 +31,21 @@ function getPartyLabel(item: ProjectMapMarkerWithOrder): string | null {
   return item.order.investor?.trim() || item.order.client_name?.trim() || null
 }
 
-export function ProjectMarkerPopup({ item, onClose, className = '' }: ProjectMarkerPopupProps) {
+export function ProjectMarkerPopup({
+  item,
+  onClose,
+  className = '',
+  canCreateDiaryEntry = false,
+  onCreateDiaryEntry,
+  diaryRefreshToken = 0,
+}: ProjectMarkerPopupProps) {
   const navigate = useNavigate()
   const hasGps = isValidProjectMarkerGps(item.gps_lat, item.gps_lng)
   const party = getPartyLabel(item)
 
   return (
     <div
-      className={`glass-panel neon-border flex max-h-[min(80vh,640px)] flex-col overflow-hidden rounded-2xl ${className}`}
+      className={`glass-panel neon-border flex max-h-[min(90vh,820px)] flex-col overflow-hidden rounded-2xl ${className}`}
       role="dialog"
       aria-label={`Detail zakázky ${item.order.name}`}
     >
@@ -53,7 +64,7 @@ export function ProjectMarkerPopup({ item, onClose, className = '' }: ProjectMar
         </button>
       </div>
 
-      <div className="scrollbar-premium space-y-3 overflow-y-auto px-4 py-4 text-sm">
+      <div className="scrollbar-premium flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge
             label={JOB_ORDER_STATUS_LABELS[item.order.status]}
@@ -100,6 +111,14 @@ export function ProjectMarkerPopup({ item, onClose, className = '' }: ProjectMar
             </dd>
           </div>
         </dl>
+
+        <ProjectDiaryList
+          key={`${item.project_id}-${diaryRefreshToken}`}
+          orderId={item.project_id}
+          orderName={item.order.name}
+          canCreateEntry={canCreateDiaryEntry}
+          onCreateEntry={() => onCreateDiaryEntry?.(item.project_id)}
+        />
       </div>
 
       <div className="border-t border-white/10 px-4 py-3">

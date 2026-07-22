@@ -47,6 +47,23 @@ export const DIARY_MATERIAL_OPTIONS = [
   'Dřevo',
 ] as const
 
+export type DiaryEntryStatus =
+  | 'draft'
+  | 'submitted'
+  | 'pending_review'
+  | 'approved'
+  | 'returned'
+  | 'rejected'
+
+export const DIARY_ENTRY_STATUS_LABELS: Record<DiaryEntryStatus, string> = {
+  draft: 'Rozepsáno',
+  submitted: 'Odesláno',
+  pending_review: 'Čeká na kontrolu',
+  approved: 'Schváleno',
+  returned: 'Vráceno k opravě',
+  rejected: 'Zamítnuto',
+}
+
 export function formatDiaryWeather(weatherType: string | null | undefined, temperature: number | null | undefined): string {
   const label = DIARY_WEATHER_OPTIONS.find((o) => o.value === weatherType)?.label ?? weatherType ?? ''
   if (!label) return ''

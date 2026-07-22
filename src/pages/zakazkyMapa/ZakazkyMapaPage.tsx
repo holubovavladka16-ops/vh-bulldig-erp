@@ -4,19 +4,32 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { DiaryFormModal } from '@/components/diary/DiaryFormModal'
 import { ProjectMapView } from '@/components/zakazkyMapa/ProjectMapView'
 import { ProjectList } from '@/components/zakazkyMapa/ProjectList'
 import { ProjectMarkerPopup } from '@/components/zakazkyMapa/ProjectMarkerPopup'
+import { useAuth } from '@/context/AuthContext'
+import { isAdministrator } from '@/constants/permissions'
+import { createDiaryEntry } from '@/lib/diary/api'
+import { fetchJobOrders } from '@/lib/orders/api'
 import { fetchProjectMapMarkersWithOrders, filterProjectMapMarkers } from '@/lib/zakazkyMapa/api'
 import { PROJECT_MARKER_COLOR_FILTER_OPTIONS } from '@/constants/zakazkyMapa'
+import type { ConstructionDiaryCreateInput } from '@/types/diary'
 import type { ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
 
 export function ZakazkyMapaPage() {
+  const { profile, user } = useAuth()
+  const isAdmin = profile ? isAdministrator(profile.role) : false
+
   const [items, setItems] = useState<ProjectMapMarkerWithOrder[]>([])
   const [filters, setFilters] = useState<ProjectMapMarkerFilters>({})
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
+  const [diaryFormOpen, setDiaryFormOpen] = useState(false)
+  const [diaryPrefillOrderId, setDiaryPrefillOrderId] = useState<string | null>(null)
+  const [diaryRefreshToken, setDiaryRefreshToken] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -32,6 +45,9 @@ export function ZakazkyMapaPage() {
 
   useEffect(() => {
     void load()
+    fetchJobOrders()
+      .then((orders) => setOrderOptions(orders.map((order) => ({ value: order.id, label: order.name }))))
+      .catch(() => {})
   }, [load])
 
   const filteredItems = useMemo(
@@ -49,6 +65,29 @@ export function ZakazkyMapaPage() {
       setSelectedProjectId(null)
     }
   }, [selectedProjectId, selectedItem])
+
+  function handleOpenDiaryForm(orderId: string) {
+    setDiaryPrefillOrderId(orderId)
+    setDiaryFormOpen(true)
+  }
+
+  async function handleCreateDiaryEntry(data: ConstructionDiaryCreateInput) {
+    if (!user) return
+    await createDiaryEntry(data, user.id)
+    setDiaryFormOpen(false)
+    setDiaryPrefillOrderId(null)
+    setDiaryRefreshToken((token) => token + 1)
+  }
+
+  const popupProps = selectedItem
+    ? {
+        item: selectedItem,
+        onClose: () => setSelectedProjectId(null),
+        canCreateDiaryEntry: isAdmin,
+        onCreateDiaryEntry: handleOpenDiaryForm,
+        diaryRefreshToken,
+      }
+    : null
 
   return (
     <AppLayout>
@@ -95,17 +134,17 @@ export function ZakazkyMapaPage() {
             onSelect={setSelectedProjectId}
           />
 
-          {selectedItem ? (
+          {popupProps ? (
             <div className="xl:hidden">
-              <ProjectMarkerPopup item={selectedItem} onClose={() => setSelectedProjectId(null)} />
+              <ProjectMarkerPopup {...popupProps} />
             </div>
           ) : null}
         </div>
 
         <div className="min-w-0 space-y-4">
-          {selectedItem ? (
+          {popupProps ? (
             <div className="hidden xl:block">
-              <ProjectMarkerPopup item={selectedItem} onClose={() => setSelectedProjectId(null)} />
+              <ProjectMarkerPopup {...popupProps} />
             </div>
           ) : null}
 
@@ -122,6 +161,17 @@ export function ZakazkyMapaPage() {
           </Card>
         </div>
       </div>
+
+      <DiaryFormModal
+        open={diaryFormOpen}
+        orderOptions={orderOptions}
+        defaultOrderId={diaryPrefillOrderId ?? undefined}
+        onClose={() => {
+          setDiaryFormOpen(false)
+          setDiaryPrefillOrderId(null)
+        }}
+        onSubmit={handleCreateDiaryEntry}
+      />
     </AppLayout>
   )
 }

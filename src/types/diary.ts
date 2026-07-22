@@ -1,4 +1,4 @@
-import type { DiaryWeatherType } from '@/constants/diary'
+import type { DiaryWeatherType, DiaryEntryStatus } from '@/constants/diary'
 import type { GpsPhoto } from '@/types/photos'
 
 export interface ConstructionDiaryEntry {
@@ -23,6 +23,8 @@ export interface ConstructionDiaryEntry {
   ai_assisted: boolean
   note: string
   extraordinary_events: string
+  entry_status: DiaryEntryStatus
+  creator_name?: string
   created_by: string | null
   created_at: string
   updated_at: string

@@ -10,7 +10,11 @@ import type { GpsPhoto } from '@/types/photos'
 
 type DiaryRow = ConstructionDiaryEntry & {
   job_orders: { name: string; order_number: string | null } | null
+  creator?: { full_name: string | null; email: string | null } | null
 }
+
+const DIARY_ENTRY_SELECT =
+  '*, job_orders(name, order_number), creator:profiles!construction_diary_entries_created_by_fkey(full_name, email)'
 
 const PHOTO_SELECT = '*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)'
 
@@ -55,6 +59,9 @@ function mapDiaryRow(row: DiaryRow): ConstructionDiaryEntry {
     ai_assisted: Boolean(row.ai_assisted),
     note: row.note ?? '',
     extraordinary_events: row.extraordinary_events ?? '',
+    entry_status: (row.entry_status as ConstructionDiaryEntry['entry_status']) ?? 'approved',
+    creator_name:
+      row.creator?.full_name?.trim() || row.creator?.email?.trim() || row.creator_name,
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -64,7 +71,7 @@ function mapDiaryRow(row: DiaryRow): ConstructionDiaryEntry {
 export async function fetchDiaryEntries(filters: ConstructionDiaryFilters = {}): Promise<ConstructionDiaryEntry[]> {
   let query = supabase
     .from('construction_diary_entries')
-    .select('*, job_orders(name, order_number)')
+    .select(DIARY_ENTRY_SELECT)
     .order('entry_date', { ascending: false })
 
   if (filters.orderId) query = query.eq('order_id', filters.orderId)
@@ -90,7 +97,7 @@ async function fetchDiaryPhotos(diaryEntryId: string): Promise<GpsPhoto[]> {
 export async function fetchDiaryDetail(id: string): Promise<ConstructionDiaryDetail | null> {
   const { data, error } = await supabase
     .from('construction_diary_entries')
-    .select('*, job_orders(name, order_number)')
+    .select(DIARY_ENTRY_SELECT)
     .eq('id', id)
     .maybeSingle()
 
@@ -164,7 +171,7 @@ export async function createDiaryEntry(
   const { data, error } = await supabase
     .from('construction_diary_entries')
     .insert(buildInsertPayload(input, createdBy))
-    .select('*, job_orders(name, order_number)')
+    .select(DIARY_ENTRY_SELECT)
     .single()
 
   if (error) throw new Error(error.message)
@@ -206,7 +213,7 @@ export async function updateDiaryEntry(
       extraordinary_events: rest.extraordinary_events.trim(),
     })
     .eq('id', id)
-    .select('*, job_orders(name, order_number)')
+    .select(DIARY_ENTRY_SELECT)
     .single()
 
   if (error) throw new Error(error.message)
