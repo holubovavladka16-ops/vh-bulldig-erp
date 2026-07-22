@@ -1,6 +1,15 @@
 name: Deploy PDF8 Zakázky a mapa
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/06*_pdf8*.sql'
+      - 'supabase/migrations/07*_pdf8*.sql'
+      - 'scripts/deploy-pdf8-zakazky-mapa-production.mjs'
+      - 'scripts/verify-pdf8-production-smoke.mjs'
+      - '.github/workflows/deploy-pdf8-zakazky-mapa.yml'
   workflow_dispatch:
     inputs:
       skip_vercel:
@@ -51,7 +60,7 @@ jobs:
 
   deploy-frontend:
     needs: deploy-database
-    if: github.event.inputs.skip_vercel != 'true'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.skip_vercel != 'true'
     runs-on: ubuntu-latest
     environment: Production – vh-bulldig-erp
     steps:

@@ -349,6 +349,66 @@ async function verifySchema(client) {
        AND indexdef ILIKE '%UNIQUE%' AND indexdef ILIKE '%project_id%'`
   )
   record('UNIQUE project_id na project_map_markers', markerUnique.rows[0]?.c >= 1)
+
+  const rlsCount = await queryDb(
+    client,
+    `SELECT tablename, COUNT(*)::int AS policies
+     FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = ANY($1::text[])
+     GROUP BY tablename
+     ORDER BY tablename`,
+    [PDF8_TABLES]
+  )
+  for (const row of rlsCount.rows) {
+    record(`RLS politiky ${row.tablename}`, row.policies >= 1, `${row.policies} politik`)
+  }
+
+  const triggerCount = await queryDb(
+    client,
+    `SELECT COUNT(*)::int AS c
+     FROM pg_trigger t
+     JOIN pg_class c ON c.oid = t.tgrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relname IN ('construction_diary_entries')
+       AND NOT t.tgisinternal
+       AND t.tgname ILIKE '%diary%'`
+  )
+  record('Triggery deníku (resolve missing diary)', triggerCount.rows[0]?.c >= 1)
+}
+
+async function reloadPostgrestSchema(client) {
+  console.log('\n=== 5b. PostgREST schema cache reload ===')
+  await queryDb(client, `NOTIFY pgrst, 'reload schema'`)
+  record('NOTIFY pgrst reload schema', true)
+  await new Promise((r) => setTimeout(r, 3000))
+}
+
+async function verifyRestApi() {
+  console.log('\n=== 5c. Ověření REST API (PostgREST) ===')
+  if (!url || !anonKey) {
+    console.log('WARN: REST ověření přeskočeno – chybí VITE_SUPABASE_URL/ANON_KEY')
+    return
+  }
+
+  const supabase = createClient(url, anonKey)
+  const tables = ['project_map_markers', 'project_notifications']
+
+  for (const table of tables) {
+    const { error } = await supabase.from(table).select('id').limit(1)
+    if (error?.code === 'PGRST205') {
+      record(`REST ${table}`, false, 'Tabulka chybí ve schema cache')
+      throw new Error(`PostgREST schema cache neobsahuje ${table}: ${error.message}`)
+    }
+    if (error?.message?.includes('permission') || error?.code === '42501') {
+      record(`REST ${table}`, true, 'Tabulka v cache, RLS chrání data')
+    } else if (error) {
+      record(`REST ${table}`, false, error.message)
+      throw new Error(`REST dotaz na ${table} selhal: ${error.message}`)
+    } else {
+      record(`REST ${table}`, true, 'Dotaz OK')
+    }
+  }
 }
 
 async function runSmokeTest(client) {
@@ -432,6 +492,8 @@ async function main() {
     const cronResult = await configurePgCron(client)
     writeFileSync(join(backupDir, 'pg-cron.json'), JSON.stringify(cronResult, null, 2))
     await verifySchema(client)
+    await reloadPostgrestSchema(client)
+    await verifyRestApi()
     await runSmokeTest(client)
 
     writeFileSync(
