@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTable'
 import { StatusBadge } from '@/components/ui/Badge'
+import { MarkerColorBadge } from '@/components/zakazkyMapa/MarkerColorBadge'
 import { useAuth } from '@/context/AuthContext'
 import { isAdministrator, canManageProjectAssignments, isStavbyvedouci } from '@/constants/permissions'
 import { ProjectMarkerColorHistoryTable } from '@/components/zakazkyMapa/ProjectMarkerColorHistoryTable'
 import { ProjectStavbyvedouciSection } from '@/components/zakazkyMapa/ProjectStavbyvedouciSection'
+import { fetchProjectMapMarkerByProjectId } from '@/lib/zakazkyMapa/api'
 import {
   fetchJobOrderDetail,
   uploadJobOrderDocument,
@@ -22,6 +24,7 @@ import {
   getOrderPhotoUrl,
 } from '@/lib/orders/api'
 import type { JobOrderDetail } from '@/types/orders'
+import type { ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
 import { JOB_ORDER_STATUS_LABELS } from '@/constants/orders'
 import { WORKER_REPORT_STATUS_LABELS, formatCurrency, formatDate } from '@/constants/workers'
 import { formatTimeForInput } from '@/lib/workers/attendance'
@@ -35,6 +38,7 @@ export function OrderDetailPage() {
   const isSiteManager = profile ? isStavbyvedouci(profile.role) : false
   const backPath = isSiteManager ? '/stavbyvedouci/zakazky' : '/zakazky'
   const [detail, setDetail] = useState<JobOrderDetail | null>(null)
+  const [marker, setMarker] = useState<ProjectMapMarkerWithOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
@@ -43,9 +47,15 @@ export function OrderDetailPage() {
     setLoading(true)
     setLoadError('')
     try {
-      setDetail(await fetchJobOrderDetail(id))
+      const [orderDetail, markerDetail] = await Promise.all([
+        fetchJobOrderDetail(id),
+        fetchProjectMapMarkerByProjectId(id),
+      ])
+      setDetail(orderDetail)
+      setMarker(markerDetail)
     } catch (err) {
       setDetail(null)
+      setMarker(null)
       setLoadError(err instanceof Error ? err.message : 'Zakázka nenalezena')
     } finally {
       setLoading(false)
@@ -113,10 +123,15 @@ export function OrderDetailPage() {
         title={order.name}
         description={order.location}
         action={
-          <StatusBadge
-            label={JOB_ORDER_STATUS_LABELS[order.status]}
-            variant={order.status === 'aktivni' ? 'success' : 'info'}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            {marker ? (
+              <MarkerColorBadge color={marker.marker_color} label={marker.color_label} />
+            ) : null}
+            <StatusBadge
+              label={JOB_ORDER_STATUS_LABELS[order.status]}
+              variant={order.status === 'aktivni' ? 'success' : 'info'}
+            />
+          </div>
         }
       />
 

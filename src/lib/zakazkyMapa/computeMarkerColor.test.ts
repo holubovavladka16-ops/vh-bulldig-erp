@@ -140,6 +140,19 @@ describe('computeMarkerAutoColor', () => {
 
     expect(result.color).toBe('red')
   })
+
+  it('nikdy nevrátí zelenou bez schválených zápisů deníku', () => {
+    const result = computeMarkerAutoColor({
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
+      diaryEntryDates: [],
+      today: '2026-03-01',
+      workingDays: WORKING_DAYS,
+    })
+
+    expect(result.color).not.toBe('green')
+    expect(result.color).toBe('red')
+  })
 })
 
 describe('countConsecutiveMissingWorkingDays', () => {

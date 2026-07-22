@@ -7,8 +7,11 @@ import {
 import { getCompanyLocalDateTime } from '@/lib/zakazkyMapa/companyTime'
 import {
   PROJECT_MARKER_DEFAULT_CHECK_TIME,
+  PROJECT_MARKER_DEFAULT_COLOR,
   PROJECT_MARKER_DEFAULT_WORKING_DAYS,
+  PROJECT_MARKER_NEW_ORDER_LABEL,
 } from '@/constants/zakazkyMapa'
+import { PROJECT_MARKER_MISSING_DIARY_LABEL } from '@/constants/projectNotifications'
 
 export interface MarkerDisplaySettings {
   diary_check_time: string
@@ -34,6 +37,14 @@ export function resolveAutoMarkerDisplay(
       marker_color: marker.marker_color,
       color_label: marker.color_label,
       color_source: marker.color_source,
+    }
+  }
+
+  if (diaryEntryDates.length === 0) {
+    return {
+      marker_color: PROJECT_MARKER_DEFAULT_COLOR,
+      color_label: PROJECT_MARKER_NEW_ORDER_LABEL,
+      color_source: 'auto',
     }
   }
 
@@ -72,7 +83,7 @@ export function buildPlaceholderMarkerWithColor(
       is_approximate: order.gps_lat == null || order.gps_lng == null,
       marker_color: 'red',
       color_source: 'auto',
-      color_label: 'Chybí stavební deník',
+      color_label: PROJECT_MARKER_MISSING_DIARY_LABEL,
       created_at: now,
       updated_at: now,
     },
