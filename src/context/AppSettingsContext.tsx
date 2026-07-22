@@ -69,7 +69,24 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
 
-        if (!createError && created) {
+        if (createError?.message.includes('visual_theme')) {
+          const { visual_theme: _omit, ...legacyDefaults } = DEFAULT_APP_SETTINGS
+          const { data: legacyCreated, error: legacyError } = await supabase
+            .from('app_settings')
+            .insert({ user_id: userId, ...legacyDefaults })
+            .select('*')
+            .single()
+
+          if (!legacyError && legacyCreated) {
+            const appSettings: AppSettings = {
+              ...(legacyCreated as AppSettings),
+              visual_theme: DEFAULT_VISUAL_THEME,
+            }
+            setSettings(appSettings)
+            setTheme(appSettings.theme)
+            setVisualTheme(appSettings.visual_theme)
+          }
+        } else if (!createError && created) {
           const appSettings = created as AppSettings
           setSettings(appSettings)
           setTheme(appSettings.theme)
@@ -86,18 +103,23 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const saveSettings = useCallback(async (data: AppSettings) => {
     if (!user) return
 
-    const { error } = await supabase
-      .from('app_settings')
-      .update({
-        theme: data.theme,
-        visual_theme: data.visual_theme,
-        language: data.language,
-        sidebar_collapsed: data.sidebar_collapsed,
-        notifications_enabled: data.notifications_enabled,
-        auto_save_enabled: data.auto_save_enabled,
-        compact_mode: data.compact_mode,
-      })
-      .eq('user_id', user.id)
+    const payload = {
+      theme: data.theme,
+      visual_theme: data.visual_theme,
+      language: data.language,
+      sidebar_collapsed: data.sidebar_collapsed,
+      notifications_enabled: data.notifications_enabled,
+      auto_save_enabled: data.auto_save_enabled,
+      compact_mode: data.compact_mode,
+    }
+
+    let { error } = await supabase.from('app_settings').update(payload).eq('user_id', user.id)
+
+    // Sloupec visual_theme nemusí být v DB ještě aplikován – motiv funguje z localStorage
+    if (error?.message.includes('visual_theme')) {
+      const { visual_theme: _omit, ...legacyPayload } = payload
+      ;({ error } = await supabase.from('app_settings').update(legacyPayload).eq('user_id', user.id))
+    }
 
     if (error) {
       throw new Error(error.message)
