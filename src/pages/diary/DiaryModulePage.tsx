@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Eye, Pencil, Trash2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -24,6 +25,7 @@ import { formatDate } from '@/constants/workers'
 
 export function DiaryModulePage() {
   const { profile, user } = useAuth()
+  const [searchParams] = useSearchParams()
   const isAdmin = profile ? isAdministrator(profile.role) : false
 
   const [entries, setEntries] = useState<ConstructionDiaryEntry[]>([])
@@ -33,12 +35,33 @@ export function DiaryModulePage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editEntry, setEditEntry] = useState<ConstructionDiaryEntry | null>(null)
   const [viewEntryId, setViewEntryId] = useState<string | null>(null)
+  const [defaultOrderId, setDefaultOrderId] = useState<string | undefined>()
+  const [defaultEntryDate, setDefaultEntryDate] = useState<string | undefined>()
 
   useEffect(() => {
     fetchJobOrders()
       .then((orders) => setOrderOptions(orders.map((o) => ({ value: o.id, label: o.name }))))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const orderId = searchParams.get('orderId')?.trim()
+    const entryDate = searchParams.get('entryDate')?.trim()
+    if (orderId) {
+      setFilters((prev) => ({ ...prev, orderId }))
+      setDefaultOrderId(orderId)
+    }
+    if (entryDate) {
+      setDefaultEntryDate(entryDate)
+    }
+    if (orderId && entryDate) {
+      setEditEntry(null)
+      setFormOpen(true)
+    } else if (searchParams.get('create') === '1' && isAdmin) {
+      setEditEntry(null)
+      setFormOpen(true)
+    }
+  }, [searchParams, isAdmin])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -160,6 +183,8 @@ export function DiaryModulePage() {
         open={formOpen}
         initial={editEntry}
         orderOptions={orderOptions}
+        defaultOrderId={defaultOrderId}
+        defaultEntryDate={defaultEntryDate}
         onClose={() => { setFormOpen(false); setEditEntry(null) }}
         onSubmit={editEntry ? handleUpdate : handleCreate}
       />

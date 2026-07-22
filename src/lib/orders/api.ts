@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { ensureProjectMapMarkerForOrder } from '@/lib/zakazkyMapa/createProjectMapMarker'
+import { recalculateProjectMarkerColor } from '@/lib/zakazkyMapa/recalculateMarkerColor'
 import type {
   JobOrder,
   JobOrderCreateInput,
@@ -72,13 +74,21 @@ export async function createJobOrder(input: JobOrderCreateInput, createdBy: stri
     .single()
 
   if (error) throw new Error(error.message)
-  return data as JobOrder
+
+  const order = data as JobOrder
+  await ensureProjectMapMarkerForOrder(order)
+  await recalculateProjectMarkerColor(order.id)
+  return order
 }
 
 export async function updateJobOrder(id: string, input: Partial<JobOrderCreateInput>): Promise<JobOrder> {
   const { data, error } = await supabase.from('job_orders').update(input).eq('id', id).select('*').single()
   if (error) throw new Error(error.message)
-  return data as JobOrder
+  const order = data as JobOrder
+  if (input.start_date != null || input.end_date != null) {
+    await recalculateProjectMarkerColor(id)
+  }
+  return order
 }
 
 export async function archiveJobOrder(id: string): Promise<void> {

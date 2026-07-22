@@ -30,8 +30,14 @@ interface DiaryFormModalProps {
   open: boolean
   initial?: ConstructionDiaryEntry | null
   orderOptions: { value: string; label: string }[]
+  defaultOrderId?: string
+  defaultEntryDate?: string
   onClose: () => void
-  onSubmit: (data: ConstructionDiaryCreateInput) => Promise<void>
+  onSubmit?: (data: ConstructionDiaryCreateInput) => Promise<void>
+  /** Stavbyvedoucí – uložit rozepsaný / odeslat ke kontrole */
+  dualSubmit?: boolean
+  onSaveDraft?: (data: ConstructionDiaryCreateInput) => Promise<void>
+  onSubmitForReview?: (data: ConstructionDiaryCreateInput) => Promise<void>
 }
 
 const emptyPrefill: DiaryPrefillData = {
@@ -45,7 +51,18 @@ const emptyPrefill: DiaryPrefillData = {
   photos: [],
 }
 
-export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit }: DiaryFormModalProps) {
+export function DiaryFormModal({
+  open,
+  initial,
+  orderOptions,
+  defaultOrderId,
+  defaultEntryDate,
+  onClose,
+  onSubmit,
+  dualSubmit = false,
+  onSaveDraft,
+  onSubmitForReview,
+}: DiaryFormModalProps) {
   const [entryDate, setEntryDate] = useState(todayIsoDate())
   const [orderId, setOrderId] = useState('')
   const [weatherType, setWeatherType] = useState<DiaryWeatherType | ''>('')
@@ -127,8 +144,8 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
 
       void loadPrefill(initial.order_id, initial.entry_date, true)
     } else {
-      setEntryDate(todayIsoDate())
-      setOrderId('')
+      setEntryDate(defaultEntryDate ?? todayIsoDate())
+      setOrderId(defaultOrderId ?? '')
       setWeatherType('')
       setTemperature('')
       setEquipmentSelected([])
@@ -145,7 +162,7 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
       setLinkedPhotoIds([])
       setError('')
     }
-  }, [open, initial, loadPrefill])
+  }, [open, initial, defaultOrderId, defaultEntryDate, loadPrefill])
 
   useEffect(() => {
     if (!open || initial) return
@@ -165,17 +182,14 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
 
   if (!open) return null
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError('')
-
+  function buildPayload(): ConstructionDiaryCreateInput | null {
     const tempValue = temperature.trim() ? parseFloat(temperature) : null
     if (!entryDate || !orderId || !weatherType || !workDescription.trim()) {
       setError('Vyberte zakázku, datum, počasí a doplňte popis práce.')
-      return
+      return null
     }
 
-    const payload: ConstructionDiaryCreateInput = {
+    return {
       entry_date: entryDate,
       order_id: orderId,
       weather_type: weatherType,
@@ -195,10 +209,37 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
       extraordinary_events: extraordinaryEvents.trim(),
       linked_photo_ids: linkedPhotoIds,
     }
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+
+    const payload = buildPayload()
+    if (!payload || !onSubmit) return
 
     setLoading(true)
     try {
       await onSubmit(payload)
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Uložení se nezdařilo')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDualSubmit(mode: 'draft' | 'review') {
+    setError('')
+    const payload = buildPayload()
+    if (!payload) return
+
+    const handler = mode === 'draft' ? onSaveDraft : onSubmitForReview
+    if (!handler) return
+
+    setLoading(true)
+    try {
+      await handler(payload)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Uložení se nezdařilo')
@@ -403,9 +444,31 @@ export function DiaryFormModal({ open, initial, orderOptions, onClose, onSubmit 
             <Button type="button" variant="secondary" onClick={onClose}>
               Zrušit
             </Button>
-            <Button type="submit" loading={loading} disabled={!orderId || !entryDate}>
-              {initial ? 'Uložit zápis' : 'Vytvořit zápis'}
-            </Button>
+            {dualSubmit ? (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  loading={loading}
+                  disabled={!orderId || !entryDate}
+                  onClick={() => void handleDualSubmit('draft')}
+                >
+                  Uložit rozepsaný
+                </Button>
+                <Button
+                  type="button"
+                  loading={loading}
+                  disabled={!orderId || !entryDate}
+                  onClick={() => void handleDualSubmit('review')}
+                >
+                  Odeslat ke kontrole
+                </Button>
+              </>
+            ) : (
+              <Button type="submit" loading={loading} disabled={!orderId || !entryDate}>
+                {initial ? 'Uložit zápis' : 'Vytvořit zápis'}
+              </Button>
+            )}
           </div>
         </form>
       </div>

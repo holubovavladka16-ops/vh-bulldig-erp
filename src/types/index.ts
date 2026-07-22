@@ -1,4 +1,4 @@
-export type UserRole = 'administrator' | 'vedouci' | 'delnik'
+export type UserRole = 'administrator' | 'majitel' | 'stavbyvedouci' | 'ucetni' | 'vedouci' | 'delnik'
 
 export type ThemeMode = 'dark' | 'light'
 
@@ -74,6 +74,7 @@ export type ModuleId =
   | 'pripojky'
   | 'gps-fotoarchiv'
   | 'mapa-vykopu'
+  | 'zakazky-mapa'
   | 'dokumenty'
   | 'statistiky'
   | 'nastaveni'
@@ -81,6 +82,7 @@ export type ModuleId =
   | 'nastaveni-profil'
   | 'nastaveni-opravneni'
   | 'nastaveni-aplikace'
+  | 'stavbyvedouci'
 
 export interface NavItem {
   id: string

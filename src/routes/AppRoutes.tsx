@@ -33,6 +33,12 @@ import { FormCheckModulePage } from '@/pages/formCheck/FormCheckModulePage'
 import { FormCheckHistoryPage } from '@/pages/formCheck/FormCheckHistoryPage'
 import { FormCheckDetailPage } from '@/pages/formCheck/FormCheckDetailPage'
 import { GpsFotoarchivPage } from '@/pages/gpsFotoarchiv/GpsFotoarchivPage'
+import { ZakazkyMapaPage } from '@/pages/zakazkyMapa/ZakazkyMapaPage'
+import { StavbyvedouciHubPage } from '@/pages/stavbyvedouci/StavbyvedouciHubPage'
+import { StavbyvedouciAttendancePage } from '@/pages/stavbyvedouci/StavbyvedouciAttendancePage'
+import { StavbyvedouciCostPage } from '@/pages/stavbyvedouci/StavbyvedouciCostPage'
+import { StavbyvedouciDiaryPage } from '@/pages/stavbyvedouci/StavbyvedouciDiaryPage'
+import { StavbyvedouciOrdersPage } from '@/pages/stavbyvedouci/StavbyvedouciOrdersPage'
 import { FUTURE_MODULES } from '@/constants/modules'
 
 const placeholderModules = FUTURE_MODULES.filter(
@@ -46,6 +52,7 @@ const placeholderModules = FUTURE_MODULES.filter(
       'kontrola-formulare',
       'vyplatni-pasky',
       'zakazky',
+      'zakazky-mapa',
       'ekonomika',
       'mapa-vykopu',
       'denik',
@@ -68,6 +75,47 @@ export function AppRoutes() {
       {/* Portál zaměstnance – veřejný, bez ERP přístupu */}
       <Route path="/portal/:token" element={<EmployeePortalPage />} />
       <Route path="/portal/:token/:tab" element={<EmployeePortalPage />} />
+
+      <Route
+        path="/stavbyvedouci"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciHubPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stavbyvedouci/dochazka"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciAttendancePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stavbyvedouci/naklad"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciCostPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stavbyvedouci/denik"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciDiaryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stavbyvedouci/zakazky"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciOrdersPage />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/"
@@ -176,6 +224,15 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="zakazky">
             <OrderDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/zakazky-mapa"
+        element={
+          <ProtectedRoute requiredModule="zakazky-mapa">
+            <ZakazkyMapaPage />
           </ProtectedRoute>
         }
       />

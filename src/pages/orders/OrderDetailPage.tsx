@@ -8,7 +8,9 @@ import { Card } from '@/components/ui/Card'
 import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTable'
 import { StatusBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/context/AuthContext'
-import { isAdministrator } from '@/constants/permissions'
+import { isAdministrator, canManageProjectAssignments, isStavbyvedouci } from '@/constants/permissions'
+import { ProjectMarkerColorHistoryTable } from '@/components/zakazkyMapa/ProjectMarkerColorHistoryTable'
+import { ProjectStavbyvedouciSection } from '@/components/zakazkyMapa/ProjectStavbyvedouciSection'
 import {
   fetchJobOrderDetail,
   uploadJobOrderDocument,
@@ -29,6 +31,9 @@ export function OrderDetailPage() {
   const navigate = useNavigate()
   const { user, profile } = useAuth()
   const isAdmin = profile ? isAdministrator(profile.role) : false
+  const canManageAssignments = profile ? canManageProjectAssignments(profile.role) : false
+  const isSiteManager = profile ? isStavbyvedouci(profile.role) : false
+  const backPath = isSiteManager ? '/stavbyvedouci/zakazky' : '/zakazky'
   const [detail, setDetail] = useState<JobOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -83,9 +88,9 @@ export function OrderDetailPage() {
   if (!detail) {
     return (
       <AppLayout>
-        <Button variant="ghost" className="mb-4" onClick={() => navigate('/zakazky')}>
+        <Button variant="ghost" className="mb-4" onClick={() => navigate(backPath)}>
           <ArrowLeft className="h-4 w-4" />
-          Zpět na zakázky
+          Zpět
         </Button>
         <div className="glass-panel rounded-2xl p-8 text-center">
           <p className="text-lg font-semibold text-theme-primary">Zakázka nenalezena</p>
@@ -99,7 +104,7 @@ export function OrderDetailPage() {
 
   return (
     <AppLayout>
-      <Button variant="ghost" className="mb-4" onClick={() => navigate('/zakazky')}>
+      <Button variant="ghost" className="mb-4" onClick={() => navigate(backPath)}>
         <ArrowLeft className="h-4 w-4" />
         Zpět na zakázky
       </Button>
@@ -130,6 +135,16 @@ export function OrderDetailPage() {
           )}
           {order.note && <Meta label="Poznámka" value={order.note} className="sm:col-span-2 lg:col-span-3" />}
         </Card>
+
+        <Section title="Historie změn barvy">
+          {id && !isSiteManager ? <ProjectMarkerColorHistoryTable projectId={id} /> : null}
+        </Section>
+
+        {canManageAssignments && id && user ? (
+          <Section title="Stavbyvedoucí">
+            <ProjectStavbyvedouciSection projectId={id} userId={user.id} />
+          </Section>
+        ) : null}
 
         <Section title="Zaměstnanci na zakázce">
           <DataTable columns={[{ key: 'name', label: 'Jméno' }, { key: 'position', label: 'Pozice' }]} isEmpty={detail.employees.length === 0} emptyMessage="Zatím žádní zaměstnanci.">
@@ -164,49 +179,53 @@ export function OrderDetailPage() {
           </DataTable>
         </Section>
 
-        <Section title="Denní výkazy">
-          <DataTable
-            columns={[
-              { key: 'date', label: 'Datum' },
-              { key: 'earnings', label: 'Výdělek' },
-              { key: 'advance', label: 'Záloha' },
-              { key: 'status', label: 'Stav' },
-            ]}
-            isEmpty={detail.reports.length === 0}
-            emptyMessage="Zatím žádné výkazy."
-          >
-            {detail.reports.map((r) => (
-              <DataTableRow key={r.id}>
-                <DataTableCell>{formatDate(r.report_date)}</DataTableCell>
-                <DataTableCell>{formatCurrency(r.earnings)}</DataTableCell>
-                <DataTableCell>{formatCurrency(r.advance ?? 0)}</DataTableCell>
-                <DataTableCell>{WORKER_REPORT_STATUS_LABELS[r.status]}</DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTable>
-        </Section>
+        {!isSiteManager ? (
+          <Section title="Denní výkazy">
+            <DataTable
+              columns={[
+                { key: 'date', label: 'Datum' },
+                { key: 'earnings', label: 'Výdělek' },
+                { key: 'advance', label: 'Záloha' },
+                { key: 'status', label: 'Stav' },
+              ]}
+              isEmpty={detail.reports.length === 0}
+              emptyMessage="Zatím žádné výkazy."
+            >
+              {detail.reports.map((r) => (
+                <DataTableRow key={r.id}>
+                  <DataTableCell>{formatDate(r.report_date)}</DataTableCell>
+                  <DataTableCell>{formatCurrency(r.earnings)}</DataTableCell>
+                  <DataTableCell>{formatCurrency(r.advance ?? 0)}</DataTableCell>
+                  <DataTableCell>{WORKER_REPORT_STATUS_LABELS[r.status]}</DataTableCell>
+                </DataTableRow>
+              ))}
+            </DataTable>
+          </Section>
+        ) : null}
 
-        <Section title="Vyplacené zálohy">
-          <DataTable
-            columns={[
-              { key: 'date', label: 'Datum' },
-              { key: 'worker', label: 'Zaměstnanec' },
-              { key: 'advance', label: 'Záloha' },
-              { key: 'earnings', label: 'Výdělek' },
-            ]}
-            isEmpty={detail.advances.length === 0}
-            emptyMessage="Zatím žádné zálohy."
-          >
-            {detail.advances.map((a, index) => (
-              <DataTableRow key={`${a.form_date}-${a.worker_id}-${index}`}>
-                <DataTableCell>{formatDate(a.form_date)}</DataTableCell>
-                <DataTableCell>{a.worker_name}</DataTableCell>
-                <DataTableCell>{formatCurrency(a.advance)}</DataTableCell>
-                <DataTableCell>{formatCurrency(a.earnings)}</DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTable>
-        </Section>
+        {!isSiteManager ? (
+          <Section title="Vyplacené zálohy">
+            <DataTable
+              columns={[
+                { key: 'date', label: 'Datum' },
+                { key: 'worker', label: 'Zaměstnanec' },
+                { key: 'advance', label: 'Záloha' },
+                { key: 'earnings', label: 'Výdělek' },
+              ]}
+              isEmpty={detail.advances.length === 0}
+              emptyMessage="Zatím žádné zálohy."
+            >
+              {detail.advances.map((a, index) => (
+                <DataTableRow key={`${a.form_date}-${a.worker_id}-${index}`}>
+                  <DataTableCell>{formatDate(a.form_date)}</DataTableCell>
+                  <DataTableCell>{a.worker_name}</DataTableCell>
+                  <DataTableCell>{formatCurrency(a.advance)}</DataTableCell>
+                  <DataTableCell>{formatCurrency(a.earnings)}</DataTableCell>
+                </DataTableRow>
+              ))}
+            </DataTable>
+          </Section>
+        ) : null}
 
         <Section title="Fotografie">
           {isAdmin && (

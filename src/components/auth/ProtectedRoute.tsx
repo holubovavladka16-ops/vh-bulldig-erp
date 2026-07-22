@@ -1,7 +1,14 @@
 import { useAuth } from '@/context/AuthContext'
-import { hasModuleAccess, canAccessErp } from '@/constants/permissions'
+import {
+  hasModuleAccess,
+  canAccessErp,
+  getDefaultErpPath,
+  isStavbyvedouci,
+  isMajitel,
+  shouldRedirectStavbyvedouci,
+} from '@/constants/permissions'
 import type { ModuleId } from '@/types'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { AccessDeniedPage } from '@/components/auth/AccessDeniedPage'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +20,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requiredModule }: ProtectedRouteProps) {
   const { user, profile, loading, signOut } = useAuth()
+  const { pathname } = useLocation()
 
   if (loading) {
     return (
@@ -64,6 +72,20 @@ export function ProtectedRoute({ children, requiredModule }: ProtectedRouteProps
 
   if (!canAccessErp(profile.role)) {
     return <AccessDeniedPage />
+  }
+
+  if (isStavbyvedouci(profile.role)) {
+    if (shouldRedirectStavbyvedouci(pathname)) {
+      return <Navigate to={getDefaultErpPath(profile.role)} replace />
+    }
+    if (requiredModule && !hasModuleAccess(profile.role, requiredModule)) {
+      return <Navigate to={getDefaultErpPath(profile.role)} replace />
+    }
+    return <>{children}</>
+  }
+
+  if (isMajitel(profile.role) && pathname === '/') {
+    return <Navigate to={getDefaultErpPath(profile.role)} replace />
   }
 
   if (requiredModule && !hasModuleAccess(profile.role, requiredModule)) {

@@ -22,6 +22,7 @@ interface OrderOption {
 interface CostFormModalProps {
   open: boolean
   initial?: JobCost | null
+  defaultOrderId?: string
   orderOptions: OrderOption[]
   onClose: () => void
   onSubmit: (
@@ -40,7 +41,7 @@ const emptyForm: JobCostCreateInput = {
   note: '',
 }
 
-export function CostFormModal({ open, initial, orderOptions, onClose, onSubmit }: CostFormModalProps) {
+export function CostFormModal({ open, initial, defaultOrderId, orderOptions, onClose, onSubmit }: CostFormModalProps) {
   const [form, setForm] = useState<JobCostCreateInput>(emptyForm)
   const [priceInput, setPriceInput] = useState('')
   const [pdfFile, setPdfFile] = useState<File | undefined>()
@@ -75,7 +76,11 @@ export function CostFormModal({ open, initial, orderOptions, onClose, onSubmit }
           setExistingPhotos([])
         })
     } else {
-      setForm(emptyForm)
+      setForm({
+        ...emptyForm,
+        cost_date: new Date().toISOString().slice(0, 10),
+        order_id: defaultOrderId ?? '',
+      })
       setPriceInput('')
       setExistingDocument(null)
       setExistingPhotos([])
@@ -84,7 +89,7 @@ export function CostFormModal({ open, initial, orderOptions, onClose, onSubmit }
     setPdfFile(undefined)
     setPhotoFiles([])
     setError('')
-  }, [open, initial])
+  }, [open, initial, defaultOrderId])
 
   if (!open) return null
 
