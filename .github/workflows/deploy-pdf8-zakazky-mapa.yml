@@ -26,6 +26,7 @@ on:
 jobs:
   deploy-database:
     runs-on: ubuntu-latest
+    environment: Production – vh-bulldig-erp
     steps:
       - name: Checkout
         uses: actions/checkout@v4

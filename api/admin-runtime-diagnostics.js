@@ -1,4 +1,5 @@
 import { getSupabaseConfig } from './lib/config.js'
+import { getDbCredentialFlags, listDbRelatedEnvKeys } from './lib/db-credentials.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -15,9 +16,7 @@ export default async function handler(req, res) {
     supabaseUrl: url ?? null,
     hasAnonKey: Boolean(anonKey),
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
-    hasDbPassword: Boolean(process.env.SUPABASE_DB_PASSWORD),
-    hasPostgresUrl: Boolean(process.env.POSTGRES_URL),
-    hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
-    hasAccessToken: Boolean(process.env.SUPABASE_ACCESS_TOKEN),
+    envKeys: listDbRelatedEnvKeys(),
+    ...getDbCredentialFlags(),
   })
 }

@@ -33,6 +33,26 @@ loadEnvFile('.env')
 loadEnvFile('.env.local')
 loadEnvFile('.env.production')
 
+function getDbPasswordFromEnv() {
+  return (
+    process.env.SUPABASE_DB_PASSWORD ||
+    process.env.POSTGRES_PASSWORD ||
+    (() => {
+      for (const key of ['POSTGRES_URL', 'POSTGRES_URL_NON_POOLING', 'DATABASE_URL', 'SUPABASE_DB_URL']) {
+        const value = process.env[key]
+        if (!value) continue
+        try {
+          const parsed = new URL(value)
+          if (parsed.password) return decodeURIComponent(parsed.password)
+        } catch {
+          /* ignore */
+        }
+      }
+      return null
+    })()
+  )
+}
+
 const MIGRATIONS = [
   '068_pdf8_project_map_module.sql',
   '069_pdf8_marker_optional_gps.sql',
@@ -46,7 +66,7 @@ const MIGRATIONS = [
 const PDF8_TABLES = ['project_map_markers', 'project_notifications', 'project_user_assignments', 'project_marker_status_history']
 
 const projectRef = getProjectRef(process.env.VITE_SUPABASE_URL)
-const dbPassword = process.env.SUPABASE_DB_PASSWORD
+const dbPassword = getDbPasswordFromEnv()
 const token = process.env.SUPABASE_ACCESS_TOKEN
 const url = process.env.VITE_SUPABASE_URL
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY

@@ -1,5 +1,6 @@
 import pg from 'pg'
 import { getSupabaseConfig } from './lib/config.js'
+import { getDbPasswordFromEnv, getDbConnectionCandidates } from './lib/db-credentials.js'
 
 const MIGRATION_060 = `
 DO $$ BEGIN
@@ -119,49 +120,18 @@ function getProjectRef(url) {
   return url?.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? null
 }
 
-function buildConnectionCandidates(projectRef, dbPassword) {
-  const encodedPassword = encodeURIComponent(dbPassword)
-  const candidates = []
-
-  for (const key of ['SUPABASE_DB_DIRECT_URL', 'SUPABASE_DB_URL', 'DATABASE_URL', 'POSTGRES_URL']) {
-    if (process.env[key]) candidates.push(process.env[key])
-  }
-
-  candidates.push(
-    `postgresql://postgres:${encodedPassword}@db.${projectRef}.supabase.co:5432/postgres`,
-    `postgresql://postgres.${projectRef}:${encodedPassword}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`
-  )
-
-  return [...new Set(candidates.filter(Boolean))]
+function buildConnectionCandidates(projectRef) {
+  return getDbConnectionCandidates(projectRef)
 }
 
 function getDbPassword() {
-  if (process.env.SUPABASE_DB_PASSWORD) {
-    return process.env.SUPABASE_DB_PASSWORD
-  }
-
-  for (const key of ['POSTGRES_URL', 'DATABASE_URL', 'SUPABASE_DB_URL', 'SUPABASE_DB_DIRECT_URL']) {
-    const value = process.env[key]
-    if (!value) continue
-    try {
-      const parsed = new URL(value)
-      if (parsed.password) {
-        return decodeURIComponent(parsed.password)
-      }
-    } catch {
-      // ignore invalid URL
-    }
-  }
-
-  return null
+  return getDbPasswordFromEnv()
 }
 
 async function connectDb(projectRef) {
   const errors = []
 
-  for (const key of ['POSTGRES_URL', 'DATABASE_URL', 'SUPABASE_DB_URL', 'SUPABASE_DB_DIRECT_URL']) {
-    const url = process.env[key]
-    if (!url) continue
+  for (const url of buildConnectionCandidates(projectRef)) {
     const client = new pg.Client({
       connectionString: url,
       ssl: { rejectUnauthorized: false },
@@ -171,29 +141,13 @@ async function connectDb(projectRef) {
       await client.connect()
       return client
     } catch (error) {
-      errors.push(`${key}: ${error.message}`)
+      errors.push(`${url.split('@')[1] ?? url}: ${error.message}`)
       await client.end().catch(() => {})
     }
   }
 
-  const dbPassword = getDbPassword()
-  if (!dbPassword) {
+  if (!getDbPassword()) {
     throw new Error('SUPABASE_DB_PASSWORD_MISSING')
-  }
-
-  for (const url of buildConnectionCandidates(projectRef, dbPassword)) {
-    const client = new pg.Client({
-      connectionString: url,
-      ssl: { rejectUnauthorized: false },
-      connectionTimeoutMillis: 15000,
-    })
-    try {
-      await client.connect()
-      return client
-    } catch (error) {
-      errors.push(error.message)
-      await client.end().catch(() => {})
-    }
   }
 
   throw new Error(`DB_CONNECT_FAILED: ${errors.join(' | ')}`)

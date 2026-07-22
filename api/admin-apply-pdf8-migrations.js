@@ -7,6 +7,7 @@ import { resolve, join } from 'node:path'
 import pg from 'pg'
 import { createClient } from '@supabase/supabase-js'
 import { getSupabaseConfig } from './lib/config.js'
+import { getDbPasswordFromEnv, getDbConnectionCandidates } from './lib/db-credentials.js'
 
 const MIGRATION_FILES = [
   '068_pdf8_project_map_module.sql',
@@ -36,38 +37,16 @@ function getProjectRef(url) {
 }
 
 function getDbPassword() {
-  if (process.env.SUPABASE_DB_PASSWORD) return process.env.SUPABASE_DB_PASSWORD
-  for (const key of ['POSTGRES_URL', 'DATABASE_URL', 'SUPABASE_DB_URL', 'SUPABASE_DB_DIRECT_URL']) {
-    const value = process.env[key]
-    if (!value) continue
-    try {
-      const parsed = new URL(value)
-      if (parsed.password) return decodeURIComponent(parsed.password)
-    } catch {
-      /* ignore */
-    }
-  }
-  return null
+  return getDbPasswordFromEnv()
 }
 
-function buildConnectionCandidates(projectRef, dbPassword) {
-  const encodedPassword = encodeURIComponent(dbPassword)
-  const candidates = []
-  for (const key of ['SUPABASE_DB_DIRECT_URL', 'SUPABASE_DB_URL', 'DATABASE_URL', 'POSTGRES_URL']) {
-    if (process.env[key]) candidates.push(process.env[key])
-  }
-  candidates.push(
-    `postgresql://postgres:${encodedPassword}@db.${projectRef}.supabase.co:5432/postgres`,
-    `postgresql://postgres.${projectRef}:${encodedPassword}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`,
-    `postgresql://postgres.${projectRef}:${encodedPassword}@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`
-  )
-  return [...new Set(candidates.filter(Boolean))]
+function buildConnectionCandidates(projectRef) {
+  return getDbConnectionCandidates(projectRef)
 }
 
 async function connectDb(projectRef) {
   const errors = []
-  for (const url of buildConnectionCandidates(projectRef, getDbPassword() ?? '')) {
-    if (!getDbPassword() && !url.includes('postgresql://postgres:')) continue
+  for (const url of buildConnectionCandidates(projectRef)) {
     const client = new pg.Client({
       connectionString: url,
       ssl: { rejectUnauthorized: false },
