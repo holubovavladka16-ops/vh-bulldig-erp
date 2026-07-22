@@ -1,6 +1,14 @@
 name: Deploy PDF8 Zakázky a mapa
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/06*_pdf8*.sql'
+      - 'supabase/migrations/07*_pdf8*.sql'
+      - 'scripts/deploy-pdf8-zakazky-mapa-production.mjs'
+      - '.github/workflows/deploy-pdf8-zakazky-mapa.yml'
   workflow_dispatch:
     inputs:
       skip_vercel:
