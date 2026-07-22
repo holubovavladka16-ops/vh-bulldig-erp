@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { ensureProjectMapMarkerForOrder } from '@/lib/zakazkyMapa/createProjectMapMarker'
 import type {
   JobOrder,
   JobOrderCreateInput,
@@ -72,7 +73,10 @@ export async function createJobOrder(input: JobOrderCreateInput, createdBy: stri
     .single()
 
   if (error) throw new Error(error.message)
-  return data as JobOrder
+
+  const order = data as JobOrder
+  await ensureProjectMapMarkerForOrder(order)
+  return order
 }
 
 export async function updateJobOrder(id: string, input: Partial<JobOrderCreateInput>): Promise<JobOrder> {

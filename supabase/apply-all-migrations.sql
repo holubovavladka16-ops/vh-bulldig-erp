@@ -2,7 +2,7 @@
 -- VH Bulldig ERP - All Migrations
 -- Project: khhalcjgvqoyskkjlkyg
 -- Run in Supabase Dashboard -> SQL Editor -> New query
--- Generated: 2026-07-22 06:50
+-- Generated: 2026-07-22 06:55
 -- =============================================================================
 
 
@@ -9908,5 +9908,24 @@ ON CONFLICT (id) DO UPDATE SET
   icon = EXCLUDED.icon,
   sort_order = EXCLUDED.sort_order,
   module_version = EXCLUDED.module_version;
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- =============================================================================
+-- MIGRATION: 069_pdf8_marker_optional_gps.sql
+-- =============================================================================
+
+-- PDF 8 Fáze 1b – hlavní špendlík může existovat bez GPS (dopočet později)
+
+ALTER TABLE project_map_markers
+  ALTER COLUMN gps_lat DROP NOT NULL,
+  ALTER COLUMN gps_lng DROP NOT NULL;
+
+COMMENT ON COLUMN project_map_markers.gps_lat IS
+  'Zeměpisná šířka hlavního špendlíku; NULL = neúplný, čeká na geokódování.';
+
+COMMENT ON COLUMN project_map_markers.gps_lng IS
+  'Zeměpisná délka hlavního špendlíku; NULL = neúplný, čeká na geokódování.';
 
 NOTIFY pgrst, 'reload schema';
