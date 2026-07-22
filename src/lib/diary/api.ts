@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { recalculateProjectMarkerColor } from '@/lib/zakazkyMapa/recalculateMarkerColor'
 import type {
   ConstructionDiaryCreateInput,
   ConstructionDiaryDetail,
@@ -181,6 +182,7 @@ export async function createDiaryEntry(
 
   const detail = await fetchDiaryDetail(entry.id)
   if (!detail) throw new Error('Zápis se nepodařilo načíst')
+  await recalculateProjectMarkerColor(entry.order_id)
   return detail
 }
 
@@ -223,12 +225,24 @@ export async function updateDiaryEntry(
 
   const detail = await fetchDiaryDetail(entry.id)
   if (!detail) throw new Error('Zápis se nepodařilo načíst')
+  await recalculateProjectMarkerColor(entry.order_id)
   return detail
 }
 
 export async function deleteDiaryEntry(id: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from('construction_diary_entries')
+    .select('order_id')
+    .eq('id', id)
+    .maybeSingle()
+
   await supabase.from('gps_photos').update({ diary_entry_id: null }).eq('diary_entry_id', id)
 
   const { error } = await supabase.from('construction_diary_entries').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  const orderId = (existing as { order_id?: string } | null)?.order_id
+  if (orderId) {
+    await recalculateProjectMarkerColor(orderId)
+  }
 }

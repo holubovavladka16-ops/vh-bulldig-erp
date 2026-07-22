@@ -34,6 +34,30 @@ export async function fetchProjectMapMarkersWithOrders(): Promise<ProjectMapMark
     .filter((item): item is ProjectMapMarkerWithOrder => item != null)
 }
 
+export async function fetchProjectMapMarkerByProjectId(
+  projectId: string
+): Promise<ProjectMapMarkerWithOrder | null> {
+  const { data: marker, error: markerError } = await supabase
+    .from('project_map_markers')
+    .select('*')
+    .eq('project_id', projectId)
+    .maybeSingle()
+
+  if (markerError) throw new Error(markerError.message)
+  if (!marker) return null
+
+  const { data: order, error: orderError } = await supabase
+    .from('job_orders')
+    .select('*')
+    .eq('id', projectId)
+    .maybeSingle()
+
+  if (orderError) throw new Error(orderError.message)
+  if (!order) return null
+
+  return { ...(marker as ProjectMapMarker), order: order as JobOrder }
+}
+
 export function filterProjectMapMarkers(
   items: ProjectMapMarkerWithOrder[],
   filters: ProjectMapMarkerFilters

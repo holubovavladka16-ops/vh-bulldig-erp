@@ -4,6 +4,26 @@ export const PROJECT_MARKER_DEFAULT_COLOR: ProjectMarkerColor = 'green'
 export const PROJECT_MARKER_DEFAULT_COLOR_SOURCE: ProjectMarkerColorSource = 'auto'
 export const PROJECT_MARKER_NEW_ORDER_LABEL = 'Nová zakázka'
 
+/** Automatické popisky barev (Fáze 1e). */
+export const PROJECT_MARKER_AUTO_COLOR_LABELS: Record<ProjectMarkerColor, string> = {
+  green: 'Probíhá v pořádku',
+  orange: 'Vyžaduje kontrolu',
+  red: 'Vyžaduje zásah',
+  blue: 'Čeká na zahájení',
+}
+
+/** Po kolika chybějících pracovních dnech deníku → červená. */
+export const PROJECT_MARKER_LONG_MISSING_WORKING_DAYS = 3
+
+/** Kolik dní před termínem dokončení → oranžová. */
+export const PROJECT_MARKER_APPROACHING_END_DAYS = 7
+
+/** Výchozí kontrolní čas deníku (odpovídá migraci 068). */
+export const PROJECT_MARKER_DEFAULT_CHECK_TIME = '20:00:00'
+
+/** Výchozí pracovní dny Po–Pá (PostgreSQL DOW). */
+export const PROJECT_MARKER_DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5]
+
 /** Geokódovaná adresa je považována za přibližnou polohu. */
 export const PROJECT_MARKER_GEOCODE_APPROXIMATE = true
 

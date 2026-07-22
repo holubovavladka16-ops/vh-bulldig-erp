@@ -12,7 +12,7 @@ import { useAuth } from '@/context/AuthContext'
 import { isAdministrator } from '@/constants/permissions'
 import { createDiaryEntry } from '@/lib/diary/api'
 import { fetchJobOrders } from '@/lib/orders/api'
-import { fetchProjectMapMarkersWithOrders, filterProjectMapMarkers } from '@/lib/zakazkyMapa/api'
+import { fetchProjectMapMarkersWithOrders, filterProjectMapMarkers, fetchProjectMapMarkerByProjectId } from '@/lib/zakazkyMapa/api'
 import { PROJECT_MARKER_COLOR_FILTER_OPTIONS } from '@/constants/zakazkyMapa'
 import type { ConstructionDiaryCreateInput } from '@/types/diary'
 import type { ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
@@ -66,6 +66,18 @@ export function ZakazkyMapaPage() {
     }
   }, [selectedProjectId, selectedItem])
 
+  const refreshMarker = useCallback(async (projectId: string) => {
+    try {
+      const updated = await fetchProjectMapMarkerByProjectId(projectId)
+      if (!updated) return
+      setItems((prev) =>
+        prev.map((item) => (item.project_id === projectId ? updated : item))
+      )
+    } catch {
+      // Barva se obnoví při příštím načtení stránky.
+    }
+  }, [])
+
   function handleOpenDiaryForm(orderId: string) {
     setDiaryPrefillOrderId(orderId)
     setDiaryFormOpen(true)
@@ -77,6 +89,9 @@ export function ZakazkyMapaPage() {
     setDiaryFormOpen(false)
     setDiaryPrefillOrderId(null)
     setDiaryRefreshToken((token) => token + 1)
+    if (data.order_id) {
+      await refreshMarker(data.order_id)
+    }
   }
 
   const popupProps = selectedItem

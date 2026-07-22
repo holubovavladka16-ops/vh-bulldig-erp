@@ -1,5 +1,6 @@
 import { forwardGeocode } from '@/lib/photos/geocoding'
 import { supabase } from '@/lib/supabase'
+import { recalculateProjectMarkerColor } from '@/lib/zakazkyMapa/recalculateMarkerColor'
 import {
   PROJECT_MARKER_DEFAULT_COLOR,
   PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
@@ -139,6 +140,8 @@ export async function ensureProjectMapMarkerForOrder(order: JobOrder): Promise<v
         return
       }
       console.error('[zakazky-mapa] Nepodařilo se vytvořit hlavní špendlík:', error.message)
+    } else {
+      await recalculateProjectMarkerColor(order.id)
     }
   } catch (err) {
     console.error(
