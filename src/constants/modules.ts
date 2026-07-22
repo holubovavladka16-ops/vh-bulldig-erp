@@ -33,7 +33,7 @@ export const FUTURE_MODULES: NavItem[] = [
   { id: 'denik', label: 'Stavební deník', path: '/denik', icon: 'BookOpen', module: 'denik' },
   { id: 'ekonomika', label: 'Náklady', path: '/ekonomika', icon: 'Landmark', module: 'ekonomika' },
   { id: 'paragony', label: 'Paragony', path: '/paragony', icon: 'Receipt', module: 'paragony' },
-  { id: 'fakturovac', label: 'Fakturovač', path: '/fakturace', icon: 'FileInvoice', module: 'fakturovac' },
+  { id: 'fakturovac', label: 'Fakturovač', path: '/fakturace', icon: 'ScrollText', module: 'fakturovac' },
   { id: 'pripojky', label: 'Přípojky', path: '/pripojky', icon: 'Cable', module: 'pripojky' },
   { id: 'gps-fotoarchiv', label: 'Fotodokumentace s GPS', path: '/gps-fotoarchiv', icon: 'Camera', module: 'gps-fotoarchiv' },
   { id: 'mapa-vykopu', label: 'Mapa výkopů', path: '/mapa-vykopu', icon: 'Route', module: 'mapa-vykopu' },

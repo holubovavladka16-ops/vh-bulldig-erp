@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.diary-ai-polish]
 verify_jwt = true
 
+[functions.send-invoice-email]
+verify_jwt = true
+
 [api]
 enabled = true
 

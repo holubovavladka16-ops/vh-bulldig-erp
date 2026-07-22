@@ -12,7 +12,7 @@ export function buildInvoiceShareText(invoice: IssuedInvoice): string {
     `Variabilní symbol: ${invoice.variable_symbol}`,
     `Celkem k úhradě: ${formatCurrency(invoice.total)}`,
     '',
-    'PDF faktury prosím vytvořte v modulu Fakturovač ERP 8.',
+    'PDF faktury je v příloze tohoto e-mailu.',
   ]
     .filter(Boolean)
     .join('\n')

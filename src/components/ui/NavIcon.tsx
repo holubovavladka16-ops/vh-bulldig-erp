@@ -22,7 +22,7 @@ import {
   SlidersHorizontal,
   Receipt,
   ScanLine,
-  FileInvoice,
+  ScrollText,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -50,7 +50,7 @@ const iconMap: Record<string, LucideIcon> = {
   SlidersHorizontal,
   Receipt,
   ScanLine,
-  FileInvoice,
+  ScrollText,
 }
 
 interface NavIconProps {

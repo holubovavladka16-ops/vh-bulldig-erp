@@ -31,7 +31,7 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
     id: 'nastaveni-faktury',
     label: 'Nastavení faktur',
     path: '/nastaveni/faktury',
-    icon: 'FileInvoice',
+    icon: 'ScrollText',
     module: 'nastaveni-faktury',
     adminOnly: true,
   },

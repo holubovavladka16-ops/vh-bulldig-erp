@@ -201,7 +201,7 @@ CREATE POLICY "Admin maže podklady faktur"
   USING (bucket_id = 'invoice-assets');
 
 INSERT INTO erp_modules (id, label, path, icon, sort_order, is_implemented, module_version)
-VALUES ('fakturovac', 'Fakturovač', '/fakturace', 'FileInvoice', 9, true, '1.0.0')
+VALUES ('fakturovac', 'Fakturovač', '/fakturace', 'ScrollText', 9, true, '1.0.0')
 ON CONFLICT (id) DO UPDATE SET
   label = EXCLUDED.label,
   path = EXCLUDED.path,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, FileDown, Loader2, Mail, Package, Save, Search, Trash2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -20,8 +20,8 @@ import {
 } from '@/lib/invoices/api'
 import { calculateInvoiceTotals } from '@/lib/invoices/calculations'
 import { loadInvoiceLinesFromOrder } from '@/lib/invoices/orderLines'
+import { downloadInvoicePdf, sendInvoiceEmail } from '@/lib/invoices/email'
 import { printInvoiceReport } from '@/lib/invoices/invoiceReport'
-import { getInvoiceEmailShareUrl } from '@/lib/invoices/share'
 import { fetchJobOrders } from '@/lib/orders/api'
 import {
   INVOICE_STATUS_LABELS,
@@ -42,7 +42,6 @@ const VAT_OPTIONS = [
   { value: 'none', label: 'Bez DPH' },
   { value: '21', label: '21 %' },
   { value: '12', label: '12 %' },
-  { value: '0', label: '0 %' },
 ]
 
 function invoiceToInput(invoice: IssuedInvoice): IssuedInvoiceInput {
@@ -89,7 +88,11 @@ export function InvoiceEditorPage() {
   const [saving, setSaving] = useState(false)
   const [aresLoading, setAresLoading] = useState(false)
   const [loadingOrderLines, setLoadingOrderLines] = useState(false)
+  const [emailSending, setEmailSending] = useState(false)
+  const [pdfGenerating, setPdfGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const lastAresIco = useRef('')
 
   const totals = useMemo(
     () => (form ? calculateInvoiceTotals(form.lines, form.vat_mode) : { subtotal: 0, vatAmount: 0, total: 0 }),
@@ -133,12 +136,14 @@ export function InvoiceEditorPage() {
     patchForm({ lines })
   }
 
-  async function handleAresLookup() {
-    if (!form?.customer_ico.trim()) return
+  const runAresLookup = useCallback(async (rawIco?: string) => {
+    const ico = (rawIco ?? form?.customer_ico ?? '').replace(/\D/g, '')
+    if (ico.length !== 8 || ico === lastAresIco.current) return
     setAresLoading(true)
     setError(null)
     try {
-      const data = await lookupAresByIco(form.customer_ico)
+      const data = await lookupAresByIco(ico)
+      lastAresIco.current = data.ico
       patchForm({
         customer_ico: data.ico,
         customer_name: data.name,
@@ -152,7 +157,16 @@ export function InvoiceEditorPage() {
     } finally {
       setAresLoading(false)
     }
-  }
+  }, [form?.customer_ico])
+
+  useEffect(() => {
+    const ico = form?.customer_ico.replace(/\D/g, '') ?? ''
+    if (ico.length !== 8) return
+    const timeout = setTimeout(() => {
+      void runAresLookup(ico)
+    }, 700)
+    return () => clearTimeout(timeout)
+  }, [form?.customer_ico, runAresLookup])
 
   async function handleLoadOrderLines() {
     if (!form?.order_id) return
@@ -201,22 +215,54 @@ export function InvoiceEditorPage() {
 
   async function handlePdf() {
     if (!invoice || !settings) return
-    const full = await fetchInvoice(invoice.id)
-    if (!full) return
-    printInvoiceReport(full, settings)
+    setPdfGenerating(true)
+    setError(null)
+    try {
+      const full = await fetchInvoice(invoice.id)
+      if (!full) return
+      await downloadInvoicePdf(full, settings)
+    } catch (err) {
+      const full = await fetchInvoice(invoice.id)
+      if (full) printInvoiceReport(full, settings)
+      else setError(err instanceof Error ? err.message : 'Vytvoření PDF selhalo')
+    } finally {
+      setPdfGenerating(false)
+    }
   }
 
   async function handleEmail() {
-    if (!invoice || !form) return
-    await handleSave(invoice.status === 'koncept' ? 'vytvorena' : invoice.status)
-    const full = await fetchInvoice(invoice.id)
-    if (!full) return
-    await updateInvoiceStatus(full.id, 'odeslana', {
-      sent_at: new Date().toISOString(),
-      sent_to_email: full.customer_email || null,
-    })
-    window.location.href = getInvoiceEmailShareUrl(full, full.customer_email || undefined)
-    await load()
+    if (!invoice || !form || !settings) return
+    if (!form.customer_email?.trim()) {
+      setError('Pro odeslání vyplňte e-mail odběratele')
+      return
+    }
+
+    setEmailSending(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      await handleSave(invoice.status === 'koncept' ? 'vytvorena' : invoice.status)
+      const full = await fetchInvoice(invoice.id)
+      if (!full) throw new Error('Faktura nebyla nalezena')
+
+      const result = await sendInvoiceEmail(full, settings, form.customer_email.trim())
+      if (result.method === 'cancelled') return
+
+      if (result.method === 'resend') {
+        await updateInvoiceStatus(full.id, 'odeslana', {
+          sent_at: new Date().toISOString(),
+          sent_to_email: form.customer_email.trim(),
+        })
+        setSuccess(`Faktura odeslána na ${form.customer_email.trim()} včetně PDF přílohy.`)
+      } else {
+        setSuccess('PDF bylo otevřeno ke sdílení – odešlete ho e-mailem z vašeho zařízení.')
+      }
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Odeslání e-mailu selhalo')
+    } finally {
+      setEmailSending(false)
+    }
   }
 
   async function handleDelete() {
@@ -261,9 +307,9 @@ export function InvoiceEditorPage() {
               <Save className="h-4 w-4" />
               Uložit
             </Button>
-            <Button onClick={handlePdf}>
+            <Button onClick={handlePdf} disabled={pdfGenerating}>
               <FileDown className="h-4 w-4" />
-              Vytvořit PDF
+              {pdfGenerating ? 'Generuji PDF…' : 'Vytvořit PDF'}
             </Button>
           </div>
         }
@@ -275,6 +321,7 @@ export function InvoiceEditorPage() {
       </div>
 
       {error ? <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div> : null}
+      {success ? <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">{success}</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
@@ -297,11 +344,15 @@ export function InvoiceEditorPage() {
             <Input
               label="IČO"
               value={form.customer_ico}
-              onChange={(e) => patchForm({ customer_ico: e.target.value })}
+              onChange={(e) => {
+                lastAresIco.current = ''
+                patchForm({ customer_ico: e.target.value })
+              }}
               placeholder="12345678"
+              hint={aresLoading ? 'Načítám údaje z ARES…' : 'Po zadání 8 číslic se údaje doplní automaticky'}
             />
             <div className="flex items-end">
-              <Button type="button" variant="secondary" onClick={handleAresLookup} disabled={aresLoading}>
+              <Button type="button" variant="secondary" onClick={() => runAresLookup()} disabled={aresLoading}>
                 {aresLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 Načíst z ARES
               </Button>
@@ -399,7 +450,16 @@ export function InvoiceEditorPage() {
             label="DPH"
             options={VAT_OPTIONS}
             value={form.vat_mode}
-            onChange={(e) => patchForm({ vat_mode: e.target.value as IssuedInvoiceInput['vat_mode'] })}
+            onChange={(e) => {
+              const vatMode = e.target.value as IssuedInvoiceInput['vat_mode']
+              patchForm({
+                vat_mode: vatMode,
+                lines: form.lines.map((line) => ({
+                  ...line,
+                  vat_rate: vatMode === 'none' ? 0 : Number(vatMode),
+                })),
+              })
+            }}
           />
         </div>
 
@@ -451,9 +511,9 @@ export function InvoiceEditorPage() {
           <Button onClick={handleFinalize} disabled={saving}>
             Označit jako vytvořenou
           </Button>
-          <Button variant="secondary" onClick={handleEmail} disabled={saving}>
+          <Button variant="secondary" onClick={handleEmail} disabled={saving || emailSending}>
             <Mail className="h-4 w-4" />
-            Odeslat emailem
+            {emailSending ? 'Odesílám…' : 'Odeslat e-mailem'}
           </Button>
           <Button variant="ghost" onClick={handleDelete} className="text-red-400">
             <Trash2 className="h-4 w-4" />
