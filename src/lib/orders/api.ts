@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { ensureProjectMapMarkerForOrder } from '@/lib/zakazkyMapa/createProjectMapMarker'
+import { notifyMapOrdersChanged } from '@/lib/zakazkyMapa/mapEvents'
 import { recalculateProjectMarkerColor } from '@/lib/zakazkyMapa/recalculateMarkerColor'
 import type {
   JobOrder,
@@ -78,6 +79,7 @@ export async function createJobOrder(input: JobOrderCreateInput, createdBy: stri
   const order = data as JobOrder
   await ensureProjectMapMarkerForOrder(order)
   await recalculateProjectMarkerColor(order.id)
+  notifyMapOrdersChanged()
   return order
 }
 
@@ -102,6 +104,10 @@ export async function updateJobOrder(id: string, input: Partial<JobOrderCreateIn
     locationChanged
   ) {
     await recalculateProjectMarkerColor(id)
+  }
+
+  if (locationChanged) {
+    notifyMapOrdersChanged()
   }
 
   return order

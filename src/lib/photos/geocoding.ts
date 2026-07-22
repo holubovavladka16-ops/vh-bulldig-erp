@@ -39,9 +39,39 @@ export async function forwardGeocode(query: string): Promise<ForwardGeocodeResul
   const trimmed = query.trim()
   if (!trimmed) return null
 
+  const fromProxy = await forwardGeocodeViaProxy(trimmed)
+  if (fromProxy) return fromProxy
+
+  return forwardGeocodeDirect(trimmed)
+}
+
+async function forwardGeocodeViaProxy(query: string): Promise<ForwardGeocodeResult | null> {
+  try {
+    const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
+      headers: { Accept: 'application/json' },
+    })
+
+    if (response.status === 404) return null
+    if (!response.ok) return null
+
+    const data = (await response.json()) as { lat?: number; lng?: number; display_name?: string }
+    if (data.lat == null || data.lng == null) return null
+    if (!Number.isFinite(data.lat) || !Number.isFinite(data.lng)) return null
+
+    return {
+      lat: data.lat,
+      lng: data.lng,
+      display_name: data.display_name?.trim() || query,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function forwardGeocodeDirect(query: string): Promise<ForwardGeocodeResult | null> {
   try {
     const url = new URL('https://nominatim.openstreetmap.org/search')
-    url.searchParams.set('q', trimmed)
+    url.searchParams.set('q', query)
     url.searchParams.set('format', 'json')
     url.searchParams.set('limit', '1')
     url.searchParams.set('countrycodes', 'cz')
@@ -67,7 +97,7 @@ export async function forwardGeocode(query: string): Promise<ForwardGeocodeResul
     return {
       lat,
       lng,
-      display_name: hit.display_name?.trim() || trimmed,
+      display_name: hit.display_name?.trim() || query,
     }
   } catch {
     return null

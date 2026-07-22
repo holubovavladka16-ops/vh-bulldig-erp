@@ -1,4 +1,5 @@
-import { MapPin } from 'lucide-react'
+import { MapPin, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { MarkerColorBadge } from '@/components/zakazkyMapa/MarkerColorBadge'
 import { JOB_ORDER_STATUS_LABELS } from '@/constants/orders'
 import { PROJECT_MAP_MISSING_LOCATION_LABEL } from '@/constants/zakazkyMapa'
@@ -10,9 +11,18 @@ interface ProjectListProps {
   selectedProjectId: string | null
   onSelect: (projectId: string) => void
   loading?: boolean
+  replenishingId?: string | null
+  onReplenishLocation?: (item: ProjectMapMarkerWithOrder) => void
 }
 
-export function ProjectList({ items, selectedProjectId, onSelect, loading = false }: ProjectListProps) {
+export function ProjectList({
+  items,
+  selectedProjectId,
+  onSelect,
+  loading = false,
+  replenishingId = null,
+  onReplenishLocation,
+}: ProjectListProps) {
   if (loading) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-sm text-theme-muted">
@@ -34,6 +44,8 @@ export function ProjectList({ items, selectedProjectId, onSelect, loading = fals
       {items.map((item) => {
         const hasGps = isValidProjectMarkerGps(item.gps_lat, item.gps_lng)
         const selected = selectedProjectId === item.project_id
+        const isReplenishing = replenishingId === item.project_id
+        const canReplenish = !hasGps && Boolean(item.order.location?.trim()) && onReplenishLocation
 
         return (
           <li key={item.id}>
@@ -63,7 +75,24 @@ export function ProjectList({ items, selectedProjectId, onSelect, loading = fals
                 </span>
               </div>
               {!hasGps ? (
-                <p className="mt-2 text-xs text-amber-300/90">{PROJECT_MAP_MISSING_LOCATION_LABEL}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-amber-300/90">{PROJECT_MAP_MISSING_LOCATION_LABEL}</p>
+                  {canReplenish ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-7 px-2 text-xs"
+                      loading={isReplenishing}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onReplenishLocation(item)
+                      }}
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Doplnit polohu
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
             </button>
           </li>

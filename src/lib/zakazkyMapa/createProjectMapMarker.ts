@@ -1,5 +1,7 @@
 import { forwardGeocode } from '@/lib/photos/geocoding'
 import { supabase } from '@/lib/supabase'
+import { buildGeocodeQueryFromOrder, delay, GEOCODE_RATE_LIMIT_MS } from '@/lib/zakazkyMapa/geocodeQuery'
+import { isValidProjectMarkerGps } from '@/lib/zakazkyMapa/markerGps'
 import { recalculateProjectMarkerColor } from '@/lib/zakazkyMapa/recalculateMarkerColor'
 import {
   PROJECT_MARKER_DEFAULT_COLOR,
@@ -23,6 +25,15 @@ export interface ProjectMarkerGpsResult {
   gps_lng: number | null
   gps_accuracy: number | null
   is_approximate: boolean
+}
+
+export interface EnsureMarkerResult {
+  projectId: string
+  hasGps: boolean
+  geocoded: boolean
+  created: boolean
+  updated: boolean
+  error?: string
 }
 
 function hasValidCoordinates(lat: number | null | undefined, lng: number | null | undefined): boolean {
@@ -63,8 +74,18 @@ export async function resolveProjectMarkerGps(
     return resolved
   }
 
+  const query = input.location?.trim()
+  if (!query) {
+    return {
+      gps_lat: null,
+      gps_lng: null,
+      gps_accuracy: null,
+      is_approximate: true,
+    }
+  }
+
   try {
-    const geocoded = await forwardGeocode(input.location!.trim())
+    const geocoded = await forwardGeocode(query)
     if (geocoded) {
       return {
         gps_lat: geocoded.lat,
@@ -74,7 +95,7 @@ export async function resolveProjectMarkerGps(
       }
     }
   } catch {
-    // Geokódování nesmí přerušit vytvoření zakázky ani špendlíku.
+    // Geokódování nesmí přerušit vytvoření zakázky.
   }
 
   return {
@@ -101,17 +122,6 @@ export function buildProjectMapMarkerInsert(
   }
 }
 
-export async function projectMapMarkerExists(projectId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('project_map_markers')
-    .select('id')
-    .eq('project_id', projectId)
-    .maybeSingle()
-
-  if (error) throw new Error(error.message)
-  return data != null
-}
-
 async function fetchProjectMapMarker(projectId: string): Promise<{
   gps_lat: number | null
   gps_lng: number | null
@@ -127,11 +137,12 @@ async function fetchProjectMapMarker(projectId: string): Promise<{
 }
 
 function orderLocationFields(order: JobOrder): ProjectMarkerGpsInput {
+  const geocodeQuery = buildGeocodeQueryFromOrder(order)
   return {
     gps_lat: order.gps_lat,
     gps_lng: order.gps_lng,
     gps_accuracy: order.gps_accuracy,
-    location: order.location,
+    location: geocodeQuery ?? order.location,
   }
 }
 
@@ -152,51 +163,132 @@ function markerNeedsGpsUpdate(
   return false
 }
 
-/**
- * Vytvoří nebo aktualizuje hlavní špendlík zakázky (1:1).
- * Geokóduje adresu, pokud zakázka nemá GPS. Chyby insertu loguje, ale nepropaguje –
- * vytvoření zakázky nesmí selhat kvůli špendlíku (mapa zobrazí placeholder ze zakázky).
- */
-export async function ensureProjectMapMarkerForOrder(order: JobOrder): Promise<void> {
-  try {
-    const gps = await resolveProjectMarkerGps(orderLocationFields(order))
-    const existing = await fetchProjectMapMarker(order.id)
+async function persistGpsOnOrder(orderId: string, gps: ProjectMarkerGpsResult): Promise<void> {
+  if (!hasValidCoordinates(gps.gps_lat, gps.gps_lng)) return
 
-    if (existing) {
-      if (markerNeedsGpsUpdate(existing, gps)) {
-        const { error } = await supabase
-          .from('project_map_markers')
-          .update({
-            gps_lat: gps.gps_lat,
-            gps_lng: gps.gps_lng,
-            gps_accuracy: gps.gps_accuracy,
-            is_approximate: gps.is_approximate,
-          })
-          .eq('project_id', order.id)
+  const { error } = await supabase
+    .from('job_orders')
+    .update({
+      gps_lat: gps.gps_lat,
+      gps_lng: gps.gps_lng,
+      gps_accuracy: gps.gps_accuracy,
+    })
+    .eq('id', orderId)
 
-        if (error) {
-          console.error('[zakazky-mapa] Aktualizace GPS špendlíku selhala:', error.message)
-        }
-      }
-      await recalculateProjectMarkerColor(order.id)
-      return
+  if (error) {
+    console.error('[zakazky-mapa] Uložení GPS do zakázky selhalo:', error.message)
+  }
+}
+
+async function upsertMarkerGps(
+  order: JobOrder,
+  gps: ProjectMarkerGpsResult
+): Promise<{ created: boolean; updated: boolean; error?: string }> {
+  const existing = await fetchProjectMapMarker(order.id)
+
+  if (existing) {
+    if (!markerNeedsGpsUpdate(existing, gps)) {
+      return { created: false, updated: false }
     }
 
-    const payload = buildProjectMapMarkerInsert(order.id, gps)
-    const { error } = await supabase.from('project_map_markers').insert({ ...payload })
+    const { error } = await supabase
+      .from('project_map_markers')
+      .update({
+        gps_lat: gps.gps_lat,
+        gps_lng: gps.gps_lng,
+        gps_accuracy: gps.gps_accuracy,
+        is_approximate: gps.is_approximate,
+      })
+      .eq('project_id', order.id)
 
     if (error) {
-      if (error.code === '23505') {
-        return
-      }
-      console.error('[zakazky-mapa] Nepodařilo se vytvořit hlavní špendlík:', error.message)
-    } else {
-      await recalculateProjectMarkerColor(order.id)
+      return { created: false, updated: false, error: error.message }
+    }
+    return { created: false, updated: true }
+  }
+
+  const payload = buildProjectMapMarkerInsert(order.id, gps)
+  const { error } = await supabase.from('project_map_markers').insert({ ...payload })
+
+  if (error) {
+    if (error.code === '23505') {
+      return { created: false, updated: false }
+    }
+    return { created: false, updated: false, error: error.message }
+  }
+
+  return { created: true, updated: false }
+}
+
+/**
+ * Vytvoří nebo doplní hlavní špendlík zakázky včetně geokódování adresy/města.
+ */
+export async function ensureProjectMapMarkerForOrder(order: JobOrder): Promise<EnsureMarkerResult> {
+  return replenishProjectMapLocation(order)
+}
+
+/** Geokóduje adresu zakázky a uloží souřadnice do project_map_markers i job_orders. */
+export async function replenishProjectMapLocation(order: JobOrder): Promise<EnsureMarkerResult> {
+  const base: EnsureMarkerResult = {
+    projectId: order.id,
+    hasGps: false,
+    geocoded: false,
+    created: false,
+    updated: false,
+  }
+
+  try {
+    const hadGps = hasValidCoordinates(order.gps_lat, order.gps_lng)
+    const gps = await resolveProjectMarkerGps(orderLocationFields(order))
+    const geocoded = !hadGps && hasValidCoordinates(gps.gps_lat, gps.gps_lng)
+
+    const { created, updated, error } = await upsertMarkerGps(order, gps)
+
+    if (error) {
+      console.error('[zakazky-mapa] Špendlík:', error)
+      return { ...base, error }
+    }
+
+    if (geocoded || updated) {
+      await persistGpsOnOrder(order.id, gps)
+    }
+
+    await recalculateProjectMarkerColor(order.id)
+
+    return {
+      projectId: order.id,
+      hasGps: hasValidCoordinates(gps.gps_lat, gps.gps_lng),
+      geocoded,
+      created,
+      updated,
     }
   } catch (err) {
-    console.error(
-      '[zakazky-mapa] Chyba při vytváření hlavního špendlíku:',
-      err instanceof Error ? err.message : err
-    )
+    const message = err instanceof Error ? err.message : 'Neznámá chyba'
+    console.error('[zakazky-mapa] Doplnění polohy selhalo:', message)
+    return { ...base, error: message }
   }
+}
+
+/** Backfill GPS pro zakázky bez souřadnic (respektuje rate limit Nominatim). */
+export async function backfillMissingProjectLocations(
+  orders: JobOrder[],
+  onProgress?: (result: EnsureMarkerResult) => void
+): Promise<EnsureMarkerResult[]> {
+  const results: EnsureMarkerResult[] = []
+  const missing = orders.filter(
+    (order) =>
+      !isValidProjectMarkerGps(order.gps_lat, order.gps_lng) &&
+      Boolean(buildGeocodeQueryFromOrder(order))
+  )
+
+  for (let i = 0; i < missing.length; i++) {
+    const result = await replenishProjectMapLocation(missing[i])
+    results.push(result)
+    onProgress?.(result)
+    if (i < missing.length - 1) {
+      await delay(GEOCODE_RATE_LIMIT_MS)
+    }
+  }
+
+  return results
 }

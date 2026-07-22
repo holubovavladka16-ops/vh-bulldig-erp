@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -15,6 +15,9 @@ import { canEditMarkerColor, isAdministrator, isMajitel } from '@/constants/perm
 import { createDiaryEntry } from '@/lib/diary/api'
 import { fetchJobOrders } from '@/lib/orders/api'
 import { fetchProjectsWithMarkersFromOrders, filterProjectMapMarkers, fetchProjectMapMarkerByProjectId } from '@/lib/zakazkyMapa/api'
+import { backfillMissingProjectLocations, replenishProjectMapLocation } from '@/lib/zakazkyMapa/createProjectMapMarker'
+import { MAP_ORDERS_CHANGED_EVENT } from '@/lib/zakazkyMapa/mapEvents'
+import { isValidProjectMarkerGps } from '@/lib/zakazkyMapa/markerGps'
 import { PROJECT_MARKER_COLOR_FILTER_OPTIONS } from '@/constants/zakazkyMapa'
 import type { ConstructionDiaryCreateInput } from '@/types/diary'
 import type { ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
@@ -31,12 +34,16 @@ export function ZakazkyMapaPage() {
   const [filters, setFilters] = useState<ProjectMapMarkerFilters>({})
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [backfilling, setBackfilling] = useState(false)
+  const [replenishingId, setReplenishingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
   const [diaryFormOpen, setDiaryFormOpen] = useState(false)
   const [diaryPrefillOrderId, setDiaryPrefillOrderId] = useState<string | null>(null)
   const [diaryRefreshToken, setDiaryRefreshToken] = useState(0)
   const [colorHistoryRefreshToken, setColorHistoryRefreshToken] = useState(0)
+  const backfillInFlightRef = useRef(false)
+  const backfilledIdsRef = useRef(new Set<string>())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -50,6 +57,47 @@ export function ZakazkyMapaPage() {
     }
   }, [])
 
+  const refreshProjectOnMap = useCallback(async (projectId: string) => {
+    const updated = await fetchProjectMapMarkerByProjectId(projectId)
+    if (!updated) return
+    setItems((prev) =>
+      prev.map((item) => (item.project_id === projectId ? updated : item))
+    )
+  }, [])
+
+  const runBackfill = useCallback(
+    async (sourceItems: ProjectMapMarkerWithOrder[]) => {
+      if (backfillInFlightRef.current) return
+      const ordersNeedingGps = sourceItems
+        .filter(
+          (item) =>
+            !backfilledIdsRef.current.has(item.project_id) &&
+            !isValidProjectMarkerGps(item.gps_lat, item.gps_lng) &&
+            Boolean(item.order.location?.trim())
+        )
+        .map((item) => item.order)
+
+      if (ordersNeedingGps.length === 0) return
+
+      backfillInFlightRef.current = true
+      setBackfilling(true)
+      try {
+        for (const order of ordersNeedingGps) {
+          backfilledIdsRef.current.add(order.id)
+        }
+        await backfillMissingProjectLocations(ordersNeedingGps, async (result) => {
+          if (result.hasGps) {
+            await refreshProjectOnMap(result.projectId)
+          }
+        })
+      } finally {
+        backfillInFlightRef.current = false
+        setBackfilling(false)
+      }
+    },
+    [refreshProjectOnMap]
+  )
+
   useEffect(() => {
     void load()
     fetchJobOrders()
@@ -58,19 +106,34 @@ export function ZakazkyMapaPage() {
   }, [load])
 
   useEffect(() => {
+    if (loading || items.length === 0) return
+    void runBackfill(items)
+  }, [loading, items.length, runBackfill])
+
+  useEffect(() => {
     function handleRefresh() {
       if (document.visibilityState === 'visible') {
         void load()
       }
     }
 
+    function handleOrdersChanged() {
+      void (async () => {
+        await load()
+        const fresh = await fetchProjectsWithMarkersFromOrders()
+        await runBackfill(fresh)
+      })()
+    }
+
     window.addEventListener('focus', handleRefresh)
     document.addEventListener('visibilitychange', handleRefresh)
+    window.addEventListener(MAP_ORDERS_CHANGED_EVENT, handleOrdersChanged)
     return () => {
       window.removeEventListener('focus', handleRefresh)
       document.removeEventListener('visibilitychange', handleRefresh)
+      window.removeEventListener(MAP_ORDERS_CHANGED_EVENT, handleOrdersChanged)
     }
-  }, [load])
+  }, [load, runBackfill])
 
   useEffect(() => {
     const projectId = searchParams.get('projectId')?.trim()
@@ -95,17 +158,32 @@ export function ZakazkyMapaPage() {
     }
   }, [selectedProjectId, selectedItem])
 
-  const refreshMarker = useCallback(async (projectId: string) => {
-    try {
-      const updated = await fetchProjectMapMarkerByProjectId(projectId)
-      if (!updated) return
-      setItems((prev) =>
-        prev.map((item) => (item.project_id === projectId ? updated : item))
-      )
-    } catch {
-      // Barva se obnoví při příštím načtení stránky.
-    }
-  }, [])
+  const refreshMarker = useCallback(
+    async (projectId: string) => {
+      try {
+        await refreshProjectOnMap(projectId)
+      } catch {
+        // Barva se obnoví při příštím načtení stránky.
+      }
+    },
+    [refreshProjectOnMap]
+  )
+
+  const handleReplenishLocation = useCallback(
+    async (item: ProjectMapMarkerWithOrder) => {
+      backfilledIdsRef.current.delete(item.project_id)
+      setReplenishingId(item.project_id)
+      try {
+        const result = await replenishProjectMapLocation(item.order)
+        if (result.hasGps) {
+          await refreshProjectOnMap(item.project_id)
+        }
+      } finally {
+        setReplenishingId(null)
+      }
+    },
+    [refreshProjectOnMap]
+  )
 
   function handleOpenDiaryForm(orderId: string) {
     setDiaryPrefillOrderId(orderId)
@@ -154,6 +232,10 @@ export function ZakazkyMapaPage() {
 
       {error ? (
         <Card className="mb-4 border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</Card>
+      ) : null}
+
+      {backfilling ? (
+        <p className="mb-4 text-sm text-theme-muted">Doplňuji polohy zakázek z adres…</p>
       ) : null}
 
       <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_280px]">
@@ -219,6 +301,8 @@ export function ZakazkyMapaPage() {
               selectedProjectId={selectedProjectId}
               onSelect={setSelectedProjectId}
               loading={loading}
+              replenishingId={replenishingId}
+              onReplenishLocation={handleReplenishLocation}
             />
           </Card>
         </div>
