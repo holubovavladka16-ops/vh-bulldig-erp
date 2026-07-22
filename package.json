@@ -40,6 +40,8 @@
     "verify-all-modules": "node scripts/verify-all-modules.mjs",
     "verify-full-regression": "node scripts/verify-full-regression.mjs",
     "verify:pdf8": "node scripts/verify-pdf8-zakazky-mapa.mjs",
+    "deploy:pdf8": "node scripts/deploy-pdf8-zakazky-mapa-production.mjs",
+    "smoke:pdf8": "node scripts/verify-pdf8-production-smoke.mjs",
     "backfill:markers": "node scripts/backfill-project-map-markers.mjs",
     "test": "vitest run",
     "test-form-check": "vitest run src/lib/formCheck",
