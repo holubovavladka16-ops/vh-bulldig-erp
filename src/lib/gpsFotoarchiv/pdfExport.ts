@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
-import { getMapyCzShowMapUrl } from '@/lib/photos/mapLinks'
+import { getMapyCzPanoramaUrl, getMapyCzShowMapUrl } from '@/lib/photos/mapLinks'
 import {
   formatCaptureDateLabel,
   formatCaptureTime,
@@ -26,6 +26,14 @@ import {
   type GfaPhotoOrientation,
 } from '@/lib/gpsFotoarchiv/gpsFotoarchivPdfLayout'
 
+interface PdfLinkRect {
+  url: string
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 async function waitForDocumentImages(doc: Document): Promise<void> {
   const images = Array.from(doc.images)
   if (images.length === 0) return
@@ -43,6 +51,49 @@ async function waitForDocumentImages(doc: Document): Promise<void> {
         })
     )
   )
+}
+
+function collectPageLinks(pageEl: HTMLElement): PdfLinkRect[] {
+  const pageRect = pageEl.getBoundingClientRect()
+  const links: PdfLinkRect[] = []
+
+  pageEl.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((anchor) => {
+    const href = anchor.href?.trim()
+    if (!href?.startsWith('http')) return
+
+    const rect = anchor.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+
+    links.push({
+      url: href,
+      x: rect.left - pageRect.left,
+      y: rect.top - pageRect.top,
+      w: rect.width,
+      h: rect.height,
+    })
+  })
+
+  return links
+}
+
+function applyPdfLinks(
+  pdf: jsPDF,
+  links: PdfLinkRect[],
+  pageEl: HTMLElement,
+  pageWidthMm: number,
+  pageHeightMm: number
+): void {
+  const pageWidthPx = pageEl.offsetWidth || pageEl.scrollWidth
+  const pageHeightPx = pageEl.offsetHeight || pageEl.scrollHeight
+  if (pageWidthPx <= 0 || pageHeightPx <= 0) return
+
+  for (const link of links) {
+    const xMm = (link.x / pageWidthPx) * pageWidthMm
+    const yMm = (link.y / pageHeightPx) * pageHeightMm
+    const wMm = (link.w / pageWidthPx) * pageWidthMm
+    const hMm = (link.h / pageHeightPx) * pageHeightMm
+    pdf.link(xMm, yMm, wMm, hMm, { url: link.url })
+  }
 }
 
 async function capturePageElementToCanvas(pageEl: HTMLElement): Promise<HTMLCanvasElement> {
@@ -110,10 +161,13 @@ async function htmlToGfaPdfBlob(html: string): Promise<Blob> {
     const targets = pages.length > 0 ? pages : [frameDoc.body]
 
     for (let index = 0; index < targets.length; index += 1) {
-      const canvas = await capturePageElementToCanvas(targets[index]!)
+      const pageEl = targets[index]!
+      const links = collectPageLinks(pageEl)
+      const canvas = await capturePageElementToCanvas(pageEl)
       const imgData = canvas.toDataURL('image/jpeg', 0.92)
       if (index > 0) pdf.addPage()
       pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST')
+      applyPdfLinks(pdf, links, pageEl, pageWidth, pageHeight)
     }
 
     const blob = ensurePdfBlob(pdf.output('blob') as Blob)
@@ -173,13 +227,15 @@ export function buildArchiveShareText(photo: GpsPhoto): string {
   const address = formatPhotoAddress(photo)
   const gps = formatGpsLocationLabel(photo.gps_lat, photo.gps_lng, photo.gps_accuracy)
   const mapUrl = getMapyCzShowMapUrl(photo.gps_lat, photo.gps_lng)
+  const panoramaUrl = getMapyCzPanoramaUrl(photo.gps_lat, photo.gps_lng)
   const lines = [
     photo.title?.trim() || 'Fotodokumentace s GPS',
     `Datum: ${formatCaptureDateLabel(photo.captured_date)} ${formatCaptureTime(photo.captured_time)}`,
     `Adresa: ${address}`,
     `GPS: ${gps}`,
     `Zakázka: ${getOrderDisplayName(photo)}`,
-    `Mapa: ${mapUrl}`,
+    `Mapy.cz: ${mapUrl}`,
+    `Panorama (ulice): ${panoramaUrl}`,
   ]
   if (photo.note?.trim()) lines.push(`Poznámka: ${photo.note.trim()}`)
   return lines.join('\n')
