@@ -4,7 +4,7 @@ import { Eye, EyeOff, Shield } from 'lucide-react'
 import { CompanyLogo } from '@/components/ui/CompanyLogo'
 import { useAuth } from '@/context/AuthContext'
 import { useSystemHealth } from '@/context/SystemHealthContext'
-import { canAccessErp } from '@/constants/permissions'
+import { canAccessErp, getDefaultErpPath } from '@/constants/permissions'
 import { useTheme } from '@/context/ThemeContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -60,7 +60,7 @@ export function LoginPage() {
   }
 
   if (user && profile && canAccessErp(profile.role)) {
-    return <Navigate to="/" replace />
+    return <Navigate to={getDefaultErpPath(profile.role)} replace />
   }
 
   if (user && profile && !canAccessErp(profile.role)) {

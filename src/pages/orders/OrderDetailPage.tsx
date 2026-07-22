@@ -8,8 +8,9 @@ import { Card } from '@/components/ui/Card'
 import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTable'
 import { StatusBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/context/AuthContext'
-import { isAdministrator } from '@/constants/permissions'
+import { isAdministrator, canManageProjectAssignments, isStavbyvedouci } from '@/constants/permissions'
 import { ProjectMarkerColorHistoryTable } from '@/components/zakazkyMapa/ProjectMarkerColorHistoryTable'
+import { ProjectStavbyvedouciSection } from '@/components/zakazkyMapa/ProjectStavbyvedouciSection'
 import {
   fetchJobOrderDetail,
   uploadJobOrderDocument,
@@ -30,6 +31,9 @@ export function OrderDetailPage() {
   const navigate = useNavigate()
   const { user, profile } = useAuth()
   const isAdmin = profile ? isAdministrator(profile.role) : false
+  const canManageAssignments = profile ? canManageProjectAssignments(profile.role) : false
+  const isSiteManager = profile ? isStavbyvedouci(profile.role) : false
+  const backPath = isSiteManager ? '/zakazky-mapa' : '/zakazky'
   const [detail, setDetail] = useState<JobOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -84,9 +88,9 @@ export function OrderDetailPage() {
   if (!detail) {
     return (
       <AppLayout>
-        <Button variant="ghost" className="mb-4" onClick={() => navigate('/zakazky')}>
+        <Button variant="ghost" className="mb-4" onClick={() => navigate(backPath)}>
           <ArrowLeft className="h-4 w-4" />
-          Zpět na zakázky
+          Zpět
         </Button>
         <div className="glass-panel rounded-2xl p-8 text-center">
           <p className="text-lg font-semibold text-theme-primary">Zakázka nenalezena</p>
@@ -100,7 +104,7 @@ export function OrderDetailPage() {
 
   return (
     <AppLayout>
-      <Button variant="ghost" className="mb-4" onClick={() => navigate('/zakazky')}>
+      <Button variant="ghost" className="mb-4" onClick={() => navigate(backPath)}>
         <ArrowLeft className="h-4 w-4" />
         Zpět na zakázky
       </Button>
@@ -133,8 +137,14 @@ export function OrderDetailPage() {
         </Card>
 
         <Section title="Historie změn barvy">
-          {id ? <ProjectMarkerColorHistoryTable projectId={id} /> : null}
+          {id && !isSiteManager ? <ProjectMarkerColorHistoryTable projectId={id} /> : null}
         </Section>
+
+        {canManageAssignments && id && user ? (
+          <Section title="Stavbyvedoucí">
+            <ProjectStavbyvedouciSection projectId={id} userId={user.id} />
+          </Section>
+        ) : null}
 
         <Section title="Zaměstnanci na zakázce">
           <DataTable columns={[{ key: 'name', label: 'Jméno' }, { key: 'position', label: 'Pozice' }]} isEmpty={detail.employees.length === 0} emptyMessage="Zatím žádní zaměstnanci.">

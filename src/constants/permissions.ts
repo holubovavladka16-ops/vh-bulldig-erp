@@ -31,15 +31,15 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   dashboard: ['administrator'],
   delnici: ['administrator'],
-  dochazka: ['administrator'],
+  dochazka: ['administrator', 'stavbyvedouci'],
   'denni-formulare': ['administrator'],
-  zakazky: ['administrator', 'majitel'],
-  'zakazky-mapa': ['administrator', 'majitel'],
+  zakazky: ['administrator', 'majitel', 'stavbyvedouci'],
+  'zakazky-mapa': ['administrator', 'majitel', 'stavbyvedouci'],
   vykazy: ['administrator'],
   'papierove-vykazy': ['administrator'],
   'kontrola-formulare': ['administrator'],
   'vyplatni-pasky': ['administrator'],
-  denik: ['administrator'],
+  denik: ['administrator', 'majitel', 'stavbyvedouci'],
   ekonomika: ['administrator'],
   paragony: ['administrator'],
   pripojky: ['administrator'],
@@ -49,7 +49,7 @@ export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   statistiky: ['administrator'],
   nastaveni: ['administrator'],
   'nastaveni-spolecnost': ['administrator'],
-  'nastaveni-profil': ['administrator'],
+  'nastaveni-profil': ['administrator', 'majitel', 'stavbyvedouci'],
   'nastaveni-opravneni': ['administrator'],
   'nastaveni-aplikace': ['administrator'],
 }
@@ -79,6 +79,34 @@ export function canEditMarkerColor(role: UserRole): boolean {
   return isAdministrator(role) || isMajitel(role)
 }
 
+/** Správa přiřazení Stavbyvedoucích – Admin nebo Majitel (PDF 8 Fáze 1g). */
+export function canManageProjectAssignments(role: UserRole): boolean {
+  return isAdministrator(role) || isMajitel(role)
+}
+
+const STAVBYVEDOUCi_MODULES: ModuleId[] = [
+  'zakazky',
+  'zakazky-mapa',
+  'denik',
+  'dochazka',
+  'nastaveni-profil',
+]
+
+/** Moduly dostupné rolí Stavbyvedoucí (Fáze 1g – datový základ). */
+export function isStavbyvedouciModule(module: ModuleId): boolean {
+  return STAVBYVEDOUCi_MODULES.includes(module)
+}
+
+/** Výchozí cílová stránka po přihlášení podle role. */
+export function getDefaultErpPath(role: UserRole): string {
+  if (role === 'stavbyvedouci') return '/zakazky-mapa'
+  return '/'
+}
+
 export function canAccessErp(role: UserRole | undefined | null): boolean {
-  return role === 'administrator' || role === 'majitel'
+  return (
+    role === 'administrator' ||
+    role === 'majitel' ||
+    role === 'stavbyvedouci'
+  )
 }

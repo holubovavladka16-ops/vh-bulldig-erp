@@ -1,5 +1,5 @@
 import { useAuth } from '@/context/AuthContext'
-import { hasModuleAccess, canAccessErp } from '@/constants/permissions'
+import { hasModuleAccess, canAccessErp, getDefaultErpPath, isStavbyvedouci } from '@/constants/permissions'
 import type { ModuleId } from '@/types'
 import { Navigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
@@ -68,6 +68,13 @@ export function ProtectedRoute({ children, requiredModule }: ProtectedRouteProps
 
   if (requiredModule && !hasModuleAccess(profile.role, requiredModule)) {
     return <AccessDeniedPage />
+  }
+
+  if (
+    requiredModule === 'dashboard' &&
+    isStavbyvedouci(profile.role)
+  ) {
+    return <Navigate to={getDefaultErpPath(profile.role)} replace />
   }
 
   return <>{children}</>
