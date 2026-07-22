@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { DEFAULT_APP_SETTINGS, type AppSettings } from '@/types'
+import { DEFAULT_VISUAL_THEME, isVisualThemeId } from '@/constants/visualThemes'
 
 interface AppSettingsContextType {
   settings: AppSettings | null
@@ -22,7 +23,7 @@ const AppSettingsContext = createContext<AppSettingsContextType | undefined>(und
 
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const { setTheme } = useTheme()
+  const { setTheme, setVisualTheme } = useTheme()
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -51,9 +52,16 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
-        const appSettings = data as AppSettings
+        const row = data as AppSettings & { visual_theme?: string }
+        const appSettings: AppSettings = {
+          ...row,
+          visual_theme: isVisualThemeId(row.visual_theme ?? '')
+            ? row.visual_theme
+            : DEFAULT_VISUAL_THEME,
+        }
         setSettings(appSettings)
         setTheme(appSettings.theme)
+        setVisualTheme(appSettings.visual_theme)
       } else {
         const { data: created, error: createError } = await supabase
           .from('app_settings')
@@ -61,10 +69,28 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
 
-        if (!createError && created) {
+        if (createError?.message.includes('visual_theme')) {
+          const { visual_theme: _omit, ...legacyDefaults } = DEFAULT_APP_SETTINGS
+          const { data: legacyCreated, error: legacyError } = await supabase
+            .from('app_settings')
+            .insert({ user_id: userId, ...legacyDefaults })
+            .select('*')
+            .single()
+
+          if (!legacyError && legacyCreated) {
+            const appSettings: AppSettings = {
+              ...(legacyCreated as AppSettings),
+              visual_theme: DEFAULT_VISUAL_THEME,
+            }
+            setSettings(appSettings)
+            setTheme(appSettings.theme)
+            setVisualTheme(appSettings.visual_theme)
+          }
+        } else if (!createError && created) {
           const appSettings = created as AppSettings
           setSettings(appSettings)
           setTheme(appSettings.theme)
+          setVisualTheme(appSettings.visual_theme ?? DEFAULT_VISUAL_THEME)
         }
       }
 
@@ -72,22 +98,28 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     }
 
     loadSettings()
-  }, [user, setTheme])
+  }, [user, setTheme, setVisualTheme])
 
   const saveSettings = useCallback(async (data: AppSettings) => {
     if (!user) return
 
-    const { error } = await supabase
-      .from('app_settings')
-      .update({
-        theme: data.theme,
-        language: data.language,
-        sidebar_collapsed: data.sidebar_collapsed,
-        notifications_enabled: data.notifications_enabled,
-        auto_save_enabled: data.auto_save_enabled,
-        compact_mode: data.compact_mode,
-      })
-      .eq('user_id', user.id)
+    const payload = {
+      theme: data.theme,
+      visual_theme: data.visual_theme,
+      language: data.language,
+      sidebar_collapsed: data.sidebar_collapsed,
+      notifications_enabled: data.notifications_enabled,
+      auto_save_enabled: data.auto_save_enabled,
+      compact_mode: data.compact_mode,
+    }
+
+    let { error } = await supabase.from('app_settings').update(payload).eq('user_id', user.id)
+
+    // Sloupec visual_theme nemusí být v DB ještě aplikován – motiv funguje z localStorage
+    if (error?.message.includes('visual_theme')) {
+      const { visual_theme: _omit, ...legacyPayload } = payload
+      ;({ error } = await supabase.from('app_settings').update(legacyPayload).eq('user_id', user.id))
+    }
 
     if (error) {
       throw new Error(error.message)
@@ -96,7 +128,11 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     if (data.theme) {
       setTheme(data.theme)
     }
-  }, [user, setTheme])
+
+    if (data.visual_theme) {
+      setVisualTheme(data.visual_theme)
+    }
+  }, [user, setTheme, setVisualTheme])
 
   function updateSettings(partial: Partial<AppSettings>) {
     setSettings((prev) => (prev ? { ...prev, ...partial } : prev))
