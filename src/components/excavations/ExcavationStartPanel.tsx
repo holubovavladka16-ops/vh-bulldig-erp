@@ -19,12 +19,14 @@ type StartMode = 'gps' | 'address'
 
 interface ExcavationStartPanelProps {
   disabled?: boolean
+  onBeginGpsLocate?: () => void
   onMapReady: (focus: MapStartFocus) => void
   onPositionUpdate?: (position: GpsPositionState) => void
 }
 
 export function ExcavationStartPanel({
   disabled,
+  onBeginGpsLocate,
   onMapReady,
   onPositionUpdate,
 }: ExcavationStartPanelProps) {
@@ -53,7 +55,15 @@ export function ExcavationStartPanel({
   function startGpsLocate() {
     setAddressError('')
     mapOpenedRef.current = false
-    setGpsEnabled(true)
+    onBeginGpsLocate?.()
+    setGpsEnabled(false)
+    queueMicrotask(() => setGpsEnabled(true))
+  }
+
+  function retryGpsLocate() {
+    mapOpenedRef.current = false
+    onBeginGpsLocate?.()
+    gps.retry()
   }
 
   async function searchAddress() {
@@ -126,7 +136,7 @@ export function ExcavationStartPanel({
               address={gps.address}
               addressLoading={gps.addressLoading}
               error={gps.error}
-              onRetry={gps.retry}
+              onRetry={retryGpsLocate}
             />
           )}
 

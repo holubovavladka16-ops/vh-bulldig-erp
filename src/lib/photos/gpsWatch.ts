@@ -156,9 +156,8 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
 export function startGpsLocateSession(options: {
   onUpdate: (state: GpsPositionState) => void
   onError: (message: string) => void
-  maximumAgeMs?: number
 }): { stop: () => void } {
-  const { onUpdate, onError, maximumAgeMs = 0 } = options
+  const { onUpdate, onError } = options
 
   const supportError = checkGeolocationSupport()
   if (supportError) {
@@ -170,10 +169,8 @@ export function startGpsLocateSession(options: {
   let stopped = false
   let receivedFix = false
 
-  const geoOptions: PositionOptions = {
-    ...GEO_OPTIONS,
-    maximumAge: maximumAgeMs,
-  }
+  /** Vždy jen aktuální poloha zařízení – žádná cache, žádné DB souřadnice. */
+  const geoOptions: PositionOptions = GEO_OPTIONS
 
   const handleSuccess = (position: GeolocationPosition) => {
     if (stopped) return

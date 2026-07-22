@@ -15,6 +15,7 @@ export interface GpsWalkResult {
 
 interface GpsWalkMeasurementPanelProps {
   disabled?: boolean
+  onBeginGpsLocate?: () => void
   onPositionUpdate?: (position: GpsPositionState) => void
   onComplete: (result: GpsWalkResult) => void
   onCancel: () => void
@@ -22,6 +23,7 @@ interface GpsWalkMeasurementPanelProps {
 
 export function GpsWalkMeasurementPanel({
   disabled,
+  onBeginGpsLocate,
   onPositionUpdate,
   onComplete,
   onCancel,
@@ -32,8 +34,15 @@ export function GpsWalkMeasurementPanel({
   const gps = useExcavationGpsLocate(gpsEnabled, { onPositionUpdate })
 
   function startGpsLocate() {
-    setGpsEnabled(true)
+    onBeginGpsLocate?.()
     setStartPoint(null)
+    setGpsEnabled(false)
+    queueMicrotask(() => setGpsEnabled(true))
+  }
+
+  function retryGpsLocate() {
+    onBeginGpsLocate?.()
+    gps.retry()
   }
 
   function handleCancel() {
@@ -102,7 +111,7 @@ export function GpsWalkMeasurementPanel({
             address={gps.address}
             addressLoading={gps.addressLoading}
             error={gps.error}
-            onRetry={gps.retry}
+            onRetry={retryGpsLocate}
           />
 
           {gps.hasFix && !startPoint && (
