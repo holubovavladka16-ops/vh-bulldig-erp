@@ -7,7 +7,8 @@ import {
   MAIN_NAV,
   SETTINGS_NAV,
 } from '@/constants/navigation'
-import { hasModuleAccess, isAdministrator } from '@/constants/permissions'
+import { STAVBYVEDOUCi_NAV } from '@/constants/stavbyvedouciNavigation'
+import { hasModuleAccess, isAdministrator, isStavbyvedouci } from '@/constants/permissions'
 import { useAuth } from '@/context/AuthContext'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import { CompanyLogo } from '@/components/ui/CompanyLogo'
@@ -29,19 +30,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const companyName = companySettings?.company_name ?? APP_INFO.shortName
   const tagline = companySettings?.tagline ?? APP_INFO.tagline
 
-  const mainItems = MAIN_NAV.filter(
-    (item) => profile && hasModuleAccess(profile.role, item.module)
-  )
+  const isSiteManager = profile ? isStavbyvedouci(profile.role) : false
 
-  const moduleItems = FUTURE_MODULES.filter(
-    (item) => profile && hasModuleAccess(profile.role, item.module)
-  )
+  const mainItems = isSiteManager
+    ? STAVBYVEDOUCi_NAV
+    : MAIN_NAV.filter((item) => profile && hasModuleAccess(profile.role, item.module))
 
-  const settingsItems = SETTINGS_NAV.filter((item) => {
-    if (!profile) return false
-    if (item.adminOnly && !isAdministrator(profile.role)) return false
-    return hasModuleAccess(profile.role, item.module)
-  })
+  const moduleItems = isSiteManager
+    ? []
+    : FUTURE_MODULES.filter((item) => profile && hasModuleAccess(profile.role, item.module))
+
+  const settingsItems = isSiteManager
+    ? []
+    : SETTINGS_NAV.filter((item) => {
+        if (!profile) return false
+        if (item.adminOnly && !isAdministrator(profile.role)) return false
+        return hasModuleAccess(profile.role, item.module)
+      })
 
   return (
     <>
@@ -82,22 +87,24 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-premium">
-          <SidebarSection label="Hlavní">
+          <SidebarSection label={isSiteManager ? 'Pracovní menu' : 'Hlavní'}>
             {mainItems.map((item) => (
               <SidebarLink key={item.id} item={item} onClose={onClose} />
             ))}
           </SidebarSection>
 
-          <SidebarSection label="Moduly ERP">
-            {moduleItems.map((item) => (
-              <SidebarLink
-                key={item.id}
-                item={item}
-                onClose={onClose}
-                badge={PLACEHOLDER_MODULES.has(item.id) ? <ModuleBadge /> : undefined}
-              />
-            ))}
-          </SidebarSection>
+          {!isSiteManager && moduleItems.length > 0 ? (
+            <SidebarSection label="Moduly ERP">
+              {moduleItems.map((item) => (
+                <SidebarLink
+                  key={item.id}
+                  item={item}
+                  onClose={onClose}
+                  badge={PLACEHOLDER_MODULES.has(item.id) ? <ModuleBadge /> : undefined}
+                />
+              ))}
+            </SidebarSection>
+          ) : null}
 
           {settingsItems.length > 0 && (
             <SidebarSection label="Správa systému">

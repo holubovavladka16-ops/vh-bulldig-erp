@@ -13,19 +13,21 @@ import {
 } from '@/lib/zakazkyMapa/projectAssignmentRules'
 import type { ProjectUserAssignment } from '@/types/projectAssignments'
 
-describe('stavbyvedouci permissions (Fáze 1g)', () => {
+describe('stavbyvedouci permissions (Fáze 1g–1h)', () => {
   it('umožní ERP přístup Stavbyvedoucímu', () => {
     expect(hasModuleAccess('stavbyvedouci', 'zakazky-mapa')).toBe(true)
-    expect(hasModuleAccess('stavbyvedouci', 'denik')).toBe(true)
-    expect(hasModuleAccess('stavbyvedouci', 'dochazka')).toBe(true)
-    expect(getDefaultErpPath('stavbyvedouci')).toBe('/zakazky-mapa')
+    expect(hasModuleAccess('stavbyvedouci', 'stavbyvedouci')).toBe(true)
+    expect(hasModuleAccess('stavbyvedouci', 'zakazky')).toBe(true)
+    expect(getDefaultErpPath('stavbyvedouci')).toBe('/stavbyvedouci')
   })
 
-  it('blokuje administraci a fakturaci', () => {
+  it('blokuje administraci, fakturaci a plné moduly', () => {
     expect(hasModuleAccess('stavbyvedouci', 'dashboard')).toBe(false)
     expect(hasModuleAccess('stavbyvedouci', 'ekonomika')).toBe(false)
     expect(hasModuleAccess('stavbyvedouci', 'nastaveni')).toBe(false)
     expect(hasModuleAccess('stavbyvedouci', 'gps-fotoarchiv')).toBe(false)
+    expect(hasModuleAccess('stavbyvedouci', 'denik')).toBe(false)
+    expect(hasModuleAccess('stavbyvedouci', 'dochazka')).toBe(false)
   })
 
   it('nepovolí ruční barvu ani správu přiřazení', () => {

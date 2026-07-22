@@ -2,7 +2,7 @@
 -- VH Bulldig ERP - All Migrations
 -- Project: khhalcjgvqoyskkjlkyg
 -- Run in Supabase Dashboard -> SQL Editor -> New query
--- Generated: 2026-07-22 06:55
+-- Generated: 2026-07-22 07:55
 -- =============================================================================
 
 
@@ -9936,6 +9936,12 @@ NOTIFY pgrst, 'reload schema';
 -- =============================================================================
 
 -- PDF 8 Fáze 1f – role Majitel + oprávnění ruční změny barvy špendlíku
+--
+-- Rollback (nouze, ručně):
+--   DROP POLICY IF EXISTS "Admin nebo Majitel spravuje špendlíky zakázek" ON project_map_markers;
+--   DROP POLICY IF EXISTS "Admin nebo Majitel spravuje ruční stavy zakázek" ON project_status_overrides;
+--   DROP POLICY IF EXISTS "Admin nebo Majitel spravuje historii stavů špendlíků" ON project_marker_status_history;
+--   (enum hodnoty majitel/ucetni ponechat)
 
 ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'majitel';
 ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'ucetni';
@@ -9990,6 +9996,10 @@ NOTIFY pgrst, 'reload schema';
 
 -- PDF 8 Fáze 1g – přiřazení Stavbyvedoucích, RLS, audit, jeden hlavní SV
 
+-- ============================================================
+-- 1. Pomocné funkce
+-- ============================================================
+
 CREATE OR REPLACE FUNCTION can_manage_project_assignments()
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -10019,6 +10029,10 @@ SET search_path = public
 AS $$
   SELECT is_assigned_to_project(p_project_id);
 $$;
+
+-- ============================================================
+-- 2. Audit přiřazení
+-- ============================================================
 
 CREATE TABLE IF NOT EXISTS project_user_assignment_history (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -10051,6 +10065,10 @@ CREATE POLICY "Admin nebo Majitel zapisuje audit přiřazení"
 
 GRANT SELECT, INSERT ON project_user_assignment_history TO authenticated, service_role;
 
+-- ============================================================
+-- 3. Jeden aktivní hlavní Stavbyvedoucí na zakázku
+-- ============================================================
+
 CREATE OR REPLACE FUNCTION enforce_single_primary_stavbyvedouci()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -10078,11 +10096,21 @@ CREATE TRIGGER trg_enforce_single_primary_stavbyvedouci
   FOR EACH ROW
   EXECUTE FUNCTION enforce_single_primary_stavbyvedouci();
 
+-- ============================================================
+-- 4. project_user_assignments – Majitel spravuje, SV jen čte vlastní
+-- ============================================================
+
 DROP POLICY IF EXISTS "Admin spravuje přiřazení Stavbyvedoucích" ON project_user_assignments;
 CREATE POLICY "Admin nebo Majitel spravuje přiřazení Stavbyvedoucích"
   ON project_user_assignments FOR ALL
   USING (can_manage_project_assignments())
   WITH CHECK (can_manage_project_assignments());
+
+-- Stavbyvedouci policy z 068 zůstává: čte pouze vlastní přiřazení
+
+-- ============================================================
+-- 5. job_orders – plný přístup Admin/Majitel, SV jen přidělené
+-- ============================================================
 
 CREATE POLICY "Majitel spravuje zakázky"
   ON job_orders FOR ALL
@@ -10092,6 +10120,10 @@ CREATE POLICY "Majitel spravuje zakázky"
 CREATE POLICY "Stavbyvedouci čte přidělené zakázky"
   ON job_orders FOR SELECT
   USING (is_stavbyvedouci() AND is_assigned_to_project(id));
+
+-- ============================================================
+-- 6. Dokumenty a fotky zakázky
+-- ============================================================
 
 CREATE POLICY "Majitel čte dokumenty zakázek"
   ON job_order_documents FOR SELECT
@@ -10109,6 +10141,10 @@ CREATE POLICY "Stavbyvedouci čte fotky přidělených zakázek"
   ON job_order_photos FOR SELECT
   USING (is_stavbyvedouci() AND is_assigned_to_project(order_id));
 
+-- ============================================================
+-- 7. worker_reports, worker_daily_forms – výkazy přidělených zakázek
+-- ============================================================
+
 CREATE POLICY "Stavbyvedouci čte výkazy přidělených zakázek"
   ON worker_reports FOR SELECT
   USING (
@@ -10124,6 +10160,10 @@ CREATE POLICY "Stavbyvedouci čte denní formuláře přidělených zakázek"
     AND order_id IS NOT NULL
     AND is_assigned_to_project(order_id)
   );
+
+-- ============================================================
+-- 8. gps_photos – deník / přípojky u přidělených zakázek
+-- ============================================================
 
 CREATE POLICY "Stavbyvedouci čte GPS fotky přidělených zakázek"
   ON gps_photos FOR SELECT
@@ -10157,7 +10197,88 @@ CREATE POLICY "Stavbyvedouci upravuje GPS fotky přidělených zakázek"
     AND created_by = auth.uid()
   );
 
--- get_job_order_detail, list_stavbyvedouci_profiles – viz supabase/migrations/071_pdf8_stavbyvedouci_assignments_rls.sql
+-- ============================================================
+-- 9. get_job_order_detail – kontrola přiřazení pro Stavbyvedoucího
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION get_job_order_detail(p_order_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_result JSONB;
+BEGIN
+  IF has_full_project_access() THEN
+    NULL;
+  ELSIF is_stavbyvedouci() THEN
+    IF NOT is_assigned_to_project(p_order_id) THEN
+      RAISE EXCEPTION 'Nedostatečná oprávnění';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Nedostatečná oprávnění';
+  END IF;
+
+  SELECT jsonb_build_object(
+    'order', to_jsonb(jo.*),
+    'documents', COALESCE((
+      SELECT jsonb_agg(to_jsonb(d.*) ORDER BY d.created_at DESC)
+      FROM job_order_documents d WHERE d.order_id = jo.id
+    ), '[]'::jsonb),
+    'photos', COALESCE((
+      SELECT jsonb_agg(to_jsonb(p.*) ORDER BY p.created_at DESC)
+      FROM job_order_photos p WHERE p.order_id = jo.id
+    ), '[]'::jsonb),
+    'employees', COALESCE((
+      SELECT jsonb_agg(DISTINCT jsonb_build_object(
+        'id', w.id,
+        'first_name', w.first_name,
+        'last_name', w.last_name,
+        'position', w."position"
+      ))
+      FROM workers w
+      WHERE w.assigned_order_id = jo.id
+         OR w.id IN (SELECT DISTINCT f.worker_id FROM worker_daily_forms f WHERE f.order_id = jo.id)
+    ), '[]'::jsonb),
+    'attendance', COALESCE((
+      SELECT jsonb_agg(to_jsonb(a.*) ORDER BY a.attendance_date DESC)
+      FROM worker_attendance_records a WHERE a.order_id = jo.id
+    ), '[]'::jsonb),
+    'reports', COALESCE((
+      SELECT jsonb_agg(to_jsonb(r.*) ORDER BY r.report_date DESC)
+      FROM worker_reports r WHERE r.order_id = jo.id
+    ), '[]'::jsonb),
+    'advances', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'form_date', f.form_date,
+        'worker_id', f.worker_id,
+        'worker_name', w.first_name || ' ' || w.last_name,
+        'advance', f.advance,
+        'earnings', f.earnings
+      ) ORDER BY f.form_date DESC)
+      FROM worker_daily_forms f
+      JOIN workers w ON w.id = f.worker_id
+      WHERE f.order_id = jo.id AND f.advance > 0
+        AND f.status IN ('odeslany', 'schvaleny')
+    ), '[]'::jsonb)
+  )
+  INTO v_result
+  FROM job_orders jo
+  WHERE jo.id = p_order_id;
+
+  IF v_result IS NULL THEN
+    RAISE EXCEPTION 'Zakázka nenalezena';
+  END IF;
+
+  RETURN v_result;
+END;
+$$;
+
+-- ============================================================
+-- 10. Seznam profilů Stavbyvedoucích pro správu přiřazení
+-- ============================================================
 
 CREATE POLICY "Majitel čte profily pro správu přiřazení"
   ON profiles FOR SELECT
@@ -10186,5 +10307,43 @@ GRANT EXECUTE ON FUNCTION can_manage_project_assignments() TO authenticated, ser
 GRANT EXECUTE ON FUNCTION has_full_project_access() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION check_active_project_assignment(UUID) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION list_stavbyvedouci_profiles() TO authenticated, service_role;
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- =============================================================================
+-- MIGRATION: 072_pdf8_stavbyvedouci_workers_rpc.sql
+-- =============================================================================
+
+-- PDF 8 Fáze 1h – RPC pro pracovníky na přidělené zakázce (Stavbyvedoucí)
+
+CREATE OR REPLACE FUNCTION list_workers_for_assigned_order(p_order_id UUID)
+RETURNS TABLE (
+  id UUID,
+  first_name TEXT,
+  last_name TEXT,
+  full_name TEXT
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    w.id,
+    w.first_name,
+    w.last_name,
+    trim(w.last_name || ' ' || w.first_name) AS full_name
+  FROM workers w
+  WHERE w.status = 'aktivni'
+    AND w.assigned_order_id = p_order_id
+    AND (
+      has_full_project_access()
+      OR (is_stavbyvedouci() AND is_assigned_to_project(p_order_id))
+    )
+  ORDER BY w.last_name, w.first_name;
+$$;
+
+GRANT EXECUTE ON FUNCTION list_workers_for_assigned_order(UUID) TO authenticated, service_role;
 
 NOTIFY pgrst, 'reload schema';

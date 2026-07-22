@@ -1,4 +1,9 @@
 import type { UserRole, ModuleId } from '@/types'
+import {
+  STAVBYVEDOUCi_ALLOWED_MODULES,
+  STAVBYVEDOUCi_FORBIDDEN_ROUTE_PREFIXES,
+  STAVBYVEDOUCi_ROUTE_PREFIXES,
+} from '@/constants/stavbyvedouciNavigation'
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   administrator: 'Administrátor',
@@ -31,7 +36,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   dashboard: ['administrator'],
   delnici: ['administrator'],
-  dochazka: ['administrator', 'stavbyvedouci'],
+  dochazka: ['administrator'],
   'denni-formulare': ['administrator'],
   zakazky: ['administrator', 'majitel', 'stavbyvedouci'],
   'zakazky-mapa': ['administrator', 'majitel', 'stavbyvedouci'],
@@ -39,7 +44,7 @@ export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   'papierove-vykazy': ['administrator'],
   'kontrola-formulare': ['administrator'],
   'vyplatni-pasky': ['administrator'],
-  denik: ['administrator', 'majitel', 'stavbyvedouci'],
+  denik: ['administrator', 'majitel'],
   ekonomika: ['administrator'],
   paragony: ['administrator'],
   pripojky: ['administrator'],
@@ -52,6 +57,7 @@ export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   'nastaveni-profil': ['administrator', 'majitel', 'stavbyvedouci'],
   'nastaveni-opravneni': ['administrator'],
   'nastaveni-aplikace': ['administrator'],
+  stavbyvedouci: ['stavbyvedouci'],
 }
 
 export function hasModuleAccess(role: UserRole, module: ModuleId): boolean {
@@ -84,23 +90,37 @@ export function canManageProjectAssignments(role: UserRole): boolean {
   return isAdministrator(role) || isMajitel(role)
 }
 
-const STAVBYVEDOUCi_MODULES: ModuleId[] = [
-  'zakazky',
-  'zakazky-mapa',
-  'denik',
-  'dochazka',
-  'nastaveni-profil',
-]
+const STAVBYVEDOUCi_MODULES: ModuleId[] = STAVBYVEDOUCi_ALLOWED_MODULES
 
-/** Moduly dostupné rolí Stavbyvedoucí (Fáze 1g – datový základ). */
+/** Moduly dostupné rolí Stavbyvedoucí (Fáze 1g–1h). */
 export function isStavbyvedouciModule(module: ModuleId): boolean {
   return STAVBYVEDOUCi_MODULES.includes(module)
 }
 
 /** Výchozí cílová stránka po přihlášení podle role. */
 export function getDefaultErpPath(role: UserRole): string {
-  if (role === 'stavbyvedouci') return '/zakazky-mapa'
+  if (role === 'stavbyvedouci') return '/stavbyvedouci'
   return '/'
+}
+
+/** Je cesta povolená pro Stavbyvedoucího? */
+export function isStavbyvedouciRouteAllowed(pathname: string): boolean {
+  if (pathname === '/prihlaseni') return true
+  return STAVBYVEDOUCi_ROUTE_PREFIXES.some((prefix) => {
+    if (prefix.endsWith('/')) return pathname.startsWith(prefix)
+    return pathname === prefix || pathname.startsWith(`${prefix}/`)
+  })
+}
+
+/** Má být Stavbyvedoucí z nepovolené URL přesměrován? */
+export function shouldRedirectStavbyvedouci(pathname: string): boolean {
+  if (pathname === '/prihlaseni') return false
+  if (isStavbyvedouciRouteAllowed(pathname)) return false
+  if (pathname === '/' || pathname === '/zakazky') return true
+  return STAVBYVEDOUCi_FORBIDDEN_ROUTE_PREFIXES.some((prefix) => {
+    if (prefix === '/') return pathname === '/'
+    return pathname === prefix || pathname.startsWith(`${prefix}/`)
+  })
 }
 
 export function canAccessErp(role: UserRole | undefined | null): boolean {

@@ -82,6 +82,7 @@ export type ModuleId =
   | 'nastaveni-profil'
   | 'nastaveni-opravneni'
   | 'nastaveni-aplikace'
+  | 'stavbyvedouci'
 
 export interface NavItem {
   id: string

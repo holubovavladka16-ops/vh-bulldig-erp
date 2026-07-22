@@ -33,7 +33,7 @@ export function OrderDetailPage() {
   const isAdmin = profile ? isAdministrator(profile.role) : false
   const canManageAssignments = profile ? canManageProjectAssignments(profile.role) : false
   const isSiteManager = profile ? isStavbyvedouci(profile.role) : false
-  const backPath = isSiteManager ? '/zakazky-mapa' : '/zakazky'
+  const backPath = isSiteManager ? '/stavbyvedouci/zakazky' : '/zakazky'
   const [detail, setDetail] = useState<JobOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -179,49 +179,53 @@ export function OrderDetailPage() {
           </DataTable>
         </Section>
 
-        <Section title="Denní výkazy">
-          <DataTable
-            columns={[
-              { key: 'date', label: 'Datum' },
-              { key: 'earnings', label: 'Výdělek' },
-              { key: 'advance', label: 'Záloha' },
-              { key: 'status', label: 'Stav' },
-            ]}
-            isEmpty={detail.reports.length === 0}
-            emptyMessage="Zatím žádné výkazy."
-          >
-            {detail.reports.map((r) => (
-              <DataTableRow key={r.id}>
-                <DataTableCell>{formatDate(r.report_date)}</DataTableCell>
-                <DataTableCell>{formatCurrency(r.earnings)}</DataTableCell>
-                <DataTableCell>{formatCurrency(r.advance ?? 0)}</DataTableCell>
-                <DataTableCell>{WORKER_REPORT_STATUS_LABELS[r.status]}</DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTable>
-        </Section>
+        {!isSiteManager ? (
+          <Section title="Denní výkazy">
+            <DataTable
+              columns={[
+                { key: 'date', label: 'Datum' },
+                { key: 'earnings', label: 'Výdělek' },
+                { key: 'advance', label: 'Záloha' },
+                { key: 'status', label: 'Stav' },
+              ]}
+              isEmpty={detail.reports.length === 0}
+              emptyMessage="Zatím žádné výkazy."
+            >
+              {detail.reports.map((r) => (
+                <DataTableRow key={r.id}>
+                  <DataTableCell>{formatDate(r.report_date)}</DataTableCell>
+                  <DataTableCell>{formatCurrency(r.earnings)}</DataTableCell>
+                  <DataTableCell>{formatCurrency(r.advance ?? 0)}</DataTableCell>
+                  <DataTableCell>{WORKER_REPORT_STATUS_LABELS[r.status]}</DataTableCell>
+                </DataTableRow>
+              ))}
+            </DataTable>
+          </Section>
+        ) : null}
 
-        <Section title="Vyplacené zálohy">
-          <DataTable
-            columns={[
-              { key: 'date', label: 'Datum' },
-              { key: 'worker', label: 'Zaměstnanec' },
-              { key: 'advance', label: 'Záloha' },
-              { key: 'earnings', label: 'Výdělek' },
-            ]}
-            isEmpty={detail.advances.length === 0}
-            emptyMessage="Zatím žádné zálohy."
-          >
-            {detail.advances.map((a, index) => (
-              <DataTableRow key={`${a.form_date}-${a.worker_id}-${index}`}>
-                <DataTableCell>{formatDate(a.form_date)}</DataTableCell>
-                <DataTableCell>{a.worker_name}</DataTableCell>
-                <DataTableCell>{formatCurrency(a.advance)}</DataTableCell>
-                <DataTableCell>{formatCurrency(a.earnings)}</DataTableCell>
-              </DataTableRow>
-            ))}
-          </DataTable>
-        </Section>
+        {!isSiteManager ? (
+          <Section title="Vyplacené zálohy">
+            <DataTable
+              columns={[
+                { key: 'date', label: 'Datum' },
+                { key: 'worker', label: 'Zaměstnanec' },
+                { key: 'advance', label: 'Záloha' },
+                { key: 'earnings', label: 'Výdělek' },
+              ]}
+              isEmpty={detail.advances.length === 0}
+              emptyMessage="Zatím žádné zálohy."
+            >
+              {detail.advances.map((a, index) => (
+                <DataTableRow key={`${a.form_date}-${a.worker_id}-${index}`}>
+                  <DataTableCell>{formatDate(a.form_date)}</DataTableCell>
+                  <DataTableCell>{a.worker_name}</DataTableCell>
+                  <DataTableCell>{formatCurrency(a.advance)}</DataTableCell>
+                  <DataTableCell>{formatCurrency(a.earnings)}</DataTableCell>
+                </DataTableRow>
+              ))}
+            </DataTable>
+          </Section>
+        ) : null}
 
         <Section title="Fotografie">
           {isAdmin && (
