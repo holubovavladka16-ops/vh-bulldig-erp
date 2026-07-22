@@ -1,10 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import { MARKER_COLOR_DIARY_STATUSES } from '@/constants/diaryValidity'
+import { PROJECT_MARKER_MISSING_DIARY_LABEL } from '@/constants/projectNotifications'
 import { insertMarkerColorHistory } from '@/lib/zakazkyMapa/markerColorHistory'
 import {
   PROJECT_MARKER_DEFAULT_CHECK_TIME,
+  PROJECT_MARKER_DEFAULT_COLOR,
   PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
   PROJECT_MARKER_DEFAULT_WORKING_DAYS,
+  PROJECT_MARKER_NEW_ORDER_LABEL,
 } from '@/constants/zakazkyMapa'
 import { computeMarkerAutoColor } from '@/lib/zakazkyMapa/computeMarkerColor'
 import { getCompanyLocalDateTime } from '@/lib/zakazkyMapa/companyTime'
@@ -46,7 +49,7 @@ async function fetchMarkerRecalcSettings(): Promise<MarkerRecalcSettings> {
   }
 }
 
-async function fetchValidDiaryEntryDates(orderId: string): Promise<string[]> {
+async function fetchApprovedDiaryEntryDates(orderId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('construction_diary_entries')
     .select('entry_date, entry_status')
@@ -55,6 +58,16 @@ async function fetchValidDiaryEntryDates(orderId: string): Promise<string[]> {
 
   if (error) throw new Error(error.message)
   return ((data ?? []) as Array<{ entry_date: string }>).map((row) => row.entry_date)
+}
+
+async function fetchAnyDiaryEntryCount(orderId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('construction_diary_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('order_id', orderId)
+
+  if (error) throw new Error(error.message)
+  return count ?? 0
 }
 
 async function fetchOrder(orderId: string): Promise<JobOrder | null> {
@@ -74,17 +87,16 @@ async function fetchMarker(projectId: string): Promise<ProjectMapMarker | null> 
   return data as ProjectMapMarker | null
 }
 
-async function recalculateViaRpc(projectId: string): Promise<boolean> {
-  const { error } = await supabase.rpc('recalculate_project_marker_color', {
+function invokeRecalculateRpc(projectId: string): void {
+  void supabase.rpc('recalculate_project_marker_color', {
     p_project_id: projectId,
   })
-  return !error
 }
 
 /**
  * Přepočítá barvu hlavního špendlíku pro jednu zakázku.
+ * Klient-side výpočet je autoritativní; RPC se volá jen doplňkově.
  * Ruční stavy (color_source = manual) se nemění.
- * Chyby nepropaguje – volající operace nesmí selhat kvůli přepočtu.
  */
 export async function recalculateProjectMarkerColor(
   projectId: string,
@@ -95,9 +107,7 @@ export async function recalculateProjectMarkerColor(
   try {
     if (!projectId.trim()) return null
 
-    if (await recalculateViaRpc(projectId)) {
-      return fetchMarker(projectId)
-    }
+    invokeRecalculateRpc(projectId)
 
     const marker = await fetchMarker(projectId)
     if (!marker) return null
@@ -109,21 +119,31 @@ export async function recalculateProjectMarkerColor(
     const order = await fetchOrder(projectId)
     if (!order) return null
 
-    const [entryDates, settings] = await Promise.all([
-      fetchValidDiaryEntryDates(projectId),
+    const [entryDates, anyDiaryCount, settings] = await Promise.all([
+      fetchApprovedDiaryEntryDates(projectId),
+      fetchAnyDiaryEntryCount(projectId),
       fetchMarkerRecalcSettings(),
     ])
 
-    const localNow = getCompanyLocalDateTime(new Date(), settings.timezone)
-    const computed = computeMarkerAutoColor({
-      startDate: order.start_date,
-      endDate: order.end_date,
-      diaryEntryDates: entryDates,
-      diaryCheckTime: settings.diary_check_time,
-      workingDays: settings.working_days,
-      today: localNow.isoDate,
-      now: new Date(),
-    })
+    const computed =
+      anyDiaryCount === 0
+        ? {
+            color: PROJECT_MARKER_DEFAULT_COLOR,
+            label: PROJECT_MARKER_NEW_ORDER_LABEL,
+          }
+        : (() => {
+            const localNow = getCompanyLocalDateTime(new Date(), settings.timezone)
+            const result = computeMarkerAutoColor({
+              startDate: order.start_date,
+              endDate: order.end_date,
+              diaryEntryDates: entryDates,
+              diaryCheckTime: settings.diary_check_time,
+              workingDays: settings.working_days,
+              today: localNow.isoDate,
+              now: new Date(),
+            })
+            return { color: result.color, label: result.label }
+          })()
 
     const oldColor = marker.marker_color
     const oldLabel = marker.color_label
@@ -166,4 +186,20 @@ export async function recalculateProjectMarkerColor(
     )
     return null
   }
+}
+
+/** Okamžitě nastaví červenou barvu nového markeru bez jakéhokoli zápisu deníku. */
+export async function forceRedMarkerWithoutDiary(projectId: string): Promise<void> {
+  const diaryCount = await fetchAnyDiaryEntryCount(projectId)
+  if (diaryCount > 0) return
+
+  await supabase
+    .from('project_map_markers')
+    .update({
+      marker_color: PROJECT_MARKER_DEFAULT_COLOR,
+      color_source: PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
+      color_label: PROJECT_MARKER_MISSING_DIARY_LABEL,
+    })
+    .eq('project_id', projectId)
+    .eq('color_source', 'auto')
 }

@@ -37,9 +37,9 @@ BEGIN
     NEW.gps_lng,
     NEW.gps_accuracy,
     v_is_approximate,
-    'green',
+    'red',
     'auto',
-    'Nová zakázka'
+    'Chybí stavební deník'
   )
   ON CONFLICT (project_id) DO NOTHING;
 
@@ -100,9 +100,9 @@ BEGIN
       NEW.gps_lng,
       NEW.gps_accuracy,
       v_is_approximate,
-      'green',
+      'red',
       'auto',
-      'Nová zakázka'
+      'Chybí stavební deník'
     )
     ON CONFLICT (project_id) DO NOTHING;
   END IF;

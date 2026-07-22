@@ -258,7 +258,7 @@ export function computeMarkerAutoColor(input: MarkerColorComputeInput): MarkerCo
   }
 
   if (candidates.length === 0) {
-    if (compareIsoDates(today, input.startDate) >= 0 && entryDates.size === 0) {
+    if (entryDates.size === 0) {
       return {
         color: 'red',
         label: PROJECT_MARKER_MISSING_DIARY_LABEL,
@@ -266,10 +266,18 @@ export function computeMarkerAutoColor(input: MarkerColorComputeInput): MarkerCo
       }
     }
 
+    if (compareIsoDates(today, input.startDate) < 0) {
+      return {
+        color: 'blue',
+        label: PROJECT_MARKER_AUTO_COLOR_LABELS.blue,
+        priority: COLOR_PRIORITY.blue,
+      }
+    }
+
     return {
-      color: 'green',
-      label: PROJECT_MARKER_AUTO_COLOR_LABELS.green,
-      priority: COLOR_PRIORITY.green,
+      color: 'red',
+      label: PROJECT_MARKER_MISSING_DIARY_LABEL,
+      priority: COLOR_PRIORITY.red,
     }
   }
 
