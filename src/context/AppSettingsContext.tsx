@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { DEFAULT_APP_SETTINGS, type AppSettings } from '@/types'
+import { DEFAULT_VISUAL_THEME, isVisualThemeId } from '@/constants/visualThemes'
 
 interface AppSettingsContextType {
   settings: AppSettings | null
@@ -22,7 +23,7 @@ const AppSettingsContext = createContext<AppSettingsContextType | undefined>(und
 
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const { setTheme } = useTheme()
+  const { setTheme, setVisualTheme } = useTheme()
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -51,9 +52,16 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
-        const appSettings = data as AppSettings
+        const row = data as AppSettings & { visual_theme?: string }
+        const appSettings: AppSettings = {
+          ...row,
+          visual_theme: isVisualThemeId(row.visual_theme ?? '')
+            ? row.visual_theme
+            : DEFAULT_VISUAL_THEME,
+        }
         setSettings(appSettings)
         setTheme(appSettings.theme)
+        setVisualTheme(appSettings.visual_theme)
       } else {
         const { data: created, error: createError } = await supabase
           .from('app_settings')
@@ -65,6 +73,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
           const appSettings = created as AppSettings
           setSettings(appSettings)
           setTheme(appSettings.theme)
+          setVisualTheme(appSettings.visual_theme ?? DEFAULT_VISUAL_THEME)
         }
       }
 
@@ -72,7 +81,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     }
 
     loadSettings()
-  }, [user, setTheme])
+  }, [user, setTheme, setVisualTheme])
 
   const saveSettings = useCallback(async (data: AppSettings) => {
     if (!user) return
@@ -81,6 +90,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       .from('app_settings')
       .update({
         theme: data.theme,
+        visual_theme: data.visual_theme,
         language: data.language,
         sidebar_collapsed: data.sidebar_collapsed,
         notifications_enabled: data.notifications_enabled,
@@ -96,7 +106,11 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     if (data.theme) {
       setTheme(data.theme)
     }
-  }, [user, setTheme])
+
+    if (data.visual_theme) {
+      setVisualTheme(data.visual_theme)
+    }
+  }, [user, setTheme, setVisualTheme])
 
   function updateSettings(partial: Partial<AppSettings>) {
     setSettings((prev) => (prev ? { ...prev, ...partial } : prev))

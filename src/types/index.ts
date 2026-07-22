@@ -1,3 +1,5 @@
+import type { VisualThemeId } from '@/constants/visualThemes'
+
 export type UserRole = 'administrator' | 'majitel' | 'stavbyvedouci' | 'ucetni' | 'vedouci' | 'delnik'
 
 export type ThemeMode = 'dark' | 'light'
@@ -39,6 +41,7 @@ export interface AppSettings {
   id: string
   user_id: string
   theme: ThemeMode
+  visual_theme: VisualThemeId
   language: string
   sidebar_collapsed: boolean
   notifications_enabled: boolean
@@ -121,6 +124,7 @@ export const DEFAULT_COMPANY_SETTINGS: Omit<CompanySettings, 'id' | 'updated_at'
 
 export const DEFAULT_APP_SETTINGS: Omit<AppSettings, 'id' | 'user_id' | 'updated_at'> = {
   theme: 'dark',
+  visual_theme: 'neon-glass',
   language: 'cs',
   sidebar_collapsed: false,
   notifications_enabled: true,

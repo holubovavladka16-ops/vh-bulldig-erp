@@ -7,11 +7,13 @@ import { AutoSaveIndicator } from '@/components/ui/AutoSaveIndicator'
 import { useAppSettings } from '@/context/AppSettingsContext'
 import { useTheme } from '@/context/ThemeContext'
 import { useAutoSave } from '@/hooks/useAutoSave'
+import { ThemePresetPicker } from '@/components/settings/ThemePresetPicker'
 import type { AppSettings } from '@/types'
+import type { VisualThemeId } from '@/constants/visualThemes'
 
 export function AppSettingsPage() {
   const { settings, updateSettings, saveSettings } = useAppSettings()
-  const { setTheme } = useTheme()
+  const { setTheme, setVisualTheme } = useTheme()
   const [form, setForm] = useState<AppSettings | null>(null)
 
   useEffect(() => {
@@ -41,6 +43,10 @@ export function AppSettingsPage() {
     if (key === 'theme') {
       setTheme(value as AppSettings['theme'])
     }
+
+    if (key === 'visual_theme') {
+      setVisualTheme(value as VisualThemeId)
+    }
   }
 
   if (!form) {
@@ -63,25 +69,32 @@ export function AppSettingsPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <Card>
           <h3 className="mb-4 text-base font-semibold text-theme-primary">Vzhled</h3>
-          <div className="space-y-1">
-            <Toggle
-              label="Tmavý režim"
-              description="Přepnout mezi tmavým a světlým režimem aplikace"
-              checked={form.theme === 'dark'}
-              onChange={(checked) => updateField('theme', checked ? 'dark' : 'light')}
+          <div className="space-y-6">
+            <ThemePresetPicker
+              value={form.visual_theme}
+              onChange={(visualTheme) => updateField('visual_theme', visualTheme)}
             />
-            <Toggle
-              label="Kompaktní režim"
-              description="Zmenšené rozestupy pro větší množství informací na obrazovce"
-              checked={form.compact_mode}
-              onChange={(checked) => updateField('compact_mode', checked)}
-            />
-            <Toggle
-              label="Sbalené postranní menu"
-              description="Výchozí stav postranního menu po přihlášení"
-              checked={form.sidebar_collapsed}
-              onChange={(checked) => updateField('sidebar_collapsed', checked)}
-            />
+
+            <div className="space-y-1 border-t border-[var(--border-glass)] pt-4">
+              <Toggle
+                label="Tmavý režim"
+                description="Přepnout mezi tmavým a světlým režimem aplikace"
+                checked={form.theme === 'dark'}
+                onChange={(checked) => updateField('theme', checked ? 'dark' : 'light')}
+              />
+              <Toggle
+                label="Kompaktní režim"
+                description="Zmenšené rozestupy pro větší množství informací na obrazovce"
+                checked={form.compact_mode}
+                onChange={(checked) => updateField('compact_mode', checked)}
+              />
+              <Toggle
+                label="Sbalené postranní menu"
+                description="Výchozí stav postranního menu po přihlášení"
+                checked={form.sidebar_collapsed}
+                onChange={(checked) => updateField('sidebar_collapsed', checked)}
+              />
+            </div>
           </div>
         </Card>
 
