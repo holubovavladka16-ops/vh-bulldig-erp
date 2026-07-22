@@ -262,6 +262,10 @@ export const GFA_PDF_EXTRA_STYLES = `
     object-fit: cover;
     border: 1px solid #c5d0de;
   }
+  .gfa-pdf-map-link {
+    display: block;
+    text-decoration: none;
+  }
   .gfa-pdf-map-links {
     margin: 1mm 0 0 !important;
     font-size: 7.5pt !important;
@@ -428,10 +432,12 @@ function buildPhotoBodyHtml(photo: GpsPhoto, orientation: GfaPhotoOrientation): 
         ? `
     <section class="gfa-pdf-section">
       <h2>Mapa místa pořízení</h2>
-      <img class="gfa-pdf-map-img" src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" />
+      <a class="gfa-pdf-map-link" href="${escHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">
+        <img class="gfa-pdf-map-img" src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" />
+      </a>
       <p class="gfa-pdf-map-links">
-        <a href="${escHtml(mapUrl)}">Mapy.cz</a> ·
-        <a href="${escHtml(streetUrl)}">Panorama Mapy.cz</a>
+        <a href="${escHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">Mapy.cz</a> ·
+        <a href="${escHtml(streetUrl)}" target="_blank" rel="noopener noreferrer">Panorama (ulice)</a>
       </p>
     </section>
     `
