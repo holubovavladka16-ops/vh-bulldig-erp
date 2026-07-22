@@ -13,6 +13,20 @@ function at(isoDate: string, hours: number, minutes = 0): Date {
 }
 
 describe('computeMarkerAutoColor', () => {
+  it('vrátí červenou bez jakéhokoli záznamu deníku v aktivním období', () => {
+    const result = computeMarkerAutoColor({
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
+      diaryEntryDates: [],
+      today: '2026-07-22',
+      now: at('2026-07-22', 10, 0),
+      workingDays: WORKING_DAYS,
+    })
+
+    expect(result.color).toBe('red')
+    expect(result.label).toBe('Chybí stavební deník')
+  })
+
   it('vrátí modrou před zahájením zakázky', () => {
     const result = computeMarkerAutoColor({
       startDate: '2026-08-01',

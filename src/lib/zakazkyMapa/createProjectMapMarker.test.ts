@@ -124,9 +124,9 @@ describe('buildProjectMapMarkerInsert', () => {
       gps_lng: 14,
       gps_accuracy: null,
       is_approximate: true,
-      marker_color: 'green',
+      marker_color: 'red',
       color_source: 'auto',
-      color_label: 'Nová zakázka',
+      color_label: 'Chybí stavební deník',
     })
   })
 })

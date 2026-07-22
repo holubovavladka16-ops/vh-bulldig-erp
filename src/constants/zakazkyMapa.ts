@@ -1,8 +1,10 @@
 import type { ProjectMarkerColor, ProjectMarkerColorSource } from '@/types/zakazkyMapa'
+import { PROJECT_MARKER_MISSING_DIARY_LABEL } from '@/constants/projectNotifications'
 
-export const PROJECT_MARKER_DEFAULT_COLOR: ProjectMarkerColor = 'green'
+export const PROJECT_MARKER_DEFAULT_COLOR: ProjectMarkerColor = 'red'
 export const PROJECT_MARKER_DEFAULT_COLOR_SOURCE: ProjectMarkerColorSource = 'auto'
-export const PROJECT_MARKER_NEW_ORDER_LABEL = 'Nová zakázka'
+/** Výchozí popisek nového špendlíku bez záznamu deníku. */
+export const PROJECT_MARKER_NEW_ORDER_LABEL = PROJECT_MARKER_MISSING_DIARY_LABEL
 
 /** Automatické popisky barev (Fáze 1e). */
 export const PROJECT_MARKER_AUTO_COLOR_LABELS: Record<ProjectMarkerColor, string> = {

@@ -46,7 +46,7 @@ describe('buildPlaceholderMarker', () => {
     const marker = buildPlaceholderMarker(sampleOrder)
     expect(marker.project_id).toBe('order-1')
     expect(marker.gps_lat).toBeNull()
-    expect(marker.marker_color).toBe('green')
+    expect(marker.marker_color).toBe('red')
     expect(marker.id).toContain('placeholder')
   })
 })

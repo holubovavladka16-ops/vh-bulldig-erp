@@ -164,6 +164,14 @@ export function computeMarkerAutoColor(input: MarkerColorComputeInput): MarkerCo
   }
 
   if (isActivePeriod) {
+    if (entryDates.size === 0) {
+      candidates.push({
+        color: 'red',
+        label: PROJECT_MARKER_MISSING_DIARY_LABEL,
+        priority: COLOR_PRIORITY.red,
+      })
+    }
+
     const missingStreak = countConsecutiveMissingWorkingDays(
       today,
       input.startDate,
@@ -250,6 +258,14 @@ export function computeMarkerAutoColor(input: MarkerColorComputeInput): MarkerCo
   }
 
   if (candidates.length === 0) {
+    if (compareIsoDates(today, input.startDate) >= 0 && entryDates.size === 0) {
+      return {
+        color: 'red',
+        label: PROJECT_MARKER_MISSING_DIARY_LABEL,
+        priority: COLOR_PRIORITY.red,
+      }
+    }
+
     return {
       color: 'green',
       label: PROJECT_MARKER_AUTO_COLOR_LABELS.green,

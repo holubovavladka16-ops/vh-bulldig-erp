@@ -1,13 +1,77 @@
 import { supabase } from '@/lib/supabase'
 import {
-  PROJECT_MARKER_DEFAULT_COLOR,
-  PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
   PROJECT_MARKER_DEVICE_APPROXIMATE_THRESHOLD_M,
-  PROJECT_MARKER_NEW_ORDER_LABEL,
 } from '@/constants/zakazkyMapa'
 import { isValidProjectMarkerGps } from '@/lib/zakazkyMapa/markerGps'
+import {
+  buildPlaceholderMarkerWithColor,
+  resolveAutoMarkerDisplay,
+  type MarkerDisplaySettings,
+} from '@/lib/zakazkyMapa/markerDisplayColor'
+import {
+  PROJECT_MARKER_DEFAULT_CHECK_TIME,
+  PROJECT_MARKER_DEFAULT_WORKING_DAYS,
+} from '@/constants/zakazkyMapa'
 import type { JobOrder } from '@/types/orders'
 import type { ProjectMapMarker, ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
+
+async function fetchMarkerDisplaySettings(): Promise<MarkerDisplaySettings> {
+  const { data } = await supabase
+    .from('company_settings')
+    .select('diary_check_time, working_days, timezone')
+    .limit(1)
+    .maybeSingle()
+
+  if (!data) {
+    return {
+      diary_check_time: PROJECT_MARKER_DEFAULT_CHECK_TIME,
+      working_days: PROJECT_MARKER_DEFAULT_WORKING_DAYS,
+      timezone: 'Europe/Prague',
+    }
+  }
+
+  const row = data as { diary_check_time?: string; working_days?: number[]; timezone?: string }
+  return {
+    diary_check_time: row.diary_check_time ?? PROJECT_MARKER_DEFAULT_CHECK_TIME,
+    working_days: row.working_days ?? PROJECT_MARKER_DEFAULT_WORKING_DAYS,
+    timezone: row.timezone ?? 'Europe/Prague',
+  }
+}
+
+async function fetchDiaryDatesByOrderIds(orderIds: string[]): Promise<Map<string, string[]>> {
+  if (orderIds.length === 0) return new Map()
+
+  const { data, error } = await supabase
+    .from('construction_diary_entries')
+    .select('order_id, entry_date')
+    .in('order_id', orderIds)
+    .in('entry_status', ['approved', 'submitted', 'pending_review'])
+
+  if (error) throw new Error(error.message)
+
+  const map = new Map<string, string[]>()
+  for (const row of (data ?? []) as Array<{ order_id: string; entry_date: string }>) {
+    const list = map.get(row.order_id) ?? []
+    list.push(row.entry_date)
+    map.set(row.order_id, list)
+  }
+  return map
+}
+
+function applyDisplayColor(
+  order: JobOrder,
+  marker: ProjectMapMarker,
+  diaryDates: string[],
+  settings: MarkerDisplaySettings
+): ProjectMapMarker {
+  const display = resolveAutoMarkerDisplay(order, marker, diaryDates, settings)
+  return {
+    ...marker,
+    marker_color: display.marker_color,
+    color_label: display.color_label,
+    color_source: display.color_source,
+  }
+}
 
 /** Mapování zakázky bez markeru, nebo doplnění GPS ze zakázky pokud marker nemá souřadnice. */
 export function mergeMarkerWithOrder(
@@ -78,46 +142,41 @@ export async function fetchProjectsWithMarkersFromOrders(): Promise<ProjectMapMa
   if (orderRows.length === 0) return []
 
   const projectIds = orderRows.map((order) => order.id)
-  const { data: markers, error: markersError } = await supabase
-    .from('project_map_markers')
-    .select('*')
-    .in('project_id', projectIds)
+  const [markersResult, diaryByOrder, settings] = await Promise.all([
+    supabase.from('project_map_markers').select('*').in('project_id', projectIds),
+    fetchDiaryDatesByOrderIds(projectIds),
+    fetchMarkerDisplaySettings(),
+  ])
 
+  const { data: markers, error: markersError } = markersResult
   if (markersError) throw new Error(markersError.message)
 
   const markerByProject = new Map(
     ((markers ?? []) as ProjectMapMarker[]).map((marker) => [marker.project_id, marker])
   )
 
-  return orderRows.map((order) => ({
-    ...mergeMarkerWithOrder(
-      markerByProject.get(order.id) ?? buildPlaceholderMarker(order),
-      order
-    ),
-    order,
-  }))
+  return orderRows.map((order) => {
+    const diaryDates = diaryByOrder.get(order.id) ?? []
+    const baseMarker =
+      markerByProject.get(order.id) ?? buildPlaceholderMarkerWithColor(order, diaryDates, settings)
+    const withGps = mergeMarkerWithOrder(baseMarker, order)
+    const withColor = applyDisplayColor(order, withGps, diaryDates, settings)
+    return { ...withColor, order }
+  })
 }
 
 export function buildPlaceholderMarker(order: JobOrder): ProjectMapMarker {
-  const now = new Date().toISOString()
-  return {
-    id: `placeholder-${order.id}`,
-    project_id: order.id,
-    gps_lat: order.gps_lat,
-    gps_lng: order.gps_lng,
-    gps_accuracy: order.gps_accuracy,
-    is_approximate: order.gps_lat == null || order.gps_lng == null,
-    marker_color: PROJECT_MARKER_DEFAULT_COLOR,
-    color_source: PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
-    color_label: PROJECT_MARKER_NEW_ORDER_LABEL,
-    created_at: now,
-    updated_at: now,
-  }
+  return buildPlaceholderMarkerWithColor(order)
 }
 
 export async function fetchProjectMapMarkerByProjectId(
   projectId: string
 ): Promise<ProjectMapMarkerWithOrder | null> {
+  const [settings, diaryByOrder] = await Promise.all([
+    fetchMarkerDisplaySettings(),
+    fetchDiaryDatesByOrderIds([projectId]),
+  ])
+
   const { data: marker, error: markerError } = await supabase
     .from('project_map_markers')
     .select('*')
@@ -136,11 +195,15 @@ export async function fetchProjectMapMarkerByProjectId(
   if (!order) return null
 
   const jobOrder = order as JobOrder
+  const diaryDates = diaryByOrder.get(projectId) ?? []
   const base =
-    (marker as ProjectMapMarker | null) ?? buildPlaceholderMarker(jobOrder)
+    (marker as ProjectMapMarker | null) ??
+    buildPlaceholderMarkerWithColor(jobOrder, diaryDates, settings)
+  const withGps = mergeMarkerWithOrder(base, jobOrder)
+  const withColor = applyDisplayColor(jobOrder, withGps, diaryDates, settings)
 
   return {
-    ...mergeMarkerWithOrder(base, jobOrder),
+    ...withColor,
     order: jobOrder,
   }
 }
