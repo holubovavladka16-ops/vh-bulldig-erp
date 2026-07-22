@@ -14,7 +14,7 @@ import { useAuth } from '@/context/AuthContext'
 import { canEditMarkerColor, isAdministrator, isMajitel } from '@/constants/permissions'
 import { createDiaryEntry } from '@/lib/diary/api'
 import { fetchJobOrders } from '@/lib/orders/api'
-import { fetchProjectMapMarkersWithOrders, filterProjectMapMarkers, fetchProjectMapMarkerByProjectId } from '@/lib/zakazkyMapa/api'
+import { fetchProjectsWithMarkersFromOrders, filterProjectMapMarkers, fetchProjectMapMarkerByProjectId } from '@/lib/zakazkyMapa/api'
 import { PROJECT_MARKER_COLOR_FILTER_OPTIONS } from '@/constants/zakazkyMapa'
 import type { ConstructionDiaryCreateInput } from '@/types/diary'
 import type { ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
@@ -42,7 +42,7 @@ export function ZakazkyMapaPage() {
     setLoading(true)
     setError('')
     try {
-      setItems(await fetchProjectMapMarkersWithOrders())
+      setItems(await fetchProjectsWithMarkersFromOrders())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Načtení mapy se nezdařilo')
     } finally {
@@ -55,6 +55,21 @@ export function ZakazkyMapaPage() {
     fetchJobOrders()
       .then((orders) => setOrderOptions(orders.map((order) => ({ value: order.id, label: order.name }))))
       .catch(() => {})
+  }, [load])
+
+  useEffect(() => {
+    function handleRefresh() {
+      if (document.visibilityState === 'visible') {
+        void load()
+      }
+    }
+
+    window.addEventListener('focus', handleRefresh)
+    document.addEventListener('visibilitychange', handleRefresh)
+    return () => {
+      window.removeEventListener('focus', handleRefresh)
+      document.removeEventListener('visibilitychange', handleRefresh)
+    }
   }, [load])
 
   useEffect(() => {

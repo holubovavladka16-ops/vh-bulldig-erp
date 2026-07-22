@@ -2,10 +2,36 @@ import { supabase } from '@/lib/supabase'
 import {
   PROJECT_MARKER_DEFAULT_COLOR,
   PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
+  PROJECT_MARKER_DEVICE_APPROXIMATE_THRESHOLD_M,
   PROJECT_MARKER_NEW_ORDER_LABEL,
 } from '@/constants/zakazkyMapa'
+import { isValidProjectMarkerGps } from '@/lib/zakazkyMapa/markerGps'
 import type { JobOrder } from '@/types/orders'
 import type { ProjectMapMarker, ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
+
+/** Mapování zakázky bez markeru, nebo doplnění GPS ze zakázky pokud marker nemá souřadnice. */
+export function mergeMarkerWithOrder(
+  marker: ProjectMapMarker,
+  order: JobOrder
+): ProjectMapMarker {
+  if (isValidProjectMarkerGps(marker.gps_lat, marker.gps_lng)) {
+    return marker
+  }
+
+  if (isValidProjectMarkerGps(order.gps_lat, order.gps_lng)) {
+    const accuracy = order.gps_accuracy ?? null
+    return {
+      ...marker,
+      gps_lat: order.gps_lat,
+      gps_lng: order.gps_lng,
+      gps_accuracy: accuracy,
+      is_approximate:
+        accuracy == null || accuracy > PROJECT_MARKER_DEVICE_APPROXIMATE_THRESHOLD_M,
+    }
+  }
+
+  return marker
+}
 
 export async function fetchProjectMapMarkersWithOrders(): Promise<ProjectMapMarkerWithOrder[]> {
   const { data: markers, error: markersError } = await supabase
@@ -64,7 +90,10 @@ export async function fetchProjectsWithMarkersFromOrders(): Promise<ProjectMapMa
   )
 
   return orderRows.map((order) => ({
-    ...(markerByProject.get(order.id) ?? buildPlaceholderMarker(order)),
+    ...mergeMarkerWithOrder(
+      markerByProject.get(order.id) ?? buildPlaceholderMarker(order),
+      order
+    ),
     order,
   }))
 }
@@ -106,9 +135,13 @@ export async function fetchProjectMapMarkerByProjectId(
   if (orderError) throw new Error(orderError.message)
   if (!order) return null
 
+  const jobOrder = order as JobOrder
+  const base =
+    (marker as ProjectMapMarker | null) ?? buildPlaceholderMarker(jobOrder)
+
   return {
-    ...((marker as ProjectMapMarker | null) ?? buildPlaceholderMarker(order as JobOrder)),
-    order: order as JobOrder,
+    ...mergeMarkerWithOrder(base, jobOrder),
+    order: jobOrder,
   }
 }
 

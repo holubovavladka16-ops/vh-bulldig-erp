@@ -112,30 +112,80 @@ export async function projectMapMarkerExists(projectId: string): Promise<boolean
   return data != null
 }
 
+async function fetchProjectMapMarker(projectId: string): Promise<{
+  gps_lat: number | null
+  gps_lng: number | null
+} | null> {
+  const { data, error } = await supabase
+    .from('project_map_markers')
+    .select('gps_lat, gps_lng')
+    .eq('project_id', projectId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data as { gps_lat: number | null; gps_lng: number | null } | null
+}
+
+function orderLocationFields(order: JobOrder): ProjectMarkerGpsInput {
+  return {
+    gps_lat: order.gps_lat,
+    gps_lng: order.gps_lng,
+    gps_accuracy: order.gps_accuracy,
+    location: order.location,
+  }
+}
+
+function markerNeedsGpsUpdate(
+  marker: { gps_lat: number | null; gps_lng: number | null },
+  gps: ProjectMarkerGpsResult
+): boolean {
+  const markerHasGps = hasValidCoordinates(marker.gps_lat, marker.gps_lng)
+  const resolvedHasGps = hasValidCoordinates(gps.gps_lat, gps.gps_lng)
+  if (!markerHasGps && resolvedHasGps) return true
+  if (
+    markerHasGps &&
+    resolvedHasGps &&
+    (marker.gps_lat !== gps.gps_lat || marker.gps_lng !== gps.gps_lng)
+  ) {
+    return true
+  }
+  return false
+}
+
 /**
- * Vytvoří hlavní špendlík zakázky (1:1). Pokud už existuje, tiše přeskočí.
- * Chyby geokódování nebo insertu nepropaguje – volající nesmí selhat kvůli špendlíku.
+ * Vytvoří nebo aktualizuje hlavní špendlík zakázky (1:1).
+ * Geokóduje adresu, pokud zakázka nemá GPS. Chyby insertu loguje, ale nepropaguje –
+ * vytvoření zakázky nesmí selhat kvůli špendlíku (mapa zobrazí placeholder ze zakázky).
  */
 export async function ensureProjectMapMarkerForOrder(order: JobOrder): Promise<void> {
   try {
-    if (await projectMapMarkerExists(order.id)) {
+    const gps = await resolveProjectMarkerGps(orderLocationFields(order))
+    const existing = await fetchProjectMapMarker(order.id)
+
+    if (existing) {
+      if (markerNeedsGpsUpdate(existing, gps)) {
+        const { error } = await supabase
+          .from('project_map_markers')
+          .update({
+            gps_lat: gps.gps_lat,
+            gps_lng: gps.gps_lng,
+            gps_accuracy: gps.gps_accuracy,
+            is_approximate: gps.is_approximate,
+          })
+          .eq('project_id', order.id)
+
+        if (error) {
+          console.error('[zakazky-mapa] Aktualizace GPS špendlíku selhala:', error.message)
+        }
+      }
+      await recalculateProjectMarkerColor(order.id)
       return
     }
 
-    const gps = await resolveProjectMarkerGps({
-      gps_lat: order.gps_lat,
-      gps_lng: order.gps_lng,
-      gps_accuracy: order.gps_accuracy,
-      location: order.location,
-    })
-
     const payload = buildProjectMapMarkerInsert(order.id, gps)
-    const { error } = await supabase
-      .from('project_map_markers')
-      .insert({ ...payload })
+    const { error } = await supabase.from('project_map_markers').insert({ ...payload })
 
     if (error) {
-      // UNIQUE(project_id) – souběžné vytvoření, duplicitu ignorovat
       if (error.code === '23505') {
         return
       }

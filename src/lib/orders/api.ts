@@ -85,9 +85,25 @@ export async function updateJobOrder(id: string, input: Partial<JobOrderCreateIn
   const { data, error } = await supabase.from('job_orders').update(input).eq('id', id).select('*').single()
   if (error) throw new Error(error.message)
   const order = data as JobOrder
-  if (input.start_date != null || input.end_date != null) {
+
+  const locationChanged =
+    input.location != null ||
+    input.gps_lat != null ||
+    input.gps_lng != null ||
+    input.gps_accuracy != null
+
+  if (locationChanged) {
+    await ensureProjectMapMarkerForOrder(order)
+  }
+
+  if (
+    input.start_date != null ||
+    input.end_date != null ||
+    locationChanged
+  ) {
     await recalculateProjectMarkerColor(id)
   }
+
   return order
 }
 
