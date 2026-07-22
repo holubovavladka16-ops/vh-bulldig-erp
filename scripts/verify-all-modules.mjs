@@ -74,6 +74,7 @@ const checks = [
   { name: 'Náklady', table: 'job_costs', select: 'id', limit: 1 },
   { name: 'Smlouvy (dokumenty)', table: 'worker_documents', select: 'id', limit: 1 },
   { name: 'Paragony', table: 'receipts', select: 'id', limit: 1 },
+  { name: 'Fakturovač', table: 'issued_invoices', select: 'id', limit: 1 },
   { name: 'Přípojky', table: 'utility_connections', select: 'id', limit: 1 },
   { name: 'Mapa výkopů', table: 'excavation_routes', select: 'id', limit: 1 },
   { name: 'Firemní údaje', table: 'company_settings', select: 'id', limit: 1 },

@@ -47,6 +47,7 @@ export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   denik: ['administrator', 'majitel'],
   ekonomika: ['administrator'],
   paragony: ['administrator'],
+  fakturovac: ['administrator'],
   pripojky: ['administrator'],
   'gps-fotoarchiv': ['administrator'],
   'mapa-vykopu': ['administrator'],
@@ -57,6 +58,7 @@ export const MODULE_PERMISSIONS: Record<ModuleId, UserRole[]> = {
   'nastaveni-profil': ['administrator', 'majitel', 'stavbyvedouci'],
   'nastaveni-opravneni': ['administrator'],
   'nastaveni-aplikace': ['administrator'],
+  'nastaveni-faktury': ['administrator'],
   stavbyvedouci: ['stavbyvedouci'],
 }
 

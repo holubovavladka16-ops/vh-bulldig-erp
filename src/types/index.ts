@@ -74,6 +74,7 @@ export type ModuleId =
   | 'denik'
   | 'ekonomika'
   | 'paragony'
+  | 'fakturovac'
   | 'pripojky'
   | 'gps-fotoarchiv'
   | 'mapa-vykopu'
@@ -85,6 +86,7 @@ export type ModuleId =
   | 'nastaveni-profil'
   | 'nastaveni-opravneni'
   | 'nastaveni-aplikace'
+  | 'nastaveni-faktury'
   | 'stavbyvedouci'
 
 export interface NavItem {

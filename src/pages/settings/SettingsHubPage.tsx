@@ -51,6 +51,7 @@ export function SettingsHubPage() {
 function getSettingsDescription(id: string): string {
   const descriptions: Record<string, string> = {
     'nastaveni-spolecnost': 'Firemní údaje, IČO, DIČ, kontakty, logo a jednatel',
+    'nastaveni-faktury': 'Údaje dodavatele, logo, podpis, razítko a výchozí DPH pro faktury',
     'nastaveni-profil': 'Osobní profil administrátora a kontaktní údaje',
     'nastaveni-opravneni': 'Správa rolí uživatelů v systému',
     'nastaveni-aplikace': 'Vzhled, režim, notifikace a automatické ukládání',
