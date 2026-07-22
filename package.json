@@ -31,6 +31,7 @@
     "verify-admin-attendance": "node scripts/verify-admin-attendance.mjs",
     "verify-paper-forms": "node scripts/verify-paper-forms.mjs",
     "apply-paper-migrations": "node scripts/apply-paper-migrations-053-058.mjs",
+    "apply-gps-fotoarchiv-migration": "node scripts/apply-gps-fotoarchiv-migration.mjs",
     "deploy:vercel": "node scripts/deploy-vercel-production.mjs",
     "verify-production-deploy": "node scripts/verify-production-deploy.mjs",
     "test-paper-form-pdf": "node scripts/test-paper-form-pdf.mjs",

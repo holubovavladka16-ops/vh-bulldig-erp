@@ -47,7 +47,9 @@ export function GpsFotoarchivPage() {
 
   const captureGps = useGpsPreflight(view === 'capture', {
     maxAccuracyMeters: GPS_FOTOARCHIV_MAX_ACCURACY_METERS,
-    requireAddressLoaded: true,
+    requireAddressLoaded: false,
+    geocodeDebounceMs: 600,
+    maximumAgeMs: 10_000,
   })
   const mapGps = useGpsPreflight(view === 'map')
 
@@ -84,7 +86,7 @@ export function GpsFotoarchivPage() {
     <AppLayout>
       <PageHeader
         title={GPS_FOTOARCHIV_LABEL}
-        description={`Foťák se otevře hned, GPS zaměřuje polohu na pozadí. Při přesnosti ±${GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m se fotografie automaticky uloží.`}
+        description={`Foťák se otevře hned, GPS zaměřuje polohu na pozadí. Uložení proběhne při přesnosti ±${GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m (nebo po potvrzení aktuální polohy).`}
       />
 
       <div className="mb-4 flex flex-wrap gap-2">

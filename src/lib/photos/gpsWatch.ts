@@ -15,6 +15,10 @@ export interface StartGpsWatchOptions {
   onTargetReached: (state: GpsPositionState) => void
   onTimeout: (state: GpsPositionState) => void
   onError: (message: string) => void
+  /** Cílová přesnost v metrech (výchozí GPS_TARGET_ACCURACY_METERS). */
+  targetAccuracyMeters?: number
+  /** Přijmout cacheovanou polohu pro rychlejší první fix (ms). */
+  maximumAgeMs?: number
 }
 
 function toState(position: GeolocationPosition): GpsPositionState {
@@ -27,12 +31,19 @@ function toState(position: GeolocationPosition): GpsPositionState {
   }
 }
 
-/** Průběžné sledování GPS – aktualizace v reálném čase, cíl ±2 m, timeout 30 s. */
+/** Průběžné sledování GPS – aktualizace v reálném čase, cílová přesnost, timeout 30 s. */
 export function startGpsWatch(options: StartGpsWatchOptions): {
   stop: () => void
   resetTimeout: () => void
 } {
-  const { onUpdate, onTargetReached, onTimeout, onError } = options
+  const {
+    onUpdate,
+    onTargetReached,
+    onTimeout,
+    onError,
+    targetAccuracyMeters = GPS_TARGET_ACCURACY_METERS,
+    maximumAgeMs = 0,
+  } = options
 
   if (!navigator.geolocation) {
     onError('GPS není v prohlížeči dostupné.')
@@ -77,7 +88,7 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
       const state = toState(position)
       onUpdate(state)
 
-      if (!targetReached && position.coords.accuracy <= GPS_TARGET_ACCURACY_METERS) {
+      if (!targetReached && position.coords.accuracy <= targetAccuracyMeters) {
         targetReached = true
         if (timeoutId != null) clearTimeout(timeoutId)
         onTargetReached(state)
@@ -89,7 +100,7 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
     },
     {
       enableHighAccuracy: true,
-      maximumAge: 0,
+      maximumAge: maximumAgeMs,
       timeout: GPS_MAX_WAIT_MS,
     }
   )
