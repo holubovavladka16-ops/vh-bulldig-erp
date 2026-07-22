@@ -2,6 +2,35 @@ import { GPS_TARGET_ACCURACY_METERS } from '@/lib/photos/geocoding'
 
 export const GPS_MAX_WAIT_MS = 30_000
 
+const GEO_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 0,
+  timeout: GPS_MAX_WAIT_MS,
+}
+
+export function checkGeolocationSupport(): string | null {
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
+    return 'GPS vyžaduje zabezpečené připojení (HTTPS). Otevřete aplikaci přes https:// adresu.'
+  }
+  if (!navigator.geolocation) {
+    return 'GPS není v tomto prohlížeči dostupné.'
+  }
+  return null
+}
+
+export function getGeolocationErrorMessage(error: GeolocationPositionError): string {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return 'Přístup k poloze byl zamítnut. Povolte polohu v prohlížeči a v nastavení zařízení.'
+    case error.POSITION_UNAVAILABLE:
+      return 'Poloha není dostupná. Zapněte GPS / přesnou polohu v nastavení telefonu.'
+    case error.TIMEOUT:
+      return 'Vypršel čas pro získání GPS. Přesuňte se na volné prostranství a zkuste znovu.'
+    default:
+      return error.message || 'Polohu se nepodařilo získat. Povolte GPS.'
+  }
+}
+
 export interface GpsPositionState {
   lat: number
   lng: number
@@ -115,6 +144,63 @@ export function startGpsWatch(options: StartGpsWatchOptions): {
     resetTimeout: () => {
       if (stopped || targetReached) return
       scheduleTimeout()
+    },
+  }
+}
+
+/**
+ * Okamžité zaměření pro modul výkopů / přípojek:
+ * 1) getCurrentPosition pro rychlý první fix
+ * 2) watchPosition pro průběžné aktualizace
+ */
+export function startGpsLocateSession(options: {
+  onUpdate: (state: GpsPositionState) => void
+  onError: (message: string) => void
+  maximumAgeMs?: number
+}): { stop: () => void } {
+  const { onUpdate, onError, maximumAgeMs = 0 } = options
+
+  const supportError = checkGeolocationSupport()
+  if (supportError) {
+    onError(supportError)
+    return { stop: () => undefined }
+  }
+
+  let watchId: number | null = null
+  let stopped = false
+  let receivedFix = false
+
+  const geoOptions: PositionOptions = {
+    ...GEO_OPTIONS,
+    maximumAge: maximumAgeMs,
+  }
+
+  const handleSuccess = (position: GeolocationPosition) => {
+    if (stopped) return
+    receivedFix = true
+    onUpdate(toState(position))
+  }
+
+  const handleError = (error: GeolocationPositionError) => {
+    if (stopped) return
+    if (receivedFix && error.code === error.TIMEOUT) return
+    onError(getGeolocationErrorMessage(error))
+  }
+
+  navigator.geolocation.getCurrentPosition(handleSuccess, (error) => {
+    if (stopped) return
+    if (error.code === error.PERMISSION_DENIED) {
+      handleError(error)
+    }
+  }, geoOptions)
+
+  watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, geoOptions)
+
+  return {
+    stop: () => {
+      stopped = true
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
+      watchId = null
     },
   }
 }

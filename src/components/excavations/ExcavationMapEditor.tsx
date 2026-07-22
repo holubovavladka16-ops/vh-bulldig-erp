@@ -25,6 +25,8 @@ interface ExcavationMapEditorProps {
   selectedRouteId: string | null
   mapFocus: MapFocusTarget | null
   userLocation: MapFocusTarget | null
+  /** Změna layoutu (režim měření) – invalidace velikosti mapy. */
+  layoutKey?: string
   onMapClick: (point: ExcavationPoint) => void
   onDraftPointsChange: (points: ExcavationPoint[]) => void
   onSelectRoute: (id: string | null) => void
@@ -39,6 +41,7 @@ export function ExcavationMapEditor({
   selectedRouteId,
   mapFocus,
   userLocation,
+  layoutKey,
   onMapClick,
   onDraftPointsChange,
   onSelectRoute,
@@ -263,6 +266,13 @@ export function ExcavationMapEditor({
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: 16 })
     }
   }, [routes, draftPoints, selectedRouteId, isDrawing])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const timer = window.setTimeout(() => map.invalidateSize(), 150)
+    return () => window.clearTimeout(timer)
+  }, [layoutKey])
 
   useEffect(() => {
     const map = mapRef.current
