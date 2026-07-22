@@ -31,15 +31,97 @@ loadEnvFile('.env')
 loadEnvFile('.env.local')
 loadEnvFile('.env.production')
 
+if (process.env.POSTGRES_URL && !process.env.SUPABASE_DB_URL) {
+  process.env.SUPABASE_DB_URL = process.env.POSTGRES_URL
+}
+if (process.env.DATABASE_URL && !process.env.SUPABASE_DB_URL) {
+  process.env.SUPABASE_DB_URL = process.env.DATABASE_URL
+}
+
 const MIGRATIONS = ['081_fakturovac_module.sql', '082_fakturovac_storage_update.sql']
 
 const projectRef = getProjectRef(process.env.VITE_SUPABASE_URL)
 const dbPassword = process.env.SUPABASE_DB_PASSWORD
 const token = process.env.SUPABASE_ACCESS_TOKEN
+const connectionString = process.env.SUPABASE_DB_URL
 
-if (!projectRef) {
-  console.error('FAIL: Neplatná VITE_SUPABASE_URL')
+if (!projectRef && !connectionString && !token) {
+  console.error('FAIL: Neplatná VITE_SUPABASE_URL a chybí POSTGRES_URL/DATABASE_URL/SUPABASE_ACCESS_TOKEN')
   process.exit(1)
+}
+
+async function verifySchema() {
+  let client
+  let owned = false
+
+  if (connectionString) {
+    const pg = await import('pg')
+    client = new pg.default.Client({ connectionString, ssl: { rejectUnauthorized: false } })
+    await client.connect()
+    owned = true
+  } else if (dbPassword) {
+    ;({ client } = await connectSupabaseDb({ projectRef, dbPassword }))
+    owned = true
+  } else {
+    console.log('Ověření schématu přes DB přeskočeno.')
+    return
+  }
+
+  const tables = ['issued_invoices', 'issued_invoice_lines', 'invoice_settings']
+  for (const table of tables) {
+    const result = await client.query(
+      `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1`,
+      [table]
+    )
+    if (result.rowCount === 0) {
+      console.error(`FAIL: Tabulka ${table} neexistuje`)
+      process.exit(1)
+    }
+    console.log(`OK: Tabulka ${table} existuje`)
+  }
+
+  const module = await client.query(`SELECT id FROM erp_modules WHERE id = 'fakturovac'`)
+  if (module.rowCount === 0) {
+    console.error('FAIL: Modul fakturovac není v erp_modules')
+    process.exit(1)
+  }
+  console.log('OK: Modul fakturovac registrován v erp_modules')
+
+  if (owned) await client.end()
+}
+
+async function applyViaConnectionString() {
+  if (!connectionString) return false
+  const pg = await import('pg')
+  const client = new pg.default.Client({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+  })
+  await client.connect()
+  console.log('Připojeno (connection string).')
+
+  for (let i = 0; i < MIGRATIONS.length; i++) {
+    const file = MIGRATIONS[i]
+    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8')
+    process.stdout.write(`  [${i + 1}/${MIGRATIONS.length}] ${file}… `)
+    try {
+      await client.query('BEGIN')
+      await client.query(sql)
+      await client.query('COMMIT')
+      console.log('OK')
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {})
+      if (isIdempotentError(error.message)) {
+        console.log('SKIP (již existuje)')
+        continue
+      }
+      console.error('\nFAIL:', file, error.message)
+      process.exit(1)
+    }
+  }
+
+  await client.end()
+  return true
 }
 
 async function applyViaPg() {
@@ -98,44 +180,20 @@ async function applyViaApi() {
   }
 }
 
-async function verifySchema() {
-  if (!dbPassword) {
-    console.log('Ověření schématu přes DB přeskočeno (chybí SUPABASE_DB_PASSWORD).')
-    return
-  }
-
-  const { client } = await connectSupabaseDb({ projectRef, dbPassword })
-  const tables = ['issued_invoices', 'issued_invoice_lines', 'invoice_settings']
-  for (const table of tables) {
-    const result = await client.query(
-      `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1`,
-      [table]
-    )
-    if (result.rowCount === 0) {
-      console.error(`FAIL: Tabulka ${table} neexistuje`)
-      process.exit(1)
-    }
-    console.log(`OK: Tabulka ${table} existuje`)
-  }
-
-  const module = await client.query(`SELECT id FROM erp_modules WHERE id = 'fakturovac'`)
-  if (module.rowCount === 0) {
-    console.error('FAIL: Modul fakturovac není v erp_modules')
-    process.exit(1)
-  }
-  console.log('OK: Modul fakturovac registrován v erp_modules')
-
-  await client.end()
-}
-
 console.log(`Aplikuji migrace Fakturovač (081–082) na projekt ${projectRef}…`)
+
+if (await applyViaConnectionString()) {
+  await verifySchema()
+  console.log('OK: Migrace Fakturovač aplikovány.')
+  process.exit(0)
+}
 
 if (dbPassword) {
   await applyViaPg()
 } else if (token) {
   await applyViaApi()
 } else {
-  console.error('FAIL: Nastavte SUPABASE_DB_PASSWORD nebo SUPABASE_ACCESS_TOKEN')
+  console.error('FAIL: Nastavte SUPABASE_DB_PASSWORD, SUPABASE_ACCESS_TOKEN nebo POSTGRES_URL/DATABASE_URL')
   process.exit(1)
 }
 
