@@ -24,6 +24,9 @@ import { DiaryModulePage } from '@/pages/diary/DiaryModulePage'
 import { ConnectionsModulePage } from '@/pages/pripojky/ConnectionsModulePage'
 import { PayrollModulePage } from '@/pages/payroll/PayrollModulePage'
 import { ReceiptsModulePage } from '@/pages/receipts/ReceiptsModulePage'
+import { InvoicesModulePage } from '@/pages/invoices/InvoicesModulePage'
+import { InvoiceEditorPage } from '@/pages/invoices/InvoiceEditorPage'
+import { InvoiceSettingsPage } from '@/pages/settings/InvoiceSettingsPage'
 import { ContractsModulePage } from '@/pages/contracts/ContractsModulePage'
 import { ProfitOverviewPage } from '@/pages/profit/ProfitOverviewPage'
 import { DailyFormsModulePage } from '@/pages/dailyForms/DailyFormsModulePage'
@@ -60,6 +63,7 @@ const placeholderModules = FUTURE_MODULES.filter(
       'gps-fotoarchiv',
       'denni-formulare',
       'paragony',
+      'fakturovac',
       'dokumenty',
       'statistiky',
     ].includes(m.id)
@@ -301,6 +305,24 @@ export function AppRoutes() {
       />
 
       <Route
+        path="/fakturace"
+        element={
+          <ProtectedRoute requiredModule="fakturovac">
+            <InvoicesModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/fakturace/:id"
+        element={
+          <ProtectedRoute requiredModule="fakturovac">
+            <InvoiceEditorPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/dokumenty"
         element={
           <ProtectedRoute requiredModule="dokumenty">
@@ -353,6 +375,15 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="nastaveni-spolecnost">
             <CompanySettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/nastaveni/faktury"
+        element={
+          <ProtectedRoute requiredModule="nastaveni-faktury">
+            <InvoiceSettingsPage />
           </ProtectedRoute>
         }
       />

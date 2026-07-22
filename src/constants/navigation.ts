@@ -28,6 +28,14 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
     adminOnly: true,
   },
   {
+    id: 'nastaveni-faktury',
+    label: 'Nastavení faktur',
+    path: '/nastaveni/faktury',
+    icon: 'FileInvoice',
+    module: 'nastaveni-faktury',
+    adminOnly: true,
+  },
+  {
     id: 'nastaveni-aplikace',
     label: 'Nastavení aplikace',
     path: '/nastaveni/aplikace',
