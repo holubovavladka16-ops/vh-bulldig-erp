@@ -111,45 +111,81 @@ async function addPhotoHistory(
   if (error) throw new Error(error.message)
 }
 
+function isMissingOptionalGpsPhotoColumnError(message: string): boolean {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('device_info') ||
+    normalized.includes('title') ||
+    normalized.includes('schema cache')
+  )
+}
+
+function buildGpsPhotoInsertRow(
+  input: GpsPhotoCreateInput,
+  path: string,
+  capturedAt: Date,
+  createdBy: string,
+  includeOptionalColumns: boolean
+) {
+  const row: Record<string, unknown> = {
+    file_path: path,
+    file_name: input.file.name,
+    captured_at: capturedAt.toISOString(),
+    captured_date: capturedAt.toISOString().slice(0, 10),
+    captured_time: formatTimeValue(capturedAt),
+    gps_lat: input.gps_lat,
+    gps_lng: input.gps_lng,
+    gps_accuracy: input.gps_accuracy,
+    device_heading: input.device_heading ?? null,
+    address_full: input.address_full,
+    street: input.street,
+    city: input.city,
+    postal_code: input.postal_code,
+    country: input.country,
+    note: input.note?.trim() || null,
+    order_id: input.order_id ?? null,
+    worker_id: input.worker_id ?? null,
+    report_id: input.report_id ?? null,
+    diary_entry_id: input.diary_entry_id ?? null,
+    utility_connection_id: input.utility_connection_id ?? null,
+    photo_phase: input.photo_phase ?? null,
+    construction_point_id: input.construction_point_id ?? null,
+    sort_order: 0,
+    created_by: createdBy,
+  }
+
+  if (includeOptionalColumns) {
+    row.title = input.title?.trim() || null
+    row.device_info = input.device_info?.trim() || null
+  }
+
+  return row
+}
+
 export async function createGpsPhoto(input: GpsPhotoCreateInput, createdBy: string): Promise<GpsPhoto> {
   const capturedAt = input.captured_at
   const path = `${capturedAt.getFullYear()}/${Date.now()}_${input.file.name}`
   const { error: uploadError } = await supabase.storage.from('gps-photos').upload(path, input.file)
   if (uploadError) throw new Error(uploadError.message)
 
-  const { data, error } = await supabase
+  const selectQuery =
+    '*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)'
+
+  let insertResult = await supabase
     .from('gps_photos')
-    .insert({
-      file_path: path,
-      file_name: input.file.name,
-      captured_at: capturedAt.toISOString(),
-      captured_date: capturedAt.toISOString().slice(0, 10),
-      captured_time: formatTimeValue(capturedAt),
-      gps_lat: input.gps_lat,
-      gps_lng: input.gps_lng,
-      gps_accuracy: input.gps_accuracy,
-      device_heading: input.device_heading ?? null,
-      address_full: input.address_full,
-      street: input.street,
-      city: input.city,
-      postal_code: input.postal_code,
-      country: input.country,
-      note: input.note?.trim() || null,
-      title: input.title?.trim() || null,
-      device_info: input.device_info?.trim() || null,
-      order_id: input.order_id ?? null,
-      worker_id: input.worker_id ?? null,
-      report_id: input.report_id ?? null,
-      diary_entry_id: input.diary_entry_id ?? null,
-      utility_connection_id: input.utility_connection_id ?? null,
-      photo_phase: input.photo_phase ?? null,
-      construction_point_id: input.construction_point_id ?? null,
-      sort_order: 0,
-      created_by: createdBy,
-    })
-    .select('*, job_orders(name), workers(first_name, last_name), creator:profiles!gps_photos_created_by_fkey(full_name, email)')
+    .insert(buildGpsPhotoInsertRow(input, path, capturedAt, createdBy, true))
+    .select(selectQuery)
     .single()
 
+  if (insertResult.error && isMissingOptionalGpsPhotoColumnError(insertResult.error.message)) {
+    insertResult = await supabase
+      .from('gps_photos')
+      .insert(buildGpsPhotoInsertRow(input, path, capturedAt, createdBy, false))
+      .select(selectQuery)
+      .single()
+  }
+
+  const { data, error } = insertResult
   if (error) throw new Error(error.message)
 
   const photo = mapPhotoRow(data as GpsPhotoRow)

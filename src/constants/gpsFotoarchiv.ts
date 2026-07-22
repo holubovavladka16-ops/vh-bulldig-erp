@@ -1,10 +1,12 @@
+import { GPS_PHOTO_SAVE_MAX_ACCURACY_METERS } from '@/lib/photos/geocoding'
+
 export const GPS_FOTOARCHIV_MODULE_ID = 'gps-fotoarchiv' as const
 export const GPS_FOTOARCHIV_PATH = '/gps-fotoarchiv' as const
 
 export const GPS_FOTOARCHIV_LABEL = 'Fotodokumentace s GPS'
 
-/** Maximální přípustná přesnost GPS pro pořízení fotografie (metry). */
-export const GPS_FOTOARCHIV_MAX_ACCURACY_METERS = 3
+/** Maximální přípustná přesnost GPS pro uložení fotografie (metry). */
+export const GPS_FOTOARCHIV_MAX_ACCURACY_METERS = GPS_PHOTO_SAVE_MAX_ACCURACY_METERS
 
 export const GPS_FOTOARCHIV_VIEWS = ['capture', 'gallery', 'map'] as const
 export type GpsFotoarchivView = (typeof GPS_FOTOARCHIV_VIEWS)[number]

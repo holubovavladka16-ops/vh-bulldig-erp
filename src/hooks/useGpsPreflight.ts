@@ -68,11 +68,17 @@ export interface GpsPreflightOptions {
   maxAccuracyMeters?: number
   /** Vyžadovat dokončené načtení adresy před povolením capture. */
   requireAddressLoaded?: boolean
+  /** Debounce reverse geocoding (ms). */
+  geocodeDebounceMs?: number
+  /** Přijmout cacheovanou GPS polohu pro rychlejší první fix (ms). */
+  maximumAgeMs?: number
 }
 
 export function useGpsPreflight(enabled: boolean, options: GpsPreflightOptions = {}) {
   const maxAccuracyMeters = options.maxAccuracyMeters ?? GPS_TARGET_ACCURACY_METERS
   const requireAddressLoaded = options.requireAddressLoaded ?? false
+  const geocodeDebounceMs = options.geocodeDebounceMs ?? GEOCODE_DEBOUNCE_MS
+  const maximumAgeMs = options.maximumAgeMs ?? 0
   const [phase, setPhase] = useState<GpsPreflightPhase>('initializing')
   const [position, setPosition] = useState<GpsPositionState | null>(null)
   const [address, setAddress] = useState<GeocodedAddress | null>(null)
@@ -114,9 +120,9 @@ export function useGpsPreflight(enabled: boolean, options: GpsPreflightOptions =
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current)
       geocodeTimerRef.current = setTimeout(() => {
         void geocodeForPosition(pos)
-      }, GEOCODE_DEBOUNCE_MS)
+      }, geocodeDebounceMs)
     },
-    [geocodeForPosition]
+    [geocodeForPosition, geocodeDebounceMs]
   )
 
   useEffect(() => {
@@ -138,6 +144,8 @@ export function useGpsPreflight(enabled: boolean, options: GpsPreflightOptions =
     geocodeGenerationRef.current += 1
 
     const session = startGpsWatch({
+      targetAccuracyMeters: maxAccuracyMeters,
+      maximumAgeMs,
       onUpdate: (state) => {
         setPosition(state)
         setError(null)
@@ -172,7 +180,7 @@ export function useGpsPreflight(enabled: boolean, options: GpsPreflightOptions =
       resetTimeoutRef.current = null
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current)
     }
-  }, [enabled, maxAccuracyMeters, scheduleGeocode])
+  }, [enabled, maxAccuracyMeters, maximumAgeMs, scheduleGeocode])
 
   const acceptRelaxedAccuracy = useCallback(() => {
     setPhase('relaxed')
@@ -190,10 +198,7 @@ export function useGpsPreflight(enabled: boolean, options: GpsPreflightOptions =
   const addressLoaded =
     !requireAddressLoaded || addressStatus === 'ready' || addressStatus === 'unavailable'
   const canCapture =
-    hasLocation &&
-    accuracyOk &&
-    addressLoaded &&
-    (phase === 'ready' || (!requireAddressLoaded && phase === 'relaxed'))
+    hasLocation && addressLoaded && (phase === 'relaxed' || accuracyOk)
   const addressLoading = addressStatus === 'loading'
   const addressDisplayLabel = getAddressDisplayLabel(address, addressStatus)
 

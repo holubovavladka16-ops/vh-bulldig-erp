@@ -256,8 +256,8 @@ export function GfaCapturePanel({ userId, orderOptions, onSaved, gps }: GfaCaptu
   return (
     <Card className="space-y-4 p-4">
       <p className="text-sm text-[var(--text-muted)]">
-        1. Foťák je otevřený · 2. GPS zaměřuje polohu · 3. Při ±{GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m se
-        fotografie uloží
+        1. Foťák je otevřený · 2. GPS zaměřuje polohu · 3. Při ±{GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m se fotografie
+        uloží (adresa se doplní na pozadí)
       </p>
 
       <Select
@@ -384,6 +384,23 @@ export function GfaCapturePanel({ userId, orderOptions, onSaved, gps }: GfaCaptu
           <dd className={gps.accuracyReady ? 'text-emerald-400' : ''}>{accuracyLabel}</dd>
         </div>
       </dl>
+
+      {gps.phase === 'timeout_prompt' && gps.position && (
+        <div className="space-y-2 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm">
+          <p>
+            Přesnost ±{Math.round(gps.position.accuracy)} m – cíl je ±{GPS_FOTOARCHIV_MAX_ACCURACY_METERS} m.
+            Můžete pokračovat s aktuální polohou nebo čekat na lepší signál.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={gps.acceptRelaxedAccuracy}>
+              Použít aktuální polohu
+            </Button>
+            <Button size="sm" variant="secondary" onClick={gps.continueSearching}>
+              Čekat na lepší GPS
+            </Button>
+          </div>
+        </div>
+      )}
 
       {gps.error && <p className="text-sm text-amber-300">{gps.error}</p>}
     </Card>
