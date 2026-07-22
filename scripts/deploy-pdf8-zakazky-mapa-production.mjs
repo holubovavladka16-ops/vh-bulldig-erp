@@ -50,6 +50,7 @@ function isIdempotentError(message) {
 loadEnvFile('.env')
 loadEnvFile('.env.local')
 loadEnvFile('.env.production')
+loadEnvFile('.env.production')
 
 const MIGRATIONS = [
   '068_pdf8_project_map_module.sql',

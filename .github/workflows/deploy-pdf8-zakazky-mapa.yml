@@ -24,7 +24,6 @@ on:
 jobs:
   deploy-database:
     runs-on: ubuntu-latest
-    environment: Production – vh-bulldig-erp
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,7 +61,6 @@ jobs:
     needs: deploy-database
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.skip_vercel != 'true'
     runs-on: ubuntu-latest
-    environment: Production – vh-bulldig-erp
     steps:
       - name: Checkout
         uses: actions/checkout@v4
