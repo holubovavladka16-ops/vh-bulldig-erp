@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { computeMarkerAutoColor } from '@/lib/zakazkyMapa/computeMarkerColor'
+import { insertMarkerColorHistory } from '@/lib/zakazkyMapa/markerColorHistory'
 import {
   PROJECT_MARKER_DEFAULT_CHECK_TIME,
   PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
@@ -7,6 +8,10 @@ import {
 } from '@/constants/zakazkyMapa'
 import type { JobOrder } from '@/types/orders'
 import type { ProjectMapMarker, ProjectMarkerColorSource } from '@/types/zakazkyMapa'
+
+export interface RecalculateMarkerColorOptions {
+  recordHistory?: boolean
+}
 
 export interface MarkerRecalcSettings {
   diary_check_time: string
@@ -65,10 +70,15 @@ async function fetchMarker(projectId: string): Promise<ProjectMapMarker | null> 
 
 /**
  * Přepočítá barvu hlavního špendlíku pro jednu zakázku.
- * Ruční stavy (color_source = manual) se nemění – až ve Fázi 1f.
+ * Ruční stavy (color_source = manual) se nemění.
  * Chyby nepropaguje – volající operace nesmí selhat kvůli přepočtu.
  */
-export async function recalculateProjectMarkerColor(projectId: string): Promise<ProjectMapMarker | null> {
+export async function recalculateProjectMarkerColor(
+  projectId: string,
+  options: RecalculateMarkerColorOptions = {}
+): Promise<ProjectMapMarker | null> {
+  const recordHistory = options.recordHistory ?? true
+
   try {
     if (!projectId.trim()) return null
 
@@ -95,6 +105,10 @@ export async function recalculateProjectMarkerColor(projectId: string): Promise<
       workingDays: settings.working_days,
     })
 
+    const oldColor = marker.marker_color
+    const oldLabel = marker.color_label
+    const colorChanged = computed.color !== oldColor || computed.label !== oldLabel
+
     const { data, error } = await supabase
       .from('project_map_markers')
       .update({
@@ -112,7 +126,19 @@ export async function recalculateProjectMarkerColor(projectId: string): Promise<
       return null
     }
 
-    return (data as ProjectMapMarker | null) ?? null
+    const updated = (data as ProjectMapMarker | null) ?? null
+
+    if (updated && recordHistory && colorChanged) {
+      await insertMarkerColorHistory({
+        projectId,
+        oldColor,
+        newColor: updated.marker_color,
+        colorLabel: updated.color_label,
+        changeType: 'auto',
+      })
+    }
+
+    return updated
   } catch (err) {
     console.error(
       '[zakazky-mapa] Chyba při přepočtu barvy špendlíku:',

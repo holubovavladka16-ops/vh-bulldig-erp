@@ -1,4 +1,4 @@
-export type UserRole = 'administrator' | 'vedouci' | 'delnik'
+export type UserRole = 'administrator' | 'majitel' | 'stavbyvedouci' | 'ucetni' | 'vedouci' | 'delnik'
 
 export type ThemeMode = 'dark' | 'light'
 

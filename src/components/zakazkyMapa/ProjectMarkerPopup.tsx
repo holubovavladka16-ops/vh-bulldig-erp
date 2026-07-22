@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/Badge'
 import { MarkerColorBadge } from '@/components/zakazkyMapa/MarkerColorBadge'
 import { ProjectDiaryList } from '@/components/zakazkyMapa/ProjectDiaryList'
+import { ProjectMarkerColorOverride } from '@/components/zakazkyMapa/ProjectMarkerColorOverride'
+import { ProjectMarkerColorHistoryTable } from '@/components/zakazkyMapa/ProjectMarkerColorHistoryTable'
 import { JOB_ORDER_STATUS_LABELS } from '@/constants/orders'
 import { formatDate } from '@/constants/workers'
 import type { JobOrderStatus } from '@/types/orders'
@@ -17,6 +19,10 @@ interface ProjectMarkerPopupProps {
   canCreateDiaryEntry?: boolean
   onCreateDiaryEntry?: (orderId: string) => void
   diaryRefreshToken?: number
+  canEditMarkerColor?: boolean
+  userId?: string
+  onMarkerColorChanged?: (projectId: string) => Promise<void>
+  colorHistoryRefreshToken?: number
 }
 
 function getOrderStatusVariant(status: JobOrderStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
@@ -38,6 +44,10 @@ export function ProjectMarkerPopup({
   canCreateDiaryEntry = false,
   onCreateDiaryEntry,
   diaryRefreshToken = 0,
+  canEditMarkerColor = false,
+  userId,
+  onMarkerColorChanged,
+  colorHistoryRefreshToken = 0,
 }: ProjectMarkerPopupProps) {
   const navigate = useNavigate()
   const hasGps = isValidProjectMarkerGps(item.gps_lat, item.gps_lng)
@@ -119,6 +129,23 @@ export function ProjectMarkerPopup({
           canCreateEntry={canCreateDiaryEntry}
           onCreateEntry={() => onCreateDiaryEntry?.(item.project_id)}
         />
+
+        {canEditMarkerColor && userId && onMarkerColorChanged ? (
+          <ProjectMarkerColorOverride
+            item={item}
+            userId={userId}
+            onChanged={onMarkerColorChanged}
+          />
+        ) : null}
+
+        <section className="space-y-3 border-t border-white/10 pt-4">
+          <h4 className="text-sm font-semibold text-theme-primary">Historie změn barvy</h4>
+          <ProjectMarkerColorHistoryTable
+            projectId={item.project_id}
+            refreshToken={colorHistoryRefreshToken}
+            compact
+          />
+        </section>
       </div>
 
       <div className="border-t border-white/10 px-4 py-3">

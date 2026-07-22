@@ -34,3 +34,28 @@ export interface ProjectMapMarkerFilters {
   search?: string
   markerColor?: ProjectMarkerColor | ''
 }
+
+export type ProjectMarkerChangeType = 'auto' | 'manual'
+
+export interface ProjectMarkerStatusHistory {
+  id: string
+  project_id: string
+  old_color: ProjectMarkerColor | null
+  new_color: ProjectMarkerColor
+  color_label: string
+  change_type: ProjectMarkerChangeType
+  missing_date: string | null
+  reason: string | null
+  valid_from: string | null
+  valid_to: string | null
+  changed_by: string | null
+  changed_by_name?: string
+  created_at: string
+}
+
+export interface ManualMarkerColorInput {
+  projectId: string
+  color: ProjectMarkerColor
+  reason: string
+  changedBy: string
+}

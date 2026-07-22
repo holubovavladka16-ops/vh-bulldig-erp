@@ -9,7 +9,7 @@ import { ProjectMapView } from '@/components/zakazkyMapa/ProjectMapView'
 import { ProjectList } from '@/components/zakazkyMapa/ProjectList'
 import { ProjectMarkerPopup } from '@/components/zakazkyMapa/ProjectMarkerPopup'
 import { useAuth } from '@/context/AuthContext'
-import { isAdministrator } from '@/constants/permissions'
+import { canEditMarkerColor, isAdministrator } from '@/constants/permissions'
 import { createDiaryEntry } from '@/lib/diary/api'
 import { fetchJobOrders } from '@/lib/orders/api'
 import { fetchProjectMapMarkersWithOrders, filterProjectMapMarkers, fetchProjectMapMarkerByProjectId } from '@/lib/zakazkyMapa/api'
@@ -20,6 +20,7 @@ import type { ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types
 export function ZakazkyMapaPage() {
   const { profile, user } = useAuth()
   const isAdmin = profile ? isAdministrator(profile.role) : false
+  const canOverrideColor = profile ? canEditMarkerColor(profile.role) : false
 
   const [items, setItems] = useState<ProjectMapMarkerWithOrder[]>([])
   const [filters, setFilters] = useState<ProjectMapMarkerFilters>({})
@@ -30,6 +31,7 @@ export function ZakazkyMapaPage() {
   const [diaryFormOpen, setDiaryFormOpen] = useState(false)
   const [diaryPrefillOrderId, setDiaryPrefillOrderId] = useState<string | null>(null)
   const [diaryRefreshToken, setDiaryRefreshToken] = useState(0)
+  const [colorHistoryRefreshToken, setColorHistoryRefreshToken] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -83,6 +85,14 @@ export function ZakazkyMapaPage() {
     setDiaryFormOpen(true)
   }
 
+  const handleMarkerColorChanged = useCallback(
+    async (projectId: string) => {
+      await refreshMarker(projectId)
+      setColorHistoryRefreshToken((token) => token + 1)
+    },
+    [refreshMarker]
+  )
+
   async function handleCreateDiaryEntry(data: ConstructionDiaryCreateInput) {
     if (!user) return
     await createDiaryEntry(data, user.id)
@@ -101,6 +111,10 @@ export function ZakazkyMapaPage() {
         canCreateDiaryEntry: isAdmin,
         onCreateDiaryEntry: handleOpenDiaryForm,
         diaryRefreshToken,
+        canEditMarkerColor: canOverrideColor,
+        userId: user?.id,
+        onMarkerColorChanged: handleMarkerColorChanged,
+        colorHistoryRefreshToken,
       }
     : null
 

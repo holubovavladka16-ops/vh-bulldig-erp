@@ -9,6 +9,7 @@ import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTabl
 import { StatusBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/context/AuthContext'
 import { isAdministrator } from '@/constants/permissions'
+import { ProjectMarkerColorHistoryTable } from '@/components/zakazkyMapa/ProjectMarkerColorHistoryTable'
 import {
   fetchJobOrderDetail,
   uploadJobOrderDocument,
@@ -130,6 +131,10 @@ export function OrderDetailPage() {
           )}
           {order.note && <Meta label="Poznámka" value={order.note} className="sm:col-span-2 lg:col-span-3" />}
         </Card>
+
+        <Section title="Historie změn barvy">
+          {id ? <ProjectMarkerColorHistoryTable projectId={id} /> : null}
+        </Section>
 
         <Section title="Zaměstnanci na zakázce">
           <DataTable columns={[{ key: 'name', label: 'Jméno' }, { key: 'position', label: 'Pozice' }]} isEmpty={detail.employees.length === 0} emptyMessage="Zatím žádní zaměstnanci.">

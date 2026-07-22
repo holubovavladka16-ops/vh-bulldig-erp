@@ -12,6 +12,32 @@ export const PROJECT_MARKER_AUTO_COLOR_LABELS: Record<ProjectMarkerColor, string
   blue: 'Čeká na zahájení',
 }
 
+/** Ruční popisky barev (Fáze 1f). */
+export const PROJECT_MARKER_MANUAL_COLOR_LABELS: Record<ProjectMarkerColor, string> = {
+  green: 'Bez problému',
+  orange: 'Vyžaduje pozornost',
+  red: 'Kritický problém',
+  blue: 'Čeká na zahájení',
+}
+
+export const PROJECT_MARKER_MANUAL_COLOR_OPTIONS: {
+  value: ProjectMarkerColor
+  label: string
+  emoji: string
+}[] = [
+  { value: 'green', label: PROJECT_MARKER_MANUAL_COLOR_LABELS.green, emoji: '🟢' },
+  { value: 'orange', label: PROJECT_MARKER_MANUAL_COLOR_LABELS.orange, emoji: '🟠' },
+  { value: 'red', label: PROJECT_MARKER_MANUAL_COLOR_LABELS.red, emoji: '🔴' },
+  { value: 'blue', label: PROJECT_MARKER_MANUAL_COLOR_LABELS.blue, emoji: '🔵' },
+]
+
+export const PROJECT_MARKER_REVERT_AUTO_REASON = 'Vráceno na automatický výpočet'
+
+export const PROJECT_MARKER_CHANGE_TYPE_LABELS: Record<'auto' | 'manual', string> = {
+  auto: 'Automaticky',
+  manual: 'Ručně',
+}
+
 /** Po kolika chybějících pracovních dnech deníku → červená. */
 export const PROJECT_MARKER_LONG_MISSING_WORKING_DAYS = 3
 
