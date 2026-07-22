@@ -1,11 +1,12 @@
 import { supabase } from '@/lib/supabase'
-import { computeMarkerAutoColor } from '@/lib/zakazkyMapa/computeMarkerColor'
 import { insertMarkerColorHistory } from '@/lib/zakazkyMapa/markerColorHistory'
 import {
   PROJECT_MARKER_DEFAULT_CHECK_TIME,
   PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
   PROJECT_MARKER_DEFAULT_WORKING_DAYS,
 } from '@/constants/zakazkyMapa'
+import { computeMarkerAutoColor } from '@/lib/zakazkyMapa/computeMarkerColor'
+import { getCompanyLocalDateTime } from '@/lib/zakazkyMapa/companyTime'
 import type { JobOrder } from '@/types/orders'
 import type { ProjectMapMarker, ProjectMarkerColorSource } from '@/types/zakazkyMapa'
 
@@ -72,6 +73,13 @@ async function fetchMarker(projectId: string): Promise<ProjectMapMarker | null> 
   return data as ProjectMapMarker | null
 }
 
+async function recalculateViaRpc(projectId: string): Promise<boolean> {
+  const { error } = await supabase.rpc('recalculate_project_marker_color', {
+    p_project_id: projectId,
+  })
+  return !error
+}
+
 /**
  * Přepočítá barvu hlavního špendlíku pro jednu zakázku.
  * Ruční stavy (color_source = manual) se nemění.
@@ -85,6 +93,10 @@ export async function recalculateProjectMarkerColor(
 
   try {
     if (!projectId.trim()) return null
+
+    if (await recalculateViaRpc(projectId)) {
+      return fetchMarker(projectId)
+    }
 
     const marker = await fetchMarker(projectId)
     if (!marker) return null
@@ -101,12 +113,15 @@ export async function recalculateProjectMarkerColor(
       fetchMarkerRecalcSettings(),
     ])
 
+    const localNow = getCompanyLocalDateTime(new Date(), settings.timezone)
     const computed = computeMarkerAutoColor({
       startDate: order.start_date,
       endDate: order.end_date,
       diaryEntryDates: entryDates,
       diaryCheckTime: settings.diary_check_time,
       workingDays: settings.working_days,
+      today: localNow.isoDate,
+      now: new Date(),
     })
 
     const oldColor = marker.marker_color

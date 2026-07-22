@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/inject-gemini-runtime.mjs && tsc -b && vite build",
+    "typecheck": "tsc -b",
     "lint": "eslint .",
     "preview": "vite preview",
     "bootstrap-admin": "node scripts/bootstrap-admin.mjs",
@@ -38,6 +39,8 @@
     "verify-gemini-ai": "node scripts/verify-gemini-ai.mjs",
     "verify-all-modules": "node scripts/verify-all-modules.mjs",
     "verify-full-regression": "node scripts/verify-full-regression.mjs",
+    "verify:pdf8": "node scripts/verify-pdf8-zakazky-mapa.mjs",
+    "backfill:markers": "node scripts/backfill-project-map-markers.mjs",
     "test": "vitest run",
     "test-form-check": "vitest run src/lib/formCheck",
     "deploy-notify-login": "node scripts/deploy-notify-login.mjs",

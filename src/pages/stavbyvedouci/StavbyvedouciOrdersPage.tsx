@@ -29,7 +29,7 @@ export function StavbyvedouciOrdersPage() {
 
   return (
     <AppLayout>
-      <Button variant="ghost" className="mb-4" onClick={() => navigate('/stavbyvedouci')}>
+      <Button variant="ghost" className="mb-4 min-h-[44px]" onClick={() => navigate('/stavbyvedouci')}>
         <ArrowLeft className="h-4 w-4" />
         Zpět
       </Button>
@@ -76,7 +76,7 @@ export function StavbyvedouciOrdersPage() {
                   Otevřít zakázku
                 </Button>
                 <Link
-                  to="/zakazky-mapa"
+                  to={`/zakazky-mapa?projectId=${item.project_id}`}
                   className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-medium text-theme-primary hover:bg-white/5"
                 >
                   <MapPin className="h-4 w-4" />

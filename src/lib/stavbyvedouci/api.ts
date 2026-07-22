@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { fetchProjectMapMarkersWithOrders } from '@/lib/zakazkyMapa/api'
+import { fetchProjectsWithMarkersFromOrders } from '@/lib/zakazkyMapa/api'
 import { createJobCost } from '@/lib/costs/api'
 import { recalculateProjectMarkerColor } from '@/lib/zakazkyMapa/recalculateMarkerColor'
 import type { JobCostCreateInput } from '@/types/costs'
@@ -27,9 +27,9 @@ export interface StavbyvedouciAttendanceInput {
 const DIARY_ENTRY_SELECT =
   '*, job_orders(name, order_number), creator:profiles!construction_diary_entries_created_by_fkey(full_name, email)'
 
-/** Přidělené zakázky se špendlíky – filtrováno RLS. */
+/** Přidělené zakázky se špendlíky – filtrováno RLS (včetně zakázek bez markeru). */
 export async function fetchAssignedProjectsWithMarkers(): Promise<ProjectMapMarkerWithOrder[]> {
-  return fetchProjectMapMarkersWithOrders()
+  return fetchProjectsWithMarkersFromOrders()
 }
 
 export async function fetchWorkersForAssignedOrder(

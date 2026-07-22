@@ -1,4 +1,9 @@
 import { supabase } from '@/lib/supabase'
+import {
+  PROJECT_MARKER_DEFAULT_COLOR,
+  PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
+  PROJECT_MARKER_NEW_ORDER_LABEL,
+} from '@/constants/zakazkyMapa'
 import type { JobOrder } from '@/types/orders'
 import type { ProjectMapMarker, ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
 
@@ -34,6 +39,53 @@ export async function fetchProjectMapMarkersWithOrders(): Promise<ProjectMapMark
     .filter((item): item is ProjectMapMarkerWithOrder => item != null)
 }
 
+/** Zakázky viditelné dle RLS + špendlík nebo placeholder (přiřazení bez markeru). */
+export async function fetchProjectsWithMarkersFromOrders(): Promise<ProjectMapMarkerWithOrder[]> {
+  const { data: orders, error: ordersError } = await supabase
+    .from('job_orders')
+    .select('*')
+    .order('updated_at', { ascending: false })
+
+  if (ordersError) throw new Error(ordersError.message)
+
+  const orderRows = (orders ?? []) as JobOrder[]
+  if (orderRows.length === 0) return []
+
+  const projectIds = orderRows.map((order) => order.id)
+  const { data: markers, error: markersError } = await supabase
+    .from('project_map_markers')
+    .select('*')
+    .in('project_id', projectIds)
+
+  if (markersError) throw new Error(markersError.message)
+
+  const markerByProject = new Map(
+    ((markers ?? []) as ProjectMapMarker[]).map((marker) => [marker.project_id, marker])
+  )
+
+  return orderRows.map((order) => ({
+    ...(markerByProject.get(order.id) ?? buildPlaceholderMarker(order)),
+    order,
+  }))
+}
+
+export function buildPlaceholderMarker(order: JobOrder): ProjectMapMarker {
+  const now = new Date().toISOString()
+  return {
+    id: `placeholder-${order.id}`,
+    project_id: order.id,
+    gps_lat: order.gps_lat,
+    gps_lng: order.gps_lng,
+    gps_accuracy: order.gps_accuracy,
+    is_approximate: order.gps_lat == null || order.gps_lng == null,
+    marker_color: PROJECT_MARKER_DEFAULT_COLOR,
+    color_source: PROJECT_MARKER_DEFAULT_COLOR_SOURCE,
+    color_label: PROJECT_MARKER_NEW_ORDER_LABEL,
+    created_at: now,
+    updated_at: now,
+  }
+}
+
 export async function fetchProjectMapMarkerByProjectId(
   projectId: string
 ): Promise<ProjectMapMarkerWithOrder | null> {
@@ -44,7 +96,6 @@ export async function fetchProjectMapMarkerByProjectId(
     .maybeSingle()
 
   if (markerError) throw new Error(markerError.message)
-  if (!marker) return null
 
   const { data: order, error: orderError } = await supabase
     .from('job_orders')
@@ -55,7 +106,10 @@ export async function fetchProjectMapMarkerByProjectId(
   if (orderError) throw new Error(orderError.message)
   if (!order) return null
 
-  return { ...(marker as ProjectMapMarker), order: order as JobOrder }
+  return {
+    ...((marker as ProjectMapMarker | null) ?? buildPlaceholderMarker(order as JobOrder)),
+    order: order as JobOrder,
+  }
 }
 
 export function filterProjectMapMarkers(

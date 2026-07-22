@@ -4,6 +4,7 @@ import {
   canAccessErp,
   getDefaultErpPath,
   isStavbyvedouci,
+  isMajitel,
   shouldRedirectStavbyvedouci,
 } from '@/constants/permissions'
 import type { ModuleId } from '@/types'
@@ -81,6 +82,10 @@ export function ProtectedRoute({ children, requiredModule }: ProtectedRouteProps
       return <Navigate to={getDefaultErpPath(profile.role)} replace />
     }
     return <>{children}</>
+  }
+
+  if (isMajitel(profile.role) && pathname === '/') {
+    return <Navigate to={getDefaultErpPath(profile.role)} replace />
   }
 
   if (requiredModule && !hasModuleAccess(profile.role, requiredModule)) {

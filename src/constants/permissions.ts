@@ -100,6 +100,7 @@ export function isStavbyvedouciModule(module: ModuleId): boolean {
 /** Výchozí cílová stránka po přihlášení podle role. */
 export function getDefaultErpPath(role: UserRole): string {
   if (role === 'stavbyvedouci') return '/stavbyvedouci'
+  if (role === 'majitel') return '/zakazky-mapa'
   return '/'
 }
 

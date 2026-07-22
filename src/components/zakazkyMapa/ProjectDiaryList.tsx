@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { BookOpen, Plus, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/context/AuthContext'
+import { isStavbyvedouci } from '@/constants/permissions'
 import { ProjectDiaryEntryCard } from '@/components/zakazkyMapa/ProjectDiaryEntryCard'
 import { ProjectDiaryEntryDetail } from '@/components/zakazkyMapa/ProjectDiaryEntryDetail'
 import {
@@ -24,6 +26,7 @@ export function ProjectDiaryList({
   onCreateEntry,
 }: ProjectDiaryListProps) {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [entries, setEntries] = useState<ProjectDiaryListItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -81,7 +84,8 @@ export function ProjectDiaryList({
   }
 
   function openFullDiary() {
-    navigate(`/denik?orderId=${encodeURIComponent(orderId)}`)
+    const basePath = profile && isStavbyvedouci(profile.role) ? '/stavbyvedouci/denik' : '/denik'
+    navigate(`${basePath}?orderId=${encodeURIComponent(orderId)}`)
   }
 
   if (selectedEntryId) {
