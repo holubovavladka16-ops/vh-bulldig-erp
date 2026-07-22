@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Eraser,
   FileDown,
@@ -58,6 +58,7 @@ import { fetchJobOrders } from '@/lib/orders/api'
 import type { ExcavationPoint, ExcavationRoute, MeasurementMode } from '@/types/excavations'
 import { MEASUREMENT_MODE_LABELS, pickRouteColor } from '@/types/excavations'
 import { formatDate } from '@/constants/workers'
+import type { GpsPositionState } from '@/lib/photos/gpsWatch'
 
 export function ExcavationsMapModulePage() {
   const { user } = useAuth()
@@ -81,6 +82,8 @@ export function ExcavationsMapModulePage() {
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null)
   const [mapFocus, setMapFocus] = useState<MapFocusTarget | null>(null)
   const [userLocation, setUserLocation] = useState<MapFocusTarget | null>(null)
+  const [gpsTrackingActive, setGpsTrackingActive] = useState(false)
+  const gpsInitialFocusRef = useRef(false)
 
   const draftLength = calculateRouteLengthMeters(draftPoints)
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) ?? null
@@ -118,6 +121,8 @@ export function ExcavationsMapModulePage() {
     setEditingRouteId(null)
     setMapFocus(null)
     setUserLocation(null)
+    setGpsTrackingActive(false)
+    gpsInitialFocusRef.current = false
     setDrawMode('points')
     setError('')
   }
@@ -133,7 +138,41 @@ export function ExcavationsMapModulePage() {
     setIsDrawing(false)
     setSelectedRouteId(null)
     setEditingRouteId(null)
+    gpsInitialFocusRef.current = false
+    setUserLocation(null)
+    setMapFocus(null)
+    setGpsTrackingActive(false)
   }
+
+  /** Před každým Zaměřit – vynutit čerstvé GPS, ignorovat uložené trasy/zakázky. */
+  const beginGpsLocate = useCallback(() => {
+    gpsInitialFocusRef.current = false
+    setGpsTrackingActive(true)
+    setSelectedRouteId(null)
+    setMapFocus(null)
+    setUserLocation(null)
+    setDraftPoints([])
+    setIsDrawing(false)
+  }, [])
+
+  const handleGpsPositionUpdate = useCallback((position: GpsPositionState) => {
+    setUserLocation({
+      lat: position.lat,
+      lng: position.lng,
+      accuracy: position.accuracy,
+    })
+
+    if (!gpsInitialFocusRef.current) {
+      gpsInitialFocusRef.current = true
+      setMapFocus({
+        lat: position.lat,
+        lng: position.lng,
+        zoom: 19,
+        accuracy: position.accuracy,
+        immediate: true,
+      })
+    }
+  }, [])
 
   function handleMapReady(focus: MapStartFocus) {
     if (!drawOrderId) {
@@ -147,12 +186,14 @@ export function ExcavationsMapModulePage() {
       lng: focus.lng,
       zoom: focus.zoom,
       accuracy: focus.accuracy,
+      immediate: true,
     })
     setUserLocation(
       focus.accuracy != null
         ? { lat: focus.lat, lng: focus.lng, accuracy: focus.accuracy }
         : null
     )
+    gpsInitialFocusRef.current = true
     setDraftPoints([])
     setIsDrawing(true)
     setEditingRouteId(null)
@@ -163,8 +204,9 @@ export function ExcavationsMapModulePage() {
     setError('')
     setStartLabel(result.label)
     setDraftPoints(result.points)
-    setMapFocus(result.mapFocus)
+    setMapFocus({ ...result.mapFocus, immediate: false })
     setUserLocation(null)
+    setGpsTrackingActive(false)
     setIsDrawing(false)
     if (!routeName.trim()) {
       setRouteName('Měření chůzí')
@@ -358,13 +400,17 @@ export function ExcavationsMapModulePage() {
                 {measurementMode === 'manual' && (
                   <ExcavationStartPanel
                     disabled={!drawOrderId}
+                    onBeginGpsLocate={beginGpsLocate}
                     onMapReady={handleMapReady}
+                    onPositionUpdate={handleGpsPositionUpdate}
                   />
                 )}
 
                 {measurementMode === 'gps_walk' && (
                   <GpsWalkMeasurementPanel
                     disabled={!drawOrderId}
+                    onBeginGpsLocate={beginGpsLocate}
+                    onPositionUpdate={handleGpsPositionUpdate}
                     onComplete={handleGpsWalkComplete}
                     onCancel={cancelDrawing}
                   />
@@ -483,6 +529,8 @@ export function ExcavationsMapModulePage() {
             selectedRouteId={selectedRouteId}
             mapFocus={mapFocus}
             userLocation={userLocation}
+            gpsTrackingActive={gpsTrackingActive}
+            layoutKey={measurementMode ?? 'idle'}
             onMapClick={handleMapClick}
             onDraftPointsChange={setDraftPoints}
             onSelectRoute={setSelectedRouteId}

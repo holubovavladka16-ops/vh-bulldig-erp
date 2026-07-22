@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Flag, MapPin, Navigation } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { GpsPreflightPanel } from '@/components/photos/GpsPreflightPanel'
-import { useGpsPreflight } from '@/hooks/useGpsPreflight'
+import { ExcavationGpsStatusPanel } from '@/components/excavations/ExcavationGpsStatusPanel'
+import { useExcavationGpsLocate } from '@/hooks/useExcavationGpsLocate'
 import { formatGpsAccuracy, formatGpsCoordinates } from '@/lib/excavations/geometry'
+import type { GpsPositionState } from '@/lib/photos/gpsWatch'
 import type { ExcavationPoint } from '@/types/excavations'
 
 export interface GpsWalkResult {
@@ -14,27 +15,41 @@ export interface GpsWalkResult {
 
 interface GpsWalkMeasurementPanelProps {
   disabled?: boolean
+  onBeginGpsLocate?: () => void
+  onPositionUpdate?: (position: GpsPositionState) => void
   onComplete: (result: GpsWalkResult) => void
   onCancel: () => void
 }
 
 export function GpsWalkMeasurementPanel({
   disabled,
+  onBeginGpsLocate,
+  onPositionUpdate,
   onComplete,
   onCancel,
 }: GpsWalkMeasurementPanelProps) {
   const [gpsEnabled, setGpsEnabled] = useState(false)
   const [startPoint, setStartPoint] = useState<ExcavationPoint | null>(null)
 
-  const gps = useGpsPreflight(gpsEnabled)
-
-  const gpsReady =
-    gps.position != null &&
-    (gps.phase === 'ready' || gps.phase === 'relaxed')
+  const gps = useExcavationGpsLocate(gpsEnabled, { onPositionUpdate })
 
   function startGpsLocate() {
-    setGpsEnabled(true)
+    onBeginGpsLocate?.()
     setStartPoint(null)
+    setGpsEnabled(false)
+    queueMicrotask(() => setGpsEnabled(true))
+  }
+
+  function retryGpsLocate() {
+    onBeginGpsLocate?.()
+    gps.retry()
+  }
+
+  function handleCancel() {
+    setGpsEnabled(false)
+    gps.stop()
+    setStartPoint(null)
+    onCancel()
   }
 
   function captureStartPoint() {
@@ -59,6 +74,9 @@ export function GpsWalkMeasurementPanel({
     const centerLat = (startPoint.lat + endPoint.lat) / 2
     const centerLng = (startPoint.lng + endPoint.lng) / 2
 
+    setGpsEnabled(false)
+    gps.stop()
+
     onComplete({
       points,
       label: 'Měření chůzí (GPS)',
@@ -75,29 +93,28 @@ export function GpsWalkMeasurementPanel({
       <div>
         <h3 className="font-semibold text-theme-primary">Měření chůzí podle GPS</h3>
         <p className="mt-1 text-sm text-theme-muted">
-          Zaměřte polohu, označte bod Start, projděte se na druhé místo a označte bod Konec.
-          Aplikace spočítá vzdálenost mezi oběma body.
+          Klikněte na Zaměřit – mapa se přesune na vaši polohu. Označte bod Start, projděte se na
+          druhé místo a označte bod Konec.
         </p>
       </div>
 
       {!gpsEnabled ? (
         <Button type="button" onClick={startGpsLocate} disabled={disabled} className="w-full sm:w-auto">
           <Navigation className="h-4 w-4" />
-          Zaměřit moji polohu
+          Zaměřit
         </Button>
       ) : (
         <>
-          <GpsPreflightPanel
+          <ExcavationGpsStatusPanel
             phase={gps.phase}
             position={gps.position}
             address={gps.address}
-            addressStatus={gps.addressStatus}
+            addressLoading={gps.addressLoading}
             error={gps.error}
-            onAcceptRelaxed={gps.acceptRelaxedAccuracy}
-            onContinueSearching={gps.continueSearching}
+            onRetry={retryGpsLocate}
           />
 
-          {!startPoint && gpsReady && (
+          {gps.hasFix && !startPoint && (
             <Button type="button" onClick={captureStartPoint} disabled={disabled} className="w-full">
               <Flag className="h-4 w-4" />
               Bod 1 / Start
@@ -125,7 +142,7 @@ export function GpsWalkMeasurementPanel({
                 aplikace zaznamená vaši aktuální GPS polohu jako bod Konec.
               </p>
 
-              {gpsReady ? (
+              {gps.hasFix ? (
                 <Button type="button" onClick={captureEndPoint} disabled={disabled} className="w-full">
                   <MapPin className="h-4 w-4" />
                   Bod 2 / Konec
@@ -138,7 +155,7 @@ export function GpsWalkMeasurementPanel({
         </>
       )}
 
-      <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
+      <Button type="button" variant="secondary" size="sm" onClick={handleCancel}>
         Zrušit měření
       </Button>
     </div>

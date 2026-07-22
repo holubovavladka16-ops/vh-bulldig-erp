@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, MapPin, Navigation, Search } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { GpsPreflightPanel } from '@/components/photos/GpsPreflightPanel'
-import { useGpsPreflight } from '@/hooks/useGpsPreflight'
+import { ExcavationGpsStatusPanel } from '@/components/excavations/ExcavationGpsStatusPanel'
+import { useExcavationGpsLocate } from '@/hooks/useExcavationGpsLocate'
 import { forwardGeocode } from '@/lib/photos/geocoding'
+import type { GpsPositionState } from '@/lib/photos/gpsWatch'
 
 export interface MapStartFocus {
   lat: number
@@ -18,29 +19,30 @@ type StartMode = 'gps' | 'address'
 
 interface ExcavationStartPanelProps {
   disabled?: boolean
+  onBeginGpsLocate?: () => void
   onMapReady: (focus: MapStartFocus) => void
+  onPositionUpdate?: (position: GpsPositionState) => void
 }
 
-export function ExcavationStartPanel({ disabled, onMapReady }: ExcavationStartPanelProps) {
+export function ExcavationStartPanel({
+  disabled,
+  onBeginGpsLocate,
+  onMapReady,
+  onPositionUpdate,
+}: ExcavationStartPanelProps) {
   const [mode, setMode] = useState<StartMode>('gps')
   const [gpsEnabled, setGpsEnabled] = useState(false)
   const [addressQuery, setAddressQuery] = useState('')
   const [addressSearching, setAddressSearching] = useState(false)
   const [addressError, setAddressError] = useState('')
+  const mapOpenedRef = useRef(false)
 
-  const gps = useGpsPreflight(gpsEnabled)
+  const gps = useExcavationGpsLocate(gpsEnabled, { onPositionUpdate })
 
-  const gpsReady =
-    gps.position != null &&
-    (gps.phase === 'ready' || gps.phase === 'relaxed')
+  useEffect(() => {
+    if (!gps.hasFix || !gps.position || mapOpenedRef.current) return
 
-  function startGpsLocate() {
-    setAddressError('')
-    setGpsEnabled(true)
-  }
-
-  function openMapFromGps() {
-    if (!gps.position) return
+    mapOpenedRef.current = true
     onMapReady({
       lat: gps.position.lat,
       lng: gps.position.lng,
@@ -48,6 +50,20 @@ export function ExcavationStartPanel({ disabled, onMapReady }: ExcavationStartPa
       label: gps.address?.address_full ?? `${gps.position.lat.toFixed(6)}, ${gps.position.lng.toFixed(6)}`,
       accuracy: gps.position.accuracy,
     })
+  }, [gps.hasFix, gps.position, gps.address, onMapReady])
+
+  function startGpsLocate() {
+    setAddressError('')
+    mapOpenedRef.current = false
+    onBeginGpsLocate?.()
+    setGpsEnabled(false)
+    queueMicrotask(() => setGpsEnabled(true))
+  }
+
+  function retryGpsLocate() {
+    mapOpenedRef.current = false
+    onBeginGpsLocate?.()
+    gps.retry()
   }
 
   async function searchAddress() {
@@ -111,26 +127,23 @@ export function ExcavationStartPanel({ disabled, onMapReady }: ExcavationStartPa
           {!gpsEnabled ? (
             <Button type="button" onClick={startGpsLocate} disabled={disabled} className="w-full sm:w-auto">
               <Navigation className="h-4 w-4" />
-              Zaměřit moji aktuální polohu
+              Zaměřit
             </Button>
           ) : (
-            <>
-              <GpsPreflightPanel
-                phase={gps.phase}
-                position={gps.position}
-                address={gps.address}
-                addressStatus={gps.addressStatus}
-                error={gps.error}
-                onAcceptRelaxed={gps.acceptRelaxedAccuracy}
-                onContinueSearching={gps.continueSearching}
-              />
-              {gpsReady && (
-                <Button type="button" onClick={openMapFromGps} disabled={disabled} className="w-full">
-                  <MapPin className="h-4 w-4" />
-                  Otevřít mapu na mé poloze a kreslit
-                </Button>
-              )}
-            </>
+            <ExcavationGpsStatusPanel
+              phase={gps.phase}
+              position={gps.position}
+              address={gps.address}
+              addressLoading={gps.addressLoading}
+              error={gps.error}
+              onRetry={retryGpsLocate}
+            />
+          )}
+
+          {gps.hasFix && mapOpenedRef.current && (
+            <p className="text-sm text-emerald-400">
+              Mapa je zaměřena na vaši polohu. Klikáním nebo kreslením přidávejte body trasy.
+            </p>
           )}
         </div>
       )}

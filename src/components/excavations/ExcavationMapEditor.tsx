@@ -15,6 +15,8 @@ export interface MapFocusTarget {
   lng: number
   zoom?: number
   accuracy?: number
+  /** Okamžité vycentrování bez animace (GPS zaměření). */
+  immediate?: boolean
 }
 
 interface ExcavationMapEditorProps {
@@ -25,6 +27,10 @@ interface ExcavationMapEditorProps {
   selectedRouteId: string | null
   mapFocus: MapFocusTarget | null
   userLocation: MapFocusTarget | null
+  /** GPS zaměření aktivní – necentrovat mapu na uložené trasy z DB. */
+  gpsTrackingActive?: boolean
+  /** Změna layoutu (režim měření) – invalidace velikosti mapy. */
+  layoutKey?: string
   onMapClick: (point: ExcavationPoint) => void
   onDraftPointsChange: (points: ExcavationPoint[]) => void
   onSelectRoute: (id: string | null) => void
@@ -39,6 +45,8 @@ export function ExcavationMapEditor({
   selectedRouteId,
   mapFocus,
   userLocation,
+  gpsTrackingActive = false,
+  layoutKey,
   onMapClick,
   onDraftPointsChange,
   onSelectRoute,
@@ -145,7 +153,13 @@ export function ExcavationMapEditor({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapFocus) return
-    map.flyTo([mapFocus.lat, mapFocus.lng], mapFocus.zoom ?? 18, { duration: 0.8 })
+
+    const zoom = mapFocus.zoom ?? 19
+    if (mapFocus.immediate) {
+      map.setView([mapFocus.lat, mapFocus.lng], zoom, { animate: false })
+    } else {
+      map.flyTo([mapFocus.lat, mapFocus.lng], zoom, { duration: 0.8 })
+    }
   }, [mapFocus])
 
   useEffect(() => {
@@ -183,8 +197,9 @@ export function ExcavationMapEditor({
 
     group.clearLayers()
     const bounds = L.latLngBounds([])
+    const visibleRoutes = gpsTrackingActive ? [] : routes
 
-    routes.forEach((route) => {
+    visibleRoutes.forEach((route) => {
       if (route.points.length === 0) return
       const latlngs = route.points.map((p) => L.latLng(p.lat, p.lng))
       latlngs.forEach((ll) => bounds.extend(ll))
@@ -259,10 +274,17 @@ export function ExcavationMapEditor({
       })
     }
 
-    if (!isDrawing && bounds.isValid() && routes.length > 0 && !selectedRouteId) {
+    if (!isDrawing && bounds.isValid() && visibleRoutes.length > 0 && !selectedRouteId && !gpsTrackingActive) {
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: 16 })
     }
-  }, [routes, draftPoints, selectedRouteId, isDrawing])
+  }, [routes, draftPoints, selectedRouteId, isDrawing, gpsTrackingActive])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const timer = window.setTimeout(() => map.invalidateSize(), 150)
+    return () => window.clearTimeout(timer)
+  }, [layoutKey])
 
   useEffect(() => {
     const map = mapRef.current
