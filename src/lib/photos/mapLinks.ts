@@ -13,6 +13,11 @@ export function getMapyCzShowMapUrl(lat: number, lng: number, zoom = 18): string
   return `https://mapy.com/fnc/v1/showmap?mapset=basic&center=${lng},${lat}&zoom=${zoom}&marker=true`
 }
 
+/** Panorama Mapy.cz (ekvivalent Street View) na zadaných souřadnicích. */
+export function getMapyCzPanoramaUrl(lat: number, lng: number, zoom = 18): string {
+  return `https://mapy.cz/zakladni?pano=1&x=${lng}&y=${lat}&z=${zoom}`
+}
+
 export function getGoogleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat},${lng}`
 }

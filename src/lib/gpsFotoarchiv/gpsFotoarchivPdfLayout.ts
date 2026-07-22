@@ -1,9 +1,9 @@
 import { DEFAULT_APP_LOGO_URL } from '@/constants/branding'
 import { getGpsPhotoUrl } from '@/lib/photos/api'
 import {
-  getGoogleMapsUrl,
+  getMapyCzPanoramaUrl,
+  getMapyCzUrl,
   getStaticMapImageUrl,
-  getStreetViewUrl,
 } from '@/lib/photos/mapLinks'
 import {
   formatCaptureDateLabel,
@@ -382,8 +382,8 @@ function buildPhotoBodyHtml(photo: GpsPhoto, orientation: GfaPhotoOrientation): 
   const hasGps = photo.gps_lat != null && photo.gps_lng != null
   const lat = photo.gps_lat
   const lng = photo.gps_lng
-  const mapUrl = getGoogleMapsUrl(lat, lng)
-  const streetUrl = getStreetViewUrl(lat, lng)
+  const mapUrl = getMapyCzUrl(lat, lng)
+  const streetUrl = getMapyCzPanoramaUrl(lat, lng)
   const mapImageUrl = getStaticMapImageUrl(lat, lng, 640, 120)
   const address = formatPhotoAddress(photo)
   const orderName = getOrderDisplayName(photo)
@@ -430,8 +430,8 @@ function buildPhotoBodyHtml(photo: GpsPhoto, orientation: GfaPhotoOrientation): 
       <h2>Mapa místa pořízení</h2>
       <img class="gfa-pdf-map-img" src="${escHtml(mapImageUrl)}" alt="Mapa GPS polohy" />
       <p class="gfa-pdf-map-links">
-        <a href="${escHtml(mapUrl)}">Google Maps</a> ·
-        <a href="${escHtml(streetUrl)}">Street View</a>
+        <a href="${escHtml(mapUrl)}">Mapy.cz</a> ·
+        <a href="${escHtml(streetUrl)}">Panorama Mapy.cz</a>
       </p>
     </section>
     `
