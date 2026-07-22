@@ -14,8 +14,19 @@ interface InvoiceLineItemsEditorProps {
 
 const UNIT_OPTIONS = INVOICE_UNITS.map((unit) => ({ value: unit, label: unit }))
 
-function emptyLine(): InvoiceLineInput {
-  return { name: '', quantity: 1, unit: 'ks', unit_price: 0 }
+const LINE_VAT_OPTIONS = [
+  { value: '21', label: '21 %' },
+  { value: '12', label: '12 %' },
+  { value: '0', label: '0 %' },
+]
+
+function defaultLineVat(vatMode: InvoiceVatMode): number | null {
+  if (vatMode === 'none') return 0
+  return Number(vatMode)
+}
+
+function emptyLine(vatMode: InvoiceVatMode): InvoiceLineInput {
+  return { name: '', quantity: 1, unit: 'ks', unit_price: 0, vat_rate: defaultLineVat(vatMode) }
 }
 
 export function InvoiceLineItemsEditor({ lines, vatMode, onChange }: InvoiceLineItemsEditorProps) {
@@ -25,12 +36,12 @@ export function InvoiceLineItemsEditor({ lines, vatMode, onChange }: InvoiceLine
   }
 
   function addLine() {
-    onChange([...lines, emptyLine()])
+    onChange([...lines, emptyLine(vatMode)])
   }
 
   function removeLine(index: number) {
     if (lines.length <= 1) {
-      onChange([emptyLine()])
+      onChange([emptyLine(vatMode)])
       return
     }
     onChange(lines.filter((_, i) => i !== index))
@@ -39,7 +50,7 @@ export function InvoiceLineItemsEditor({ lines, vatMode, onChange }: InvoiceLine
   return (
     <div className="space-y-4">
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[860px] text-sm">
           <thead>
             <tr className="border-b border-[var(--border-glass)] text-left text-theme-muted">
               <th className="px-2 py-2">Název</th>
@@ -54,7 +65,7 @@ export function InvoiceLineItemsEditor({ lines, vatMode, onChange }: InvoiceLine
           <tbody>
             {lines.map((line, index) => {
               const total = calculateLineTotal(line.quantity, line.unit_price)
-              const vatLabel = vatMode === 'none' ? '—' : `${vatMode} %`
+              const lineVat = line.vat_rate ?? defaultLineVat(vatMode) ?? 0
               return (
                 <tr key={index} className="border-b border-[var(--border-glass)]/60">
                   <td className="px-2 py-2">
@@ -89,7 +100,17 @@ export function InvoiceLineItemsEditor({ lines, vatMode, onChange }: InvoiceLine
                       onChange={(e) => updateLine(index, { unit_price: Number(e.target.value) || 0 })}
                     />
                   </td>
-                  <td className="px-2 py-2 pt-6 text-theme-muted">{vatLabel}</td>
+                  <td className="px-2 py-2">
+                    {vatMode === 'none' ? (
+                      <span className="block px-2 py-2.5 text-theme-muted">—</span>
+                    ) : (
+                      <Select
+                        options={LINE_VAT_OPTIONS}
+                        value={String(lineVat)}
+                        onChange={(e) => updateLine(index, { vat_rate: Number(e.target.value) })}
+                      />
+                    )}
+                  </td>
                   <td className="px-2 py-2 pt-6 text-right font-medium">{formatCurrency(total)}</td>
                   <td className="px-2 py-2 pt-4">
                     <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} aria-label="Odebrat položku">
@@ -106,6 +127,7 @@ export function InvoiceLineItemsEditor({ lines, vatMode, onChange }: InvoiceLine
       <div className="space-y-3 md:hidden">
         {lines.map((line, index) => {
           const total = calculateLineTotal(line.quantity, line.unit_price)
+          const lineVat = line.vat_rate ?? defaultLineVat(vatMode) ?? 0
           return (
             <div key={index} className="rounded-xl border border-[var(--border-glass)] p-3">
               <Input
@@ -136,7 +158,20 @@ export function InvoiceLineItemsEditor({ lines, vatMode, onChange }: InvoiceLine
                   value={line.unit_price}
                   onChange={(e) => updateLine(index, { unit_price: Number(e.target.value) || 0 })}
                 />
-                <div className="flex items-end justify-between pb-2">
+                {vatMode === 'none' ? (
+                  <div className="pb-2">
+                    <p className="mb-1.5 text-sm font-medium text-theme-secondary">DPH</p>
+                    <p className="text-theme-muted">—</p>
+                  </div>
+                ) : (
+                  <Select
+                    label="DPH"
+                    options={LINE_VAT_OPTIONS}
+                    value={String(lineVat)}
+                    onChange={(e) => updateLine(index, { vat_rate: Number(e.target.value) })}
+                  />
+                )}
+                <div className="col-span-2 flex items-end justify-between pb-2">
                   <div>
                     <p className="text-xs text-theme-muted">Celkem</p>
                     <p className="font-semibold text-theme-primary">{formatCurrency(total)}</p>

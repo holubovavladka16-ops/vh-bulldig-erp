@@ -9,9 +9,9 @@ import { InvoiceFiltersPanel } from '@/components/invoices/InvoiceFiltersPanel'
 import { InvoiceStatusBadge } from '@/components/invoices/InvoiceStatusBadge'
 import { useAuth } from '@/context/AuthContext'
 import { createDraftInvoice, fetchInvoice, fetchInvoiceSettings, fetchInvoices } from '@/lib/invoices/api'
+import { downloadInvoicePdf, sendInvoiceEmail } from '@/lib/invoices/email'
 import { exportInvoicesExcel } from '@/lib/invoices/export'
 import { printInvoiceReport } from '@/lib/invoices/invoiceReport'
-import { getInvoiceEmailShareUrl } from '@/lib/invoices/share'
 import type { InvoiceFilters, IssuedInvoice } from '@/types/invoices'
 import { formatCurrency, formatDate } from '@/constants/workers'
 
@@ -23,6 +23,7 @@ export function InvoicesModulePage() {
   const [filters, setFilters] = useState<InvoiceFilters>({})
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -41,24 +42,49 @@ export function InvoicesModulePage() {
   async function handleNewInvoice() {
     if (!user) return
     setCreating(true)
+    setActionError(null)
     try {
       const draft = await createDraftInvoice(user.id)
       navigate(`/fakturace/${draft.id}`)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Vytvoření faktury selhalo')
     } finally {
       setCreating(false)
     }
   }
 
   async function handleQuickPdf(invoice: IssuedInvoice) {
-    const settings = await fetchInvoiceSettings()
-    if (!settings) return
-    const full = await fetchInvoice(invoice.id)
-    if (!full) return
-    printInvoiceReport(full, settings)
+    setActionError(null)
+    try {
+      const settings = await fetchInvoiceSettings()
+      if (!settings) throw new Error('Nejdříve vyplňte Nastavení faktur')
+      const full = await fetchInvoice(invoice.id)
+      if (!full) return
+      try {
+        await downloadInvoicePdf(full, settings)
+      } catch {
+        printInvoiceReport(full, settings)
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Vytvoření PDF selhalo')
+    }
   }
 
-  function handleQuickEmail(invoice: IssuedInvoice) {
-    window.location.href = getInvoiceEmailShareUrl(invoice, invoice.customer_email || undefined)
+  async function handleQuickEmail(invoice: IssuedInvoice) {
+    setActionError(null)
+    try {
+      if (!invoice.customer_email?.trim()) {
+        throw new Error('Faktura nemá e-mail odběratele – otevřete fakturu a doplňte ho')
+      }
+      const settings = await fetchInvoiceSettings()
+      if (!settings) throw new Error('Nejdříve vyplňte Nastavení faktur')
+      const full = await fetchInvoice(invoice.id)
+      if (!full) return
+      await sendInvoiceEmail(full, settings, invoice.customer_email.trim())
+      await load()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Odeslání e-mailu selhalo')
+    }
   }
 
   return (
@@ -79,6 +105,10 @@ export function InvoicesModulePage() {
           </div>
         }
       />
+
+      {actionError ? (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{actionError}</div>
+      ) : null}
 
       <InvoiceFiltersPanel filters={filters} onChange={setFilters} />
 
@@ -104,8 +134,7 @@ export function InvoicesModulePage() {
             { key: 'number', label: 'Číslo faktury' },
             { key: 'date', label: 'Datum' },
             { key: 'customer', label: 'Odběratel' },
-            { key: 'total', label: 'Částka', className: 'text-right' },
-            { key: 'vat', label: 'DPH', className: 'text-right' },
+            { key: 'total', label: 'Cena', className: 'text-right' },
             { key: 'status', label: 'Stav' },
             { key: 'pdf', label: 'PDF' },
             { key: 'sent', label: 'Odesláno' },
@@ -126,12 +155,11 @@ export function InvoicesModulePage() {
                 {invoice.customer_ico ? <div className="text-xs text-theme-muted">IČO {invoice.customer_ico}</div> : null}
               </DataTableCell>
               <DataTableCell className="text-right font-medium">{formatCurrency(invoice.total)}</DataTableCell>
-              <DataTableCell className="text-right">{formatCurrency(invoice.vat_amount)}</DataTableCell>
               <DataTableCell>
                 <InvoiceStatusBadge status={invoice.status} />
               </DataTableCell>
               <DataTableCell>
-                <Button variant="ghost" size="sm" onClick={() => handleQuickPdf(invoice)}>
+                <Button variant="ghost" size="sm" onClick={() => handleQuickPdf(invoice)} aria-label="Vytvořit PDF">
                   <FileDown className="h-4 w-4" />
                 </Button>
               </DataTableCell>
@@ -139,7 +167,7 @@ export function InvoicesModulePage() {
                 {invoice.sent_at ? (
                   <span className="text-xs text-theme-muted">{formatDate(invoice.sent_at.slice(0, 10))}</span>
                 ) : (
-                  <Button variant="ghost" size="sm" onClick={() => handleQuickEmail(invoice)}>
+                  <Button variant="ghost" size="sm" onClick={() => handleQuickEmail(invoice)} aria-label="Odeslat e-mailem">
                     <Mail className="h-4 w-4" />
                   </Button>
                 )}

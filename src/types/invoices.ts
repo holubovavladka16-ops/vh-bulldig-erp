@@ -4,7 +4,9 @@ export type InvoicePaymentMethod = 'bankovni_prevod' | 'hotovost'
 
 export type InvoiceTextVariant = 'prace' | 'pripravne_prace' | 'vlastni'
 
-export type InvoiceVatMode = 'none' | '21' | '12' | '0'
+export type InvoiceVatMode = 'none' | '21' | '12'
+
+export type InvoiceLineVatRate = 0 | 12 | 21
 
 export type InvoiceLineSourceType = 'manual' | 'job_cost' | 'worker_report'
 

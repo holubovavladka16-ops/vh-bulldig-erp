@@ -350,7 +350,7 @@ export async function createDraftInvoice(createdBy: string): Promise<IssuedInvoi
       due_date: dueDate.toISOString().slice(0, 10),
       payment_method: 'bankovni_prevod',
       text_variant: 'prace',
-      vat_mode: ['none', '21', '12', '0'].includes(vatMode) ? (vatMode as IssuedInvoiceInput['vat_mode']) : '21',
+      vat_mode: ['none', '21', '12'].includes(vatMode) ? (vatMode as IssuedInvoiceInput['vat_mode']) : '21',
       customer_name: '',
       customer_ico: '',
       lines: [{ name: '', quantity: 1, unit: 'ks', unit_price: 0 }],
