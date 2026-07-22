@@ -19,6 +19,8 @@ interface ProjectMarkerPopupProps {
   canCreateDiaryEntry?: boolean
   onCreateDiaryEntry?: (orderId: string) => void
   diaryRefreshToken?: number
+  canApproveDiaryEntry?: boolean
+  onDiaryChanged?: () => void | Promise<void>
   canEditMarkerColor?: boolean
   userId?: string
   onMarkerColorChanged?: (projectId: string) => Promise<void>
@@ -44,6 +46,8 @@ export function ProjectMarkerPopup({
   canCreateDiaryEntry = false,
   onCreateDiaryEntry,
   diaryRefreshToken = 0,
+  canApproveDiaryEntry = false,
+  onDiaryChanged,
   canEditMarkerColor = false,
   userId,
   onMarkerColorChanged,
@@ -128,6 +132,8 @@ export function ProjectMarkerPopup({
           orderName={item.order.name}
           canCreateEntry={canCreateDiaryEntry}
           onCreateEntry={() => onCreateDiaryEntry?.(item.project_id)}
+          canApproveEntry={canApproveDiaryEntry}
+          onDiaryChanged={onDiaryChanged}
         />
 
         {canEditMarkerColor && userId && onMarkerColorChanged ? (

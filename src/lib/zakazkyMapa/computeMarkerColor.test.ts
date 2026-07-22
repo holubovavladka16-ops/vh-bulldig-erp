@@ -69,7 +69,22 @@ describe('computeMarkerAutoColor', () => {
     expect(result.label).toBe('Chybí stavební deník')
   })
 
-  it('vrátí zelenou s aktuálním zápisem', () => {
+  it('vrátí červenou bez schváleného záznamu deníku (jen odeslaný)', () => {
+    const today = '2026-07-22'
+    const result = computeMarkerAutoColor({
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
+      diaryEntryDates: [],
+      today,
+      now: at(today, 10, 0),
+      workingDays: WORKING_DAYS,
+    })
+
+    expect(result.color).toBe('red')
+    expect(result.label).toBe('Chybí stavební deník')
+  })
+
+  it('vrátí zelenou pouze se schváleným zápisem pro dnešek', () => {
     const today = '2026-07-22'
     const result = computeMarkerAutoColor({
       startDate: '2026-01-01',

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { recalculateProjectMarkerColor } from '@/lib/zakazkyMapa/recalculateMarkerColor'
+import type { DiaryEntryStatus } from '@/constants/diary'
 import type {
   ConstructionDiaryCreateInput,
   ConstructionDiaryDetail,
@@ -162,6 +163,7 @@ function buildInsertPayload(input: ConstructionDiaryCreateInput, createdBy: stri
     weather: input.weather.trim(),
     site_location: input.site_location.trim(),
     created_by: createdBy,
+    entry_status: 'approved' as const,
   }
 }
 
@@ -223,6 +225,26 @@ export async function updateDiaryEntry(
   const entry = mapDiaryRow(data as DiaryRow)
   await syncDiaryPhotoLinks(entry.id, entry.order_id, input.linked_photo_ids ?? [])
 
+  const detail = await fetchDiaryDetail(entry.id)
+  if (!detail) throw new Error('Zápis se nepodařilo načíst')
+  await recalculateProjectMarkerColor(entry.order_id)
+  return detail
+}
+
+export async function updateDiaryEntryStatus(
+  id: string,
+  status: DiaryEntryStatus
+): Promise<ConstructionDiaryDetail> {
+  const { data, error } = await supabase
+    .from('construction_diary_entries')
+    .update({ entry_status: status })
+    .eq('id', id)
+    .select(DIARY_ENTRY_SELECT)
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  const entry = mapDiaryRow(data as DiaryRow)
   const detail = await fetchDiaryDetail(entry.id)
   if (!detail) throw new Error('Zápis se nepodařilo načíst')
   await recalculateProjectMarkerColor(entry.order_id)

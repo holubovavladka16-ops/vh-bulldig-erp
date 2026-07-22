@@ -17,6 +17,8 @@ interface ProjectDiaryListProps {
   orderName: string
   canCreateEntry: boolean
   onCreateEntry: () => void
+  canApproveEntry?: boolean
+  onDiaryChanged?: () => void | Promise<void>
 }
 
 export function ProjectDiaryList({
@@ -24,6 +26,8 @@ export function ProjectDiaryList({
   orderName,
   canCreateEntry,
   onCreateEntry,
+  canApproveEntry = false,
+  onDiaryChanged,
 }: ProjectDiaryListProps) {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -93,6 +97,11 @@ export function ProjectDiaryList({
       <ProjectDiaryEntryDetail
         entryId={selectedEntryId}
         onClose={() => setSelectedEntryId(null)}
+        canApprove={canApproveEntry}
+        onStatusChanged={async () => {
+          await loadPage(1, false)
+          await onDiaryChanged?.()
+        }}
       />
     )
   }

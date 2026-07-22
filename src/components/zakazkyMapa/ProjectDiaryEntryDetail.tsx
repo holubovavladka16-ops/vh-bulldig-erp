@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { DiaryPhotoCard } from '@/components/diary/DiaryPhotoCard'
 import { DiaryPhotosMap } from '@/components/diary/DiaryPhotosMap'
 import { DiaryStatusBadge } from '@/components/zakazkyMapa/DiaryStatusBadge'
+import { updateDiaryEntryStatus } from '@/lib/diary/api'
 import { fetchDiaryDetail } from '@/lib/zakazkyMapa/diaryApi'
 import { formatDiaryWeather } from '@/constants/diary'
 import { formatDate } from '@/constants/workers'
@@ -13,6 +14,8 @@ import type { ConstructionDiaryDetail } from '@/types/diary'
 interface ProjectDiaryEntryDetailProps {
   entryId: string | null
   onClose: () => void
+  canApprove?: boolean
+  onStatusChanged?: () => void | Promise<void>
 }
 
 function formatDateTime(value: string): string {
@@ -36,10 +39,31 @@ function Info({ label, value, className = '' }: { label: string; value: string; 
   )
 }
 
-export function ProjectDiaryEntryDetail({ entryId, onClose }: ProjectDiaryEntryDetailProps) {
+export function ProjectDiaryEntryDetail({
+  entryId,
+  onClose,
+  canApprove = false,
+  onStatusChanged,
+}: ProjectDiaryEntryDetailProps) {
   const [detail, setDetail] = useState<ConstructionDiaryDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+
+  async function handleStatusChange(status: 'approved' | 'returned' | 'rejected') {
+    if (!entryId) return
+    setActionLoading(true)
+    setError('')
+    try {
+      const updated = await updateDiaryEntryStatus(entryId, status)
+      setDetail(updated)
+      await onStatusChanged?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Změna stavu se nezdařila')
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!entryId) {
@@ -95,6 +119,35 @@ export function ProjectDiaryEntryDetail({ entryId, onClose }: ProjectDiaryEntryD
             </h4>
             <DiaryStatusBadge status={detail.entry_status} />
           </div>
+
+          {canApprove &&
+          ['submitted', 'pending_review', 'draft'].includes(detail.entry_status) ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={actionLoading}
+                onClick={() => void handleStatusChange('approved')}
+              >
+                Schválit
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={actionLoading}
+                onClick={() => void handleStatusChange('returned')}
+              >
+                Vrátit k opravě
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={actionLoading}
+                onClick={() => void handleStatusChange('rejected')}
+              >
+                Zamítnout
+              </Button>
+            </div>
+          ) : null}
 
           <Card className="grid gap-3 sm:grid-cols-2">
             <Info label="Datum" value={formatDate(detail.entry_date)} />

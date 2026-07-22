@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { MARKER_COLOR_DIARY_STATUSES } from '@/constants/diaryValidity'
 import { insertMarkerColorHistory } from '@/lib/zakazkyMapa/markerColorHistory'
 import {
   PROJECT_MARKER_DEFAULT_CHECK_TIME,
@@ -50,7 +51,7 @@ async function fetchValidDiaryEntryDates(orderId: string): Promise<string[]> {
     .from('construction_diary_entries')
     .select('entry_date, entry_status')
     .eq('order_id', orderId)
-    .in('entry_status', ['approved', 'submitted', 'pending_review'])
+    .in('entry_status', MARKER_COLOR_DIARY_STATUSES)
 
   if (error) throw new Error(error.message)
   return ((data ?? []) as Array<{ entry_date: string }>).map((row) => row.entry_date)

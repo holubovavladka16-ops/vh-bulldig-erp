@@ -11,7 +11,7 @@ import { ProjectList } from '@/components/zakazkyMapa/ProjectList'
 import { ProjectMarkerPopup } from '@/components/zakazkyMapa/ProjectMarkerPopup'
 import { ProjectNotificationsPanel } from '@/components/zakazkyMapa/ProjectNotificationsPanel'
 import { useAuth } from '@/context/AuthContext'
-import { canEditMarkerColor, isAdministrator, isMajitel } from '@/constants/permissions'
+import { canEditMarkerColor, canApproveDiaryEntry, isAdministrator, isMajitel } from '@/constants/permissions'
 import { createDiaryEntry } from '@/lib/diary/api'
 import { fetchJobOrders } from '@/lib/orders/api'
 import { fetchProjectsWithMarkersFromOrders, filterProjectMapMarkers, fetchProjectMapMarkerByProjectId } from '@/lib/zakazkyMapa/api'
@@ -28,6 +28,7 @@ export function ZakazkyMapaPage() {
   const isAdmin = profile ? isAdministrator(profile.role) : false
   const isOwner = profile ? isMajitel(profile.role) : false
   const canOverrideColor = profile ? canEditMarkerColor(profile.role) : false
+  const canApproveDiary = profile ? canApproveDiaryEntry(profile.role) : false
   const canManageNotifications = isAdmin || isOwner
 
   const [items, setItems] = useState<ProjectMapMarkerWithOrder[]>([])
@@ -216,6 +217,11 @@ export function ZakazkyMapaPage() {
         canCreateDiaryEntry: isAdmin,
         onCreateDiaryEntry: handleOpenDiaryForm,
         diaryRefreshToken,
+        canApproveDiaryEntry: canApproveDiary,
+        onDiaryChanged: async () => {
+          setDiaryRefreshToken((token) => token + 1)
+          await refreshMarker(selectedItem.project_id)
+        },
         canEditMarkerColor: canOverrideColor,
         userId: user?.id,
         onMarkerColorChanged: handleMarkerColorChanged,

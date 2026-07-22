@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { MARKER_COLOR_DIARY_STATUSES } from '@/constants/diaryValidity'
 import {
   PROJECT_MARKER_DEVICE_APPROXIMATE_THRESHOLD_M,
 } from '@/constants/zakazkyMapa'
@@ -45,7 +46,7 @@ async function fetchDiaryDatesByOrderIds(orderIds: string[]): Promise<Map<string
     .from('construction_diary_entries')
     .select('order_id, entry_date')
     .in('order_id', orderIds)
-    .in('entry_status', ['approved', 'submitted', 'pending_review'])
+    .in('entry_status', MARKER_COLOR_DIARY_STATUSES)
 
   if (error) throw new Error(error.message)
 

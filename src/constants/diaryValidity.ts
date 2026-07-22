@@ -10,6 +10,13 @@ export const VALID_DIARY_ENTRY_STATUSES: DiaryEntryStatus[] = [
   'pending_review',
 ]
 
+/** Stavy deníku pro automatickou barvu špendlíku – pouze schválený zápis. */
+export const MARKER_COLOR_DIARY_STATUSES: DiaryEntryStatus[] = ['approved']
+
 export function isValidDiaryEntryStatus(status: DiaryEntryStatus | string): boolean {
   return (VALID_DIARY_ENTRY_STATUSES as string[]).includes(status)
+}
+
+export function isApprovedDiaryForMarkerColor(status: DiaryEntryStatus | string): boolean {
+  return (MARKER_COLOR_DIARY_STATUSES as string[]).includes(status)
 }

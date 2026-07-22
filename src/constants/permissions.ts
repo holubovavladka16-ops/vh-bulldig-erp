@@ -80,6 +80,11 @@ export function isUcetni(role: UserRole): boolean {
   return role === 'ucetni'
 }
 
+/** Schvalování / zamítnutí zápisu deníku – Admin nebo Majitel. */
+export function canApproveDiaryEntry(role: UserRole): boolean {
+  return isAdministrator(role) || isMajitel(role)
+}
+
 /** Ruční změna barvy špendlíku – pouze Admin nebo Majitel (PDF 8 Fáze 1f). */
 export function canEditMarkerColor(role: UserRole): boolean {
   return isAdministrator(role) || isMajitel(role)
