@@ -1,19 +1,28 @@
--- Modul Fakturovač VH Bulldig (ERP 8)
--- Spusťte po 080_app_settings_visual_theme.sql
+-- Fakturovač ERP 8 – produkční migrace 081–082
+-- Spusťte celý soubor v Supabase SQL Editoru (projekt khhalcjgvqoyskkjlkyg).
+-- Opravuje chybu: Could not find the table 'public.invoice_settings' in the schema cache
+--
+-- Příčina: migrace 081_fakturovac_module.sql a 082_fakturovac_storage_update.sql
+-- nebyly na produkci aplikovány (GitHub Actions neměly SUPABASE_DB_PASSWORD).
 
-CREATE TYPE issued_invoice_status AS ENUM (
-  'koncept',
-  'vytvorena',
-  'odeslana',
-  'zaplacena',
-  'storno'
-);
+DO $$ BEGIN
+  CREATE TYPE issued_invoice_status AS ENUM (
+    'koncept', 'vytvorena', 'odeslana', 'zaplacena', 'storno'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE invoice_payment_method AS ENUM ('bankovni_prevod', 'hotovost');
+DO $$ BEGIN
+  CREATE TYPE invoice_payment_method AS ENUM ('bankovni_prevod', 'hotovost');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE invoice_text_variant AS ENUM ('prace', 'pripravne_prace', 'vlastni');
+DO $$ BEGIN
+  CREATE TYPE invoice_text_variant AS ENUM ('prace', 'pripravne_prace', 'vlastni');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE invoice_settings (
+CREATE TABLE IF NOT EXISTS invoice_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_name TEXT NOT NULL DEFAULT '',
   ico TEXT NOT NULL DEFAULT '',
@@ -36,14 +45,16 @@ CREATE TABLE invoice_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+DROP TRIGGER IF EXISTS invoice_settings_updated_at ON invoice_settings;
 CREATE TRIGGER invoice_settings_updated_at
   BEFORE UPDATE ON invoice_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 INSERT INTO invoice_settings (company_name)
-VALUES ('VH Bulldig s.r.o.');
+SELECT 'VH Bulldig s.r.o.'
+WHERE NOT EXISTS (SELECT 1 FROM invoice_settings);
 
-CREATE TABLE invoice_number_counters (
+CREATE TABLE IF NOT EXISTS invoice_number_counters (
   year INTEGER PRIMARY KEY,
   last_number INTEGER NOT NULL DEFAULT 0 CHECK (last_number >= 0)
 );
@@ -71,7 +82,7 @@ $$;
 REVOKE ALL ON FUNCTION next_invoice_number() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION next_invoice_number() TO authenticated, service_role;
 
-CREATE TABLE issued_invoices (
+CREATE TABLE IF NOT EXISTS issued_invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invoice_number TEXT NOT NULL UNIQUE,
   variable_symbol TEXT NOT NULL DEFAULT '',
@@ -103,17 +114,18 @@ CREATE TABLE issued_invoices (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_issued_invoices_number ON issued_invoices(invoice_number);
-CREATE INDEX idx_issued_invoices_issue_date ON issued_invoices(issue_date DESC);
-CREATE INDEX idx_issued_invoices_status ON issued_invoices(status);
-CREATE INDEX idx_issued_invoices_order ON issued_invoices(order_id);
-CREATE INDEX idx_issued_invoices_customer_ico ON issued_invoices(customer_ico);
+CREATE INDEX IF NOT EXISTS idx_issued_invoices_number ON issued_invoices(invoice_number);
+CREATE INDEX IF NOT EXISTS idx_issued_invoices_issue_date ON issued_invoices(issue_date DESC);
+CREATE INDEX IF NOT EXISTS idx_issued_invoices_status ON issued_invoices(status);
+CREATE INDEX IF NOT EXISTS idx_issued_invoices_order ON issued_invoices(order_id);
+CREATE INDEX IF NOT EXISTS idx_issued_invoices_customer_ico ON issued_invoices(customer_ico);
 
+DROP TRIGGER IF EXISTS issued_invoices_updated_at ON issued_invoices;
 CREATE TRIGGER issued_invoices_updated_at
   BEFORE UPDATE ON issued_invoices
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-CREATE TABLE issued_invoice_lines (
+CREATE TABLE IF NOT EXISTS issued_invoice_lines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invoice_id UUID NOT NULL REFERENCES issued_invoices(id) ON DELETE CASCADE,
   sort_order INTEGER NOT NULL DEFAULT 0,
@@ -128,77 +140,130 @@ CREATE TABLE issued_invoice_lines (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_issued_invoice_lines_invoice ON issued_invoice_lines(invoice_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_issued_invoice_lines_invoice ON issued_invoice_lines(invoice_id, sort_order);
 
 ALTER TABLE invoice_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice_number_counters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE issued_invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE issued_invoice_lines ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admin čte nastavení faktur"
-  ON invoice_settings FOR SELECT
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin čte nastavení faktur"
+    ON invoice_settings FOR SELECT
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin upravuje nastavení faktur"
-  ON invoice_settings FOR UPDATE
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin upravuje nastavení faktur"
+    ON invoice_settings FOR UPDATE
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin čte čítače faktur"
-  ON invoice_number_counters FOR SELECT
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin čte čítače faktur"
+    ON invoice_number_counters FOR SELECT
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin čte faktury"
-  ON issued_invoices FOR SELECT
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin čte faktury"
+    ON issued_invoices FOR SELECT
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin vkládá faktury"
-  ON issued_invoices FOR INSERT
-  WITH CHECK (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin vkládá faktury"
+    ON issued_invoices FOR INSERT
+    WITH CHECK (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin upravuje faktury"
-  ON issued_invoices FOR UPDATE
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin upravuje faktury"
+    ON issued_invoices FOR UPDATE
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin maže faktury"
-  ON issued_invoices FOR DELETE
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin maže faktury"
+    ON issued_invoices FOR DELETE
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin čte položky faktur"
-  ON issued_invoice_lines FOR SELECT
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin čte položky faktur"
+    ON issued_invoice_lines FOR SELECT
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin vkládá položky faktur"
-  ON issued_invoice_lines FOR INSERT
-  WITH CHECK (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin vkládá položky faktur"
+    ON issued_invoice_lines FOR INSERT
+    WITH CHECK (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin upravuje položky faktur"
-  ON issued_invoice_lines FOR UPDATE
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin upravuje položky faktur"
+    ON issued_invoice_lines FOR UPDATE
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin maže položky faktur"
-  ON issued_invoice_lines FOR DELETE
-  USING (get_user_role() = 'administrator');
+DO $$ BEGIN
+  CREATE POLICY "Admin maže položky faktur"
+    ON issued_invoice_lines FOR DELETE
+    USING (get_user_role() = 'administrator');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES
   ('invoice-assets', 'invoice-assets', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "Admin nahrává podklady faktur"
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'invoice-assets');
+DO $$ BEGIN
+  CREATE POLICY "Admin nahrává podklady faktur"
+    ON storage.objects FOR INSERT TO authenticated
+    WITH CHECK (bucket_id = 'invoice-assets');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin čte podklady faktur"
-  ON storage.objects FOR SELECT TO authenticated
-  USING (bucket_id = 'invoice-assets');
+DO $$ BEGIN
+  CREATE POLICY "Admin čte podklady faktur"
+    ON storage.objects FOR SELECT TO authenticated
+    USING (bucket_id = 'invoice-assets');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Veřejné čtení podkladů faktur"
-  ON storage.objects FOR SELECT TO public
-  USING (bucket_id = 'invoice-assets');
+DO $$ BEGIN
+  CREATE POLICY "Veřejné čtení podkladů faktur"
+    ON storage.objects FOR SELECT TO public
+    USING (bucket_id = 'invoice-assets');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Admin maže podklady faktur"
-  ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'invoice-assets');
+DO $$ BEGIN
+  CREATE POLICY "Admin maže podklady faktur"
+    ON storage.objects FOR DELETE TO authenticated
+    USING (bucket_id = 'invoice-assets');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "Admin aktualizuje podklady faktur"
+    ON storage.objects FOR UPDATE TO authenticated
+    USING (bucket_id = 'invoice-assets')
+    WITH CHECK (bucket_id = 'invoice-assets');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 INSERT INTO erp_modules (id, label, path, icon, sort_order, is_implemented, module_version)
 VALUES ('fakturovac', 'Fakturovač', '/fakturace', 'ScrollText', 9, true, '1.0.0')
@@ -213,10 +278,9 @@ GRANT SELECT, UPDATE ON invoice_settings TO authenticated, service_role;
 GRANT SELECT ON invoice_number_counters TO authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON issued_invoices TO authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON issued_invoice_lines TO authenticated, service_role;
--- Doplnění storage policy pro upsert (nahrazení loga/podpisu/razítka)
--- Spusťte po 081_fakturovac_module.sql
 
-CREATE POLICY "Admin aktualizuje podklady faktur"
-  ON storage.objects FOR UPDATE TO authenticated
-  USING (bucket_id = 'invoice-assets')
-  WITH CHECK (bucket_id = 'invoice-assets');
+NOTIFY pgrst, 'reload schema';
+
+-- Ověření po spuštění:
+-- SELECT COUNT(*) FROM invoice_settings;
+-- SELECT id, label FROM erp_modules WHERE id = 'fakturovac';
