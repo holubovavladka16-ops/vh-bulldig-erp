@@ -21,20 +21,6 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
-      - name: Validate Vercel secrets
-        run: |
-          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::error::Chybí GitHub secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID"
-            echo "Nastavte je v Settings → Secrets → Actions (nebo Environment Production – vh-bulldig-erp)"
-            echo "VERCEL_TOKEN: https://vercel.com/account/tokens"
-            echo "VERCEL_ORG_ID / VERCEL_PROJECT_ID: .vercel/project.json po 'vercel link'"
-            exit 1
-          fi
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -45,11 +31,32 @@ jobs:
         run: npm ci
 
       - name: Build project
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
-      - name: Deploy to Vercel Production
-        run: npx vercel@latest deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+      - name: Deploy via Vercel CLI
+        id: vercel_cli
+        continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "Vercel CLI secrets nejsou nastaveny"
+            exit 1
+          fi
+          npx vercel@latest deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+
+      - name: Deploy via Vercel Deploy Hook
+        if: steps.vercel_cli.outcome == 'failure'
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK" ]; then
+            echo "::error::Chybí VERCEL_TOKEN/ORG_ID/PROJECT_ID i VERCEL_DEPLOY_HOOK"
+            exit 1
+          fi
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK"
