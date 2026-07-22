@@ -74,6 +74,7 @@ export type ModuleId =
   | 'pripojky'
   | 'gps-fotoarchiv'
   | 'mapa-vykopu'
+  | 'zakazky-mapa'
   | 'dokumenty'
   | 'statistiky'
   | 'nastaveni'

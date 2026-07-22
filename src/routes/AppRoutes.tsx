@@ -33,6 +33,7 @@ import { FormCheckModulePage } from '@/pages/formCheck/FormCheckModulePage'
 import { FormCheckHistoryPage } from '@/pages/formCheck/FormCheckHistoryPage'
 import { FormCheckDetailPage } from '@/pages/formCheck/FormCheckDetailPage'
 import { GpsFotoarchivPage } from '@/pages/gpsFotoarchiv/GpsFotoarchivPage'
+import { ZakazkyMapaPage } from '@/pages/zakazkyMapa/ZakazkyMapaPage'
 import { FUTURE_MODULES } from '@/constants/modules'
 
 const placeholderModules = FUTURE_MODULES.filter(
@@ -46,6 +47,7 @@ const placeholderModules = FUTURE_MODULES.filter(
       'kontrola-formulare',
       'vyplatni-pasky',
       'zakazky',
+      'zakazky-mapa',
       'ekonomika',
       'mapa-vykopu',
       'denik',
@@ -176,6 +178,15 @@ export function AppRoutes() {
         element={
           <ProtectedRoute requiredModule="zakazky">
             <OrderDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/zakazky-mapa"
+        element={
+          <ProtectedRoute requiredModule="zakazky-mapa">
+            <ZakazkyMapaPage />
           </ProtectedRoute>
         }
       />

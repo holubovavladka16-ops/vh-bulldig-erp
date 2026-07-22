@@ -25,6 +25,7 @@ export const FUTURE_MODULES: NavItem[] = [
   { id: 'dochazka', label: 'Docházka', path: '/dochazka', icon: 'Clock', module: 'dochazka' },
   { id: 'denni-formulare', label: 'Denní formuláře', path: '/denni-formulare', icon: 'ClipboardPen', module: 'denni-formulare' },
   { id: 'zakazky', label: 'Zakázky', path: '/zakazky', icon: 'ClipboardList', module: 'zakazky' },
+  { id: 'zakazky-mapa', label: 'Zakázky a mapa', path: '/zakazky-mapa', icon: 'MapPin', module: 'zakazky-mapa' },
   { id: 'vykazy', label: 'Výkazy', path: '/vykazy', icon: 'FileSpreadsheet', module: 'vykazy' },
   { id: 'papierove-vykazy', label: 'Papírové měsíční výkazy', path: '/vykazy/papierove', icon: 'FileStack', module: 'papierove-vykazy' },
   { id: 'kontrola-formulare', label: 'Kontrola formuláře', path: '/kontrola-formulare', icon: 'ScanLine', module: 'kontrola-formulare' },

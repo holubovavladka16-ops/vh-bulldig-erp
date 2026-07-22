@@ -25,3 +25,12 @@ export interface ProjectMapMarkerInsert {
   color_source: ProjectMarkerColorSource
   color_label: string
 }
+
+export interface ProjectMapMarkerWithOrder extends ProjectMapMarker {
+  order: import('@/types/orders').JobOrder
+}
+
+export interface ProjectMapMarkerFilters {
+  search?: string
+  markerColor?: ProjectMarkerColor | ''
+}
