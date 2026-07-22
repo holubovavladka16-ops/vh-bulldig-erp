@@ -39,7 +39,7 @@ describe('computeMarkerAutoColor', () => {
     expect(result.label).toBe('Vyžaduje zásah')
   })
 
-  it('vrátí oranžovou při chybějícím dnešním zápisu po kontrolním čase', () => {
+  it('vrátí červenou při chybějícím dnešním zápisu po kontrolním čase', () => {
     const today = '2026-07-22'
     const result = computeMarkerAutoColor({
       startDate: '2026-01-01',
@@ -51,8 +51,8 @@ describe('computeMarkerAutoColor', () => {
       workingDays: WORKING_DAYS,
     })
 
-    expect(result.color).toBe('orange')
-    expect(result.label).toBe('Vyžaduje kontrolu')
+    expect(result.color).toBe('red')
+    expect(result.label).toBe('Chybí stavební deník')
   })
 
   it('vrátí zelenou s aktuálním zápisem', () => {

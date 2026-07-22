@@ -33,6 +33,7 @@ export function StavbyvedouciDiaryPage() {
   const { user, profile } = useAuth()
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
   const [defaultOrderId, setDefaultOrderId] = useState<string | undefined>()
+  const [defaultEntryDate, setDefaultEntryDate] = useState<string | undefined>()
   const [entries, setEntries] = useState<ConstructionDiaryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
@@ -54,8 +55,14 @@ export function StavbyvedouciDiaryPage() {
       setEntries(diaryRows)
 
       const prefill = searchParams.get('orderId')
+      const entryDate = searchParams.get('entryDate')
       if (prefill && options.some((option) => option.value === prefill)) {
         setDefaultOrderId(prefill)
+        if (entryDate) {
+          setDefaultEntryDate(entryDate)
+          setEditEntry(null)
+          setFormOpen(true)
+        }
       } else if (options.length === 1) {
         setDefaultOrderId(options[0].value)
       }
@@ -171,6 +178,7 @@ export function StavbyvedouciDiaryPage() {
         initial={editEntry}
         orderOptions={orderOptions}
         defaultOrderId={defaultOrderId}
+        defaultEntryDate={defaultEntryDate}
         onClose={() => {
           setFormOpen(false)
           setEditEntry(null)

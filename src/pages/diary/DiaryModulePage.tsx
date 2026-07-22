@@ -35,6 +35,8 @@ export function DiaryModulePage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editEntry, setEditEntry] = useState<ConstructionDiaryEntry | null>(null)
   const [viewEntryId, setViewEntryId] = useState<string | null>(null)
+  const [defaultOrderId, setDefaultOrderId] = useState<string | undefined>()
+  const [defaultEntryDate, setDefaultEntryDate] = useState<string | undefined>()
 
   useEffect(() => {
     fetchJobOrders()
@@ -44,10 +46,18 @@ export function DiaryModulePage() {
 
   useEffect(() => {
     const orderId = searchParams.get('orderId')?.trim()
+    const entryDate = searchParams.get('entryDate')?.trim()
     if (orderId) {
       setFilters((prev) => ({ ...prev, orderId }))
+      setDefaultOrderId(orderId)
     }
-    if (searchParams.get('create') === '1' && isAdmin) {
+    if (entryDate) {
+      setDefaultEntryDate(entryDate)
+    }
+    if (orderId && entryDate) {
+      setEditEntry(null)
+      setFormOpen(true)
+    } else if (searchParams.get('create') === '1' && isAdmin) {
       setEditEntry(null)
       setFormOpen(true)
     }
@@ -173,7 +183,8 @@ export function DiaryModulePage() {
         open={formOpen}
         initial={editEntry}
         orderOptions={orderOptions}
-        defaultOrderId={searchParams.get('orderId') ?? undefined}
+        defaultOrderId={defaultOrderId}
+        defaultEntryDate={defaultEntryDate}
         onClose={() => { setFormOpen(false); setEditEntry(null) }}
         onSubmit={editEntry ? handleUpdate : handleCreate}
       />

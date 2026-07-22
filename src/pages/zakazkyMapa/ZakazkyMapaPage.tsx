@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -8,8 +9,9 @@ import { DiaryFormModal } from '@/components/diary/DiaryFormModal'
 import { ProjectMapView } from '@/components/zakazkyMapa/ProjectMapView'
 import { ProjectList } from '@/components/zakazkyMapa/ProjectList'
 import { ProjectMarkerPopup } from '@/components/zakazkyMapa/ProjectMarkerPopup'
+import { ProjectNotificationsPanel } from '@/components/zakazkyMapa/ProjectNotificationsPanel'
 import { useAuth } from '@/context/AuthContext'
-import { canEditMarkerColor, isAdministrator } from '@/constants/permissions'
+import { canEditMarkerColor, isAdministrator, isMajitel } from '@/constants/permissions'
 import { createDiaryEntry } from '@/lib/diary/api'
 import { fetchJobOrders } from '@/lib/orders/api'
 import { fetchProjectMapMarkersWithOrders, filterProjectMapMarkers, fetchProjectMapMarkerByProjectId } from '@/lib/zakazkyMapa/api'
@@ -19,8 +21,11 @@ import type { ProjectMapMarkerFilters, ProjectMapMarkerWithOrder } from '@/types
 
 export function ZakazkyMapaPage() {
   const { profile, user } = useAuth()
+  const [searchParams] = useSearchParams()
   const isAdmin = profile ? isAdministrator(profile.role) : false
+  const isOwner = profile ? isMajitel(profile.role) : false
   const canOverrideColor = profile ? canEditMarkerColor(profile.role) : false
+  const canManageNotifications = isAdmin || isOwner
 
   const [items, setItems] = useState<ProjectMapMarkerWithOrder[]>([])
   const [filters, setFilters] = useState<ProjectMapMarkerFilters>({})
@@ -51,6 +56,13 @@ export function ZakazkyMapaPage() {
       .then((orders) => setOrderOptions(orders.map((order) => ({ value: order.id, label: order.name }))))
       .catch(() => {})
   }, [load])
+
+  useEffect(() => {
+    const projectId = searchParams.get('projectId')?.trim()
+    if (projectId) {
+      setSelectedProjectId(projectId)
+    }
+  }, [searchParams])
 
   const filteredItems = useMemo(
     () => filterProjectMapMarkers(items, filters),
@@ -154,6 +166,12 @@ export function ZakazkyMapaPage() {
       <p className="mb-4 text-sm text-theme-muted">
         Zobrazeno zakázek: <strong className="text-theme-primary">{filteredItems.length}</strong>
       </p>
+
+      {canManageNotifications ? (
+        <div className="mb-4">
+          <ProjectNotificationsPanel canRunCheck diaryFillBasePath="/denik" />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         <div className="min-w-0 space-y-4">

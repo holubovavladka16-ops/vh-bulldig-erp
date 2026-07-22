@@ -31,6 +31,7 @@ interface DiaryFormModalProps {
   initial?: ConstructionDiaryEntry | null
   orderOptions: { value: string; label: string }[]
   defaultOrderId?: string
+  defaultEntryDate?: string
   onClose: () => void
   onSubmit?: (data: ConstructionDiaryCreateInput) => Promise<void>
   /** Stavbyvedoucí – uložit rozepsaný / odeslat ke kontrole */
@@ -55,6 +56,7 @@ export function DiaryFormModal({
   initial,
   orderOptions,
   defaultOrderId,
+  defaultEntryDate,
   onClose,
   onSubmit,
   dualSubmit = false,
@@ -142,7 +144,7 @@ export function DiaryFormModal({
 
       void loadPrefill(initial.order_id, initial.entry_date, true)
     } else {
-      setEntryDate(todayIsoDate())
+      setEntryDate(defaultEntryDate ?? todayIsoDate())
       setOrderId(defaultOrderId ?? '')
       setWeatherType('')
       setTemperature('')
@@ -160,7 +162,7 @@ export function DiaryFormModal({
       setLinkedPhotoIds([])
       setError('')
     }
-  }, [open, initial, defaultOrderId, loadPrefill])
+  }, [open, initial, defaultOrderId, defaultEntryDate, loadPrefill])
 
   useEffect(() => {
     if (!open || initial) return

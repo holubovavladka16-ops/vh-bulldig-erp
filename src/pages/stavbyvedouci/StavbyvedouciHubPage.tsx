@@ -1,9 +1,10 @@
-import { Clock, BookOpen, Landmark, MapPin, AlertTriangle } from 'lucide-react'
+import { Clock, BookOpen, Landmark, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { MarkerColorBadge } from '@/components/zakazkyMapa/MarkerColorBadge'
+import { ProjectNotificationsPanel } from '@/components/zakazkyMapa/ProjectNotificationsPanel'
 import { useAuth } from '@/context/AuthContext'
 import { JOB_ORDER_STATUS_LABELS } from '@/constants/orders'
 import { DIARY_ENTRY_STATUS_LABELS } from '@/constants/diary'
@@ -62,16 +63,6 @@ export function StavbyvedouciHubPage() {
   }, [load])
 
   const grouped = useMemo(() => groupDiaryByStatus(entries), [entries])
-
-  const missingDiaryCount = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    return projects.filter((item) => {
-      const hasToday = entries.some(
-        (entry) => entry.order_id === item.project_id && entry.entry_date === today
-      )
-      return !hasToday
-    }).length
-  }, [projects, entries])
 
   return (
     <AppLayout>
@@ -143,19 +134,7 @@ export function StavbyvedouciHubPage() {
           )}
         </Card>
 
-        {missingDiaryCount > 0 ? (
-          <Card className="flex items-start gap-3 border-amber-500/30 bg-amber-500/10 p-4">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
-            <div>
-              <p className="font-medium text-amber-100">Upozornění na chybějící deník</p>
-              <p className="mt-1 text-sm text-amber-200/90">
-                U {missingDiaryCount}{' '}
-                {missingDiaryCount === 1 ? 'zakázky chybí' : 'zakázek chybí'} dnešní zápis stavebního
-                deníku.
-              </p>
-            </div>
-          </Card>
-        ) : null}
+        <ProjectNotificationsPanel showResolved={false} />
 
         <Card className="space-y-4 p-4">
           <h2 className="text-lg font-semibold text-theme-primary">Moje záznamy</h2>

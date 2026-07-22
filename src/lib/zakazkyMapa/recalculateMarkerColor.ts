@@ -16,17 +16,19 @@ export interface RecalculateMarkerColorOptions {
 export interface MarkerRecalcSettings {
   diary_check_time: string
   working_days: number[]
+  timezone: string
 }
 
 const DEFAULT_SETTINGS: MarkerRecalcSettings = {
   diary_check_time: PROJECT_MARKER_DEFAULT_CHECK_TIME,
   working_days: PROJECT_MARKER_DEFAULT_WORKING_DAYS,
+  timezone: 'Europe/Prague',
 }
 
 async function fetchMarkerRecalcSettings(): Promise<MarkerRecalcSettings> {
   const { data, error } = await supabase
     .from('company_settings')
-    .select('diary_check_time, working_days')
+    .select('diary_check_time, working_days, timezone')
     .limit(1)
     .maybeSingle()
 
@@ -34,18 +36,20 @@ async function fetchMarkerRecalcSettings(): Promise<MarkerRecalcSettings> {
     return DEFAULT_SETTINGS
   }
 
-  const row = data as { diary_check_time?: string; working_days?: number[] }
+  const row = data as { diary_check_time?: string; working_days?: number[]; timezone?: string }
   return {
     diary_check_time: row.diary_check_time ?? DEFAULT_SETTINGS.diary_check_time,
     working_days: row.working_days ?? DEFAULT_SETTINGS.working_days,
+    timezone: row.timezone ?? DEFAULT_SETTINGS.timezone,
   }
 }
 
-async function fetchDiaryEntryDates(orderId: string): Promise<string[]> {
+async function fetchValidDiaryEntryDates(orderId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('construction_diary_entries')
-    .select('entry_date')
+    .select('entry_date, entry_status')
     .eq('order_id', orderId)
+    .in('entry_status', ['approved', 'submitted', 'pending_review'])
 
   if (error) throw new Error(error.message)
   return ((data ?? []) as Array<{ entry_date: string }>).map((row) => row.entry_date)
@@ -93,7 +97,7 @@ export async function recalculateProjectMarkerColor(
     if (!order) return null
 
     const [entryDates, settings] = await Promise.all([
-      fetchDiaryEntryDates(projectId),
+      fetchValidDiaryEntryDates(projectId),
       fetchMarkerRecalcSettings(),
     ])
 

@@ -6,6 +6,7 @@ import {
   PROJECT_MARKER_DEFAULT_WORKING_DAYS,
   PROJECT_MARKER_LONG_MISSING_WORKING_DAYS,
 } from '@/constants/zakazkyMapa'
+import { PROJECT_MARKER_MISSING_DIARY_LABEL } from '@/constants/projectNotifications'
 
 export interface MarkerColorComputeInput {
   startDate: string
@@ -191,9 +192,9 @@ export function computeMarkerAutoColor(input: MarkerColorComputeInput): MarkerCo
       const hasTodayEntry = entryDates.has(today)
       if (!hasTodayEntry && isPastDiaryCheckTime(now, checkTime)) {
         candidates.push({
-          color: 'orange',
-          label: PROJECT_MARKER_AUTO_COLOR_LABELS.orange,
-          priority: COLOR_PRIORITY.orange,
+          color: 'red',
+          label: PROJECT_MARKER_MISSING_DIARY_LABEL,
+          priority: COLOR_PRIORITY.red,
         })
       }
 
