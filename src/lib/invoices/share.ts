@@ -11,19 +11,7 @@ export function buildInvoiceShareText(invoice: IssuedInvoice): string {
     invoice.due_date ? `Splatnost: ${formatDate(invoice.due_date)}` : '',
     `Variabilní symbol: ${invoice.variable_symbol}`,
     `Celkem k úhradě: ${formatCurrency(invoice.total)}`,
-    '',
-    'PDF faktury je v příloze tohoto e-mailu.',
   ]
     .filter(Boolean)
     .join('\n')
-}
-
-export function getInvoiceEmailShareUrl(
-  invoice: IssuedInvoice,
-  recipientEmail?: string,
-  subject?: string
-): string {
-  const to = recipientEmail?.trim() ? encodeURIComponent(recipientEmail.trim()) : ''
-  const defaultSubject = `Faktura ${invoice.invoice_number} – VH Bulldig`
-  return `mailto:${to}?subject=${encodeURIComponent(subject ?? defaultSubject)}&body=${encodeURIComponent(buildInvoiceShareText(invoice))}`
 }

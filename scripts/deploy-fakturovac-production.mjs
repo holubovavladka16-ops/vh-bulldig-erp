@@ -3,9 +3,8 @@
  * Produkční nasazení modulu Fakturovač.
  *
  * 1. Migrace 081–082 (Supabase)
- * 2. Edge function send-invoice-email
- * 3. Build + Vercel deploy (CLI nebo deploy hook)
- * 4. Ověření produkce
+ * 2. Build + Vercel deploy (CLI nebo deploy hook)
+ * 3. Ověření produkce
  */
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
@@ -53,21 +52,6 @@ try {
 } catch {
   console.error('\nMigrace selhaly – zkuste SQL: supabase/manual/081_082_fakturovac_production.sql')
   process.exit(1)
-}
-
-if (process.env.SUPABASE_ACCESS_TOKEN) {
-  try {
-    run('Edge function send-invoice-email', () => {
-      execSync(
-        'npx supabase functions deploy send-invoice-email --project-ref khhalcjgvqoyskkjlkyg',
-        { stdio: 'inherit' }
-      )
-    })
-  } catch {
-    console.warn('WARN: Edge function deploy selhal – pokračuji')
-  }
-} else {
-  console.log('SKIP: Edge function (chybí SUPABASE_ACCESS_TOKEN)')
 }
 
 run('Build', () => {
