@@ -50,12 +50,11 @@ const settings = {
   timezone: 'Europe/Prague',
 }
 
+const noDiaryContext = { approvedDiaryDates: [], anyDiaryCount: 0 }
+
 describe('resolveAutoMarkerDisplay', () => {
-  it('přepíše zelenou DB barvu na červenou bez záznamu deníku', () => {
-    const display = resolveAutoMarkerDisplay(sampleOrder, autoMarker, [], {
-      ...settings,
-      timezone: 'Europe/Prague',
-    })
+  it('aktivní zakázka bez deníku je červená – stav active neznamená green', () => {
+    const display = resolveAutoMarkerDisplay(sampleOrder, autoMarker, noDiaryContext, settings)
 
     expect(display.marker_color).toBe('red')
     expect(display.color_label).toBe('Chybí stavební deník')
@@ -70,24 +69,40 @@ describe('resolveAutoMarkerDisplay', () => {
       color_label: 'Bez problému',
     }
 
-    const display = resolveAutoMarkerDisplay(sampleOrder, manualMarker, [])
+    const display = resolveAutoMarkerDisplay(sampleOrder, manualMarker, noDiaryContext)
 
     expect(display.marker_color).toBe('green')
     expect(display.color_label).toBe('Bez problému')
     expect(display.color_source).toBe('manual')
   })
 
-  it('vrátí zelenou po prvním zápisu deníku', () => {
-    const display = resolveAutoMarkerDisplay(sampleOrder, autoMarker, ['2026-07-22'], settings)
+  it('vrátí zelenou se schváleným deníkem pro dnešek', () => {
+    const display = resolveAutoMarkerDisplay(
+      sampleOrder,
+      autoMarker,
+      { approvedDiaryDates: ['2026-07-22'], anyDiaryCount: 1 },
+      settings
+    )
 
     expect(display.marker_color).toBe('green')
     expect(display.color_label).toBe('Probíhá v pořádku')
+  })
+
+  it('červená i když existuje ne schválený zápis', () => {
+    const display = resolveAutoMarkerDisplay(
+      sampleOrder,
+      autoMarker,
+      { approvedDiaryDates: [], anyDiaryCount: 2 },
+      settings
+    )
+
+    expect(display.marker_color).toBe('red')
   })
 })
 
 describe('buildPlaceholderMarkerWithColor', () => {
   it('vytvoří placeholder s červenou barvou bez deníku', () => {
-    const marker = buildPlaceholderMarkerWithColor(sampleOrder, [], settings)
+    const marker = buildPlaceholderMarkerWithColor(sampleOrder, noDiaryContext, settings)
 
     expect(marker.project_id).toBe('order-1')
     expect(marker.marker_color).toBe('red')

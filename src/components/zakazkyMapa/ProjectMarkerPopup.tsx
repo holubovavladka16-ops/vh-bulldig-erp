@@ -7,8 +7,8 @@ import { ProjectDiaryList } from '@/components/zakazkyMapa/ProjectDiaryList'
 import { ProjectMarkerColorOverride } from '@/components/zakazkyMapa/ProjectMarkerColorOverride'
 import { ProjectMarkerColorHistoryTable } from '@/components/zakazkyMapa/ProjectMarkerColorHistoryTable'
 import { JOB_ORDER_STATUS_LABELS } from '@/constants/orders'
+import { getOrderStatusBadgeVariant } from '@/constants/orderStatusBadge'
 import { formatDate } from '@/constants/workers'
-import type { JobOrderStatus } from '@/types/orders'
 import type { ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
 import { isValidProjectMarkerGps } from '@/lib/zakazkyMapa/markerGps'
 
@@ -27,12 +27,8 @@ interface ProjectMarkerPopupProps {
   colorHistoryRefreshToken?: number
 }
 
-function getOrderStatusVariant(status: JobOrderStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
-  if (status === 'aktivni') return 'success'
-  if (status === 'pripravuje_se') return 'warning'
-  if (status === 'pozastavena') return 'danger'
-  if (status === 'archivovana') return 'neutral'
-  return 'info'
+function getOrderStatusVariant(status: Parameters<typeof getOrderStatusBadgeVariant>[0]) {
+  return getOrderStatusBadgeVariant(status)
 }
 
 function getPartyLabel(item: ProjectMapMarkerWithOrder): string | null {

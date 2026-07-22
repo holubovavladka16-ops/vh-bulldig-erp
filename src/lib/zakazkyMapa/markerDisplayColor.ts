@@ -19,6 +19,12 @@ export interface MarkerDisplaySettings {
   timezone: string
 }
 
+export interface MarkerDisplayContext {
+  approvedDiaryDates: string[]
+  /** Počet jakýchkoli záznamů deníku (libovolný stav). */
+  anyDiaryCount?: number
+}
+
 const DEFAULT_DISPLAY_SETTINGS: MarkerDisplaySettings = {
   diary_check_time: PROJECT_MARKER_DEFAULT_CHECK_TIME,
   working_days: PROJECT_MARKER_DEFAULT_WORKING_DAYS,
@@ -29,7 +35,7 @@ const DEFAULT_DISPLAY_SETTINGS: MarkerDisplaySettings = {
 export function resolveAutoMarkerDisplay(
   order: JobOrder,
   marker: ProjectMapMarker,
-  diaryEntryDates: string[],
+  context: MarkerDisplayContext,
   settings: MarkerDisplaySettings = DEFAULT_DISPLAY_SETTINGS
 ): Pick<ProjectMapMarker, 'marker_color' | 'color_label' | 'color_source'> {
   if ((marker.color_source as ProjectMarkerColorSource) === 'manual') {
@@ -40,7 +46,8 @@ export function resolveAutoMarkerDisplay(
     }
   }
 
-  if (diaryEntryDates.length === 0) {
+  const anyDiaryCount = context.anyDiaryCount ?? context.approvedDiaryDates.length
+  if (anyDiaryCount === 0 || context.approvedDiaryDates.length === 0) {
     return {
       marker_color: PROJECT_MARKER_DEFAULT_COLOR,
       color_label: PROJECT_MARKER_NEW_ORDER_LABEL,
@@ -52,7 +59,7 @@ export function resolveAutoMarkerDisplay(
   const computed = computeMarkerAutoColor({
     startDate: order.start_date,
     endDate: order.end_date,
-    diaryEntryDates,
+    diaryEntryDates: context.approvedDiaryDates,
     diaryCheckTime: settings.diary_check_time,
     workingDays: settings.working_days,
     today: localNow.isoDate,
@@ -68,7 +75,7 @@ export function resolveAutoMarkerDisplay(
 
 export function buildPlaceholderMarkerWithColor(
   order: JobOrder,
-  diaryEntryDates: string[] = [],
+  context: MarkerDisplayContext = { approvedDiaryDates: [] },
   settings?: MarkerDisplaySettings
 ): ProjectMapMarker {
   const now = new Date().toISOString()
@@ -87,7 +94,7 @@ export function buildPlaceholderMarkerWithColor(
       created_at: now,
       updated_at: now,
     },
-    diaryEntryDates,
+    context,
     settings
   )
 

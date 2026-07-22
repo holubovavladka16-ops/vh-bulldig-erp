@@ -7,6 +7,7 @@ import { isValidProjectMarkerGps } from '@/lib/zakazkyMapa/markerGps'
 import {
   buildPlaceholderMarkerWithColor,
   resolveAutoMarkerDisplay,
+  type MarkerDisplayContext,
   type MarkerDisplaySettings,
 } from '@/lib/zakazkyMapa/markerDisplayColor'
 import {
@@ -39,7 +40,7 @@ async function fetchMarkerDisplaySettings(): Promise<MarkerDisplaySettings> {
   }
 }
 
-async function fetchDiaryDatesByOrderIds(orderIds: string[]): Promise<Map<string, string[]>> {
+async function fetchApprovedDiaryDatesByOrderIds(orderIds: string[]): Promise<Map<string, string[]>> {
   if (orderIds.length === 0) return new Map()
 
   const { data, error } = await supabase
@@ -59,13 +60,41 @@ async function fetchDiaryDatesByOrderIds(orderIds: string[]): Promise<Map<string
   return map
 }
 
+async function fetchAnyDiaryCountByOrderIds(orderIds: string[]): Promise<Map<string, number>> {
+  if (orderIds.length === 0) return new Map()
+
+  const { data, error } = await supabase
+    .from('construction_diary_entries')
+    .select('order_id')
+    .in('order_id', orderIds)
+
+  if (error) throw new Error(error.message)
+
+  const map = new Map<string, number>()
+  for (const row of (data ?? []) as Array<{ order_id: string }>) {
+    map.set(row.order_id, (map.get(row.order_id) ?? 0) + 1)
+  }
+  return map
+}
+
+function buildDisplayContext(
+  orderId: string,
+  approvedByOrder: Map<string, string[]>,
+  anyCountByOrder: Map<string, number>
+): MarkerDisplayContext {
+  return {
+    approvedDiaryDates: approvedByOrder.get(orderId) ?? [],
+    anyDiaryCount: anyCountByOrder.get(orderId) ?? 0,
+  }
+}
+
 function applyDisplayColor(
   order: JobOrder,
   marker: ProjectMapMarker,
-  diaryDates: string[],
+  context: MarkerDisplayContext,
   settings: MarkerDisplaySettings
 ): ProjectMapMarker {
-  const display = resolveAutoMarkerDisplay(order, marker, diaryDates, settings)
+  const display = resolveAutoMarkerDisplay(order, marker, context, settings)
   return {
     ...marker,
     marker_color: display.marker_color,
@@ -143,9 +172,10 @@ export async function fetchProjectsWithMarkersFromOrders(): Promise<ProjectMapMa
   if (orderRows.length === 0) return []
 
   const projectIds = orderRows.map((order) => order.id)
-  const [markersResult, diaryByOrder, settings] = await Promise.all([
+  const [markersResult, approvedByOrder, anyCountByOrder, settings] = await Promise.all([
     supabase.from('project_map_markers').select('*').in('project_id', projectIds),
-    fetchDiaryDatesByOrderIds(projectIds),
+    fetchApprovedDiaryDatesByOrderIds(projectIds),
+    fetchAnyDiaryCountByOrderIds(projectIds),
     fetchMarkerDisplaySettings(),
   ])
 
@@ -157,11 +187,11 @@ export async function fetchProjectsWithMarkersFromOrders(): Promise<ProjectMapMa
   )
 
   return orderRows.map((order) => {
-    const diaryDates = diaryByOrder.get(order.id) ?? []
+    const context = buildDisplayContext(order.id, approvedByOrder, anyCountByOrder)
     const baseMarker =
-      markerByProject.get(order.id) ?? buildPlaceholderMarkerWithColor(order, diaryDates, settings)
+      markerByProject.get(order.id) ?? buildPlaceholderMarkerWithColor(order, context, settings)
     const withGps = mergeMarkerWithOrder(baseMarker, order)
-    const withColor = applyDisplayColor(order, withGps, diaryDates, settings)
+    const withColor = applyDisplayColor(order, withGps, context, settings)
     return { ...withColor, order }
   })
 }
@@ -173,9 +203,10 @@ export function buildPlaceholderMarker(order: JobOrder): ProjectMapMarker {
 export async function fetchProjectMapMarkerByProjectId(
   projectId: string
 ): Promise<ProjectMapMarkerWithOrder | null> {
-  const [settings, diaryByOrder] = await Promise.all([
+  const [settings, approvedByOrder, anyCountByOrder] = await Promise.all([
     fetchMarkerDisplaySettings(),
-    fetchDiaryDatesByOrderIds([projectId]),
+    fetchApprovedDiaryDatesByOrderIds([projectId]),
+    fetchAnyDiaryCountByOrderIds([projectId]),
   ])
 
   const { data: marker, error: markerError } = await supabase
@@ -196,12 +227,12 @@ export async function fetchProjectMapMarkerByProjectId(
   if (!order) return null
 
   const jobOrder = order as JobOrder
-  const diaryDates = diaryByOrder.get(projectId) ?? []
+  const context = buildDisplayContext(projectId, approvedByOrder, anyCountByOrder)
   const base =
     (marker as ProjectMapMarker | null) ??
-    buildPlaceholderMarkerWithColor(jobOrder, diaryDates, settings)
+    buildPlaceholderMarkerWithColor(jobOrder, context, settings)
   const withGps = mergeMarkerWithOrder(base, jobOrder)
-  const withColor = applyDisplayColor(jobOrder, withGps, diaryDates, settings)
+  const withColor = applyDisplayColor(jobOrder, withGps, context, settings)
 
   return {
     ...withColor,

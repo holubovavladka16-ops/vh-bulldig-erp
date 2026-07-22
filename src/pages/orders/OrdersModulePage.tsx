@@ -21,6 +21,7 @@ import {
 } from '@/lib/orders/api'
 import type { JobOrder, JobOrderFilters, JobOrderStatus } from '@/types/orders'
 import { JOB_ORDER_STATUS_LABELS, JOB_ORDER_STATUS_OPTIONS } from '@/constants/orders'
+import { getOrderStatusBadgeVariant } from '@/constants/orderStatusBadge'
 import { formatDate } from '@/constants/workers'
 
 export function OrdersModulePage() {
@@ -145,7 +146,7 @@ export function OrdersModulePage() {
               <DataTableCell>{order.location}</DataTableCell>
               <DataTableCell>{formatDate(order.start_date)} – {formatDate(order.end_date)}</DataTableCell>
               <DataTableCell>
-                <StatusBadge label={JOB_ORDER_STATUS_LABELS[order.status]} variant={order.status === 'aktivni' ? 'success' : order.status === 'archivovana' ? 'neutral' : 'info'} />
+                <StatusBadge label={JOB_ORDER_STATUS_LABELS[order.status]} variant={getOrderStatusBadgeVariant(order.status)} />
               </DataTableCell>
               <DataTableCell className="text-right">
                 <div className="flex justify-end gap-1">

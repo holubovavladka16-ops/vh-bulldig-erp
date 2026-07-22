@@ -134,6 +134,7 @@ function getPreviousWorkingDay(iso: string, workingDays: number[]): string | nul
 /**
  * Automatický výpočet barvy špendlíku.
  * Priorita: červená > oranžová > zelená > modrá.
+ * Stav zakázky (aktivní/dokončená/…) barvu NEURČUJE – pouze deník a termíny.
  */
 export function computeMarkerAutoColor(input: MarkerColorComputeInput): MarkerColorComputeResult {
   const today = input.today ?? toIsoDateLocal(input.now ?? new Date())
@@ -141,6 +142,14 @@ export function computeMarkerAutoColor(input: MarkerColorComputeInput): MarkerCo
   const workingDays = input.workingDays ?? PROJECT_MARKER_DEFAULT_WORKING_DAYS
   const checkTime = input.diaryCheckTime ?? PROJECT_MARKER_DEFAULT_CHECK_TIME
   const entryDates = new Set(input.diaryEntryDates)
+
+  if (entryDates.size === 0) {
+    return {
+      color: 'red',
+      label: PROJECT_MARKER_MISSING_DIARY_LABEL,
+      priority: COLOR_PRIORITY.red,
+    }
+  }
 
   const candidates: MarkerColorComputeResult[] = []
 
@@ -164,14 +173,6 @@ export function computeMarkerAutoColor(input: MarkerColorComputeInput): MarkerCo
   }
 
   if (isActivePeriod) {
-    if (entryDates.size === 0) {
-      candidates.push({
-        color: 'red',
-        label: PROJECT_MARKER_MISSING_DIARY_LABEL,
-        priority: COLOR_PRIORITY.red,
-      })
-    }
-
     const missingStreak = countConsecutiveMissingWorkingDays(
       today,
       input.startDate,

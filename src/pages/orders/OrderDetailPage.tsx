@@ -26,6 +26,7 @@ import {
 import type { JobOrderDetail } from '@/types/orders'
 import type { ProjectMapMarkerWithOrder } from '@/types/zakazkyMapa'
 import { JOB_ORDER_STATUS_LABELS } from '@/constants/orders'
+import { getOrderStatusBadgeVariant } from '@/constants/orderStatusBadge'
 import { WORKER_REPORT_STATUS_LABELS, formatCurrency, formatDate } from '@/constants/workers'
 import { formatTimeForInput } from '@/lib/workers/attendance'
 
@@ -129,7 +130,7 @@ export function OrderDetailPage() {
             ) : null}
             <StatusBadge
               label={JOB_ORDER_STATUS_LABELS[order.status]}
-              variant={order.status === 'aktivni' ? 'success' : 'info'}
+              variant={getOrderStatusBadgeVariant(order.status)}
             />
           </div>
         }
