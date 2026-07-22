@@ -11,7 +11,6 @@ export function exportInvoicesExcel(invoices: IssuedInvoice[], filename = 'faktu
     'Částka',
     'DPH',
     'Stav',
-    'Odesláno',
     'VS',
     'Zakázka',
   ]
@@ -24,7 +23,6 @@ export function exportInvoicesExcel(invoices: IssuedInvoice[], filename = 'faktu
     formatCurrency(inv.total),
     formatCurrency(inv.vat_amount),
     INVOICE_STATUS_LABELS[inv.status],
-    inv.sent_at ? formatDate(inv.sent_at.slice(0, 10)) : '—',
     inv.variable_symbol,
     inv.order_name ?? '',
   ])

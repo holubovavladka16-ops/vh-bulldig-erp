@@ -14,20 +14,7 @@ SELECT id, label, path FROM erp_modules WHERE id = 'fakturovac';
 SELECT COUNT(*) FROM invoice_settings;
 ```
 
-## 2. Edge Function – odeslání faktury e-mailem s PDF
-
-Funkce `send-invoice-email` vyžaduje Supabase Secrets:
-
-- `RESEND_API_KEY` – API klíč z https://resend.com
-- `RESEND_FROM` – ověřená odesílací adresa (např. `Fakturace VH Bulldig <fakturace@vase-domena.cz>`)
-
-Nasazení:
-
-```bash
-npx supabase functions deploy send-invoice-email --project-ref khhalcjgvqoyskkjlkyg
-```
-
-## 3. Frontend (Vercel)
+## 2. Frontend (Vercel)
 
 PR se sloučeným kódem musí být nasazen na produkci:
 
@@ -36,30 +23,30 @@ PR se sloučeným kódem musí být nasazen na produkci:
 
 Po nasazení ověřte v JS bundle přítomnost řetězce `Fakturovač`.
 
-## 4. První spuštění
+## 3. První spuštění
 
 1. Přihlásit se jako **Administrátor**
 2. **Nastavení → Nastavení faktur** – vyplnit údaje VH Bulldig s.r.o., nahrát logo, podpis, razítko, bankovní účet
 3. **Fakturovač → Nová faktura**
 4. Zadat IČO odběratele (ARES doplní údaje automaticky)
-5. Přidat položky, vytvořit PDF, odeslat e-mailem
+5. Přidat položky, stáhnout PDF nebo sdílet přes systémové sdílení zařízení
 
-## 5. Kontrolní checklist
+## 4. Kontrolní checklist
 
 - [ ] Modul **Fakturovač** v postranním menu
 - [ ] Nastavení faktur ukládá logo/podpis/razítko
 - [ ] Nová faktura dostane unikátní číslo = VS
 - [ ] ARES doplní odběratele po zadání IČO
 - [ ] PDF obsahuje logo, QR, podpis, razítko
-- [ ] E-mail odejde s PDF přílohou (Resend)
+- [ ] PDF lze stáhnout a sdílet (WhatsApp apod.)
 - [ ] Historie faktur zobrazuje všechny záznamy
 - [ ] Vyhledávání funguje
 
-## 6. Řešení problémů
+## 5. Řešení problémů
 
 | Problém | Řešení |
 |---------|--------|
 | Modul není v menu | Redeploy Vercel + tvrdý refresh prohlížeče |
 | Chyba při načtení faktur | Spustit migraci 081 |
-| E-mail bez PDF | Nastavit `RESEND_API_KEY` a nasadit edge function |
+| Sdílení PDF nefunguje | Použijte tlačítko Stáhnout PDF |
 | Nahrání loga selže | Spustit migraci 082 (storage UPDATE policy) |

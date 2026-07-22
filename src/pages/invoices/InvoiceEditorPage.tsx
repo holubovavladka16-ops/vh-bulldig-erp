@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, FileDown, Loader2, Mail, Package, Save, Search, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileDown, Loader2, Package, Save, Search, Share2, Trash2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -16,11 +16,10 @@ import {
   fetchInvoice,
   fetchInvoiceSettings,
   updateInvoice,
-  updateInvoiceStatus,
 } from '@/lib/invoices/api'
 import { calculateInvoiceTotals } from '@/lib/invoices/calculations'
 import { loadInvoiceLinesFromOrder } from '@/lib/invoices/orderLines'
-import { downloadInvoicePdf, sendInvoiceEmail } from '@/lib/invoices/email'
+import { downloadInvoicePdf, shareInvoicePdf } from '@/lib/invoices/pdf'
 import { printInvoiceReport } from '@/lib/invoices/invoiceReport'
 import { fetchJobOrders } from '@/lib/orders/api'
 import {
@@ -61,7 +60,6 @@ function invoiceToInput(invoice: IssuedInvoice): IssuedInvoiceInput {
     customer_address: invoice.customer_address,
     customer_city: invoice.customer_city,
     customer_postal_code: invoice.customer_postal_code,
-    customer_email: invoice.customer_email,
     note: invoice.note ?? '',
     lines:
       invoice.lines?.map((line) => ({
@@ -88,8 +86,8 @@ export function InvoiceEditorPage() {
   const [saving, setSaving] = useState(false)
   const [aresLoading, setAresLoading] = useState(false)
   const [loadingOrderLines, setLoadingOrderLines] = useState(false)
-  const [emailSending, setEmailSending] = useState(false)
   const [pdfGenerating, setPdfGenerating] = useState(false)
+  const [pdfSharing, setPdfSharing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const lastAresIco = useRef('')
@@ -230,38 +228,24 @@ export function InvoiceEditorPage() {
     }
   }
 
-  async function handleEmail() {
-    if (!invoice || !form || !settings) return
-    if (!form.customer_email?.trim()) {
-      setError('Pro odeslání vyplňte e-mail odběratele')
-      return
-    }
-
-    setEmailSending(true)
+  async function handleSharePdf() {
+    if (!invoice || !settings) return
+    setPdfSharing(true)
     setError(null)
     setSuccess(null)
     try {
-      await handleSave(invoice.status === 'koncept' ? 'vytvorena' : invoice.status)
       const full = await fetchInvoice(invoice.id)
       if (!full) throw new Error('Faktura nebyla nalezena')
-
-      const result = await sendInvoiceEmail(full, settings, form.customer_email.trim())
-      if (result.method === 'cancelled') return
-
-      if (result.method === 'resend') {
-        await updateInvoiceStatus(full.id, 'odeslana', {
-          sent_at: new Date().toISOString(),
-          sent_to_email: form.customer_email.trim(),
-        })
-        setSuccess(`Faktura odeslána na ${form.customer_email.trim()} včetně PDF přílohy.`)
-      } else {
-        setSuccess('PDF bylo otevřeno ke sdílení – odešlete ho e-mailem z vašeho zařízení.')
+      const result = await shareInvoicePdf(full, settings)
+      if (result === 'shared') {
+        setSuccess('PDF bylo odesláno přes sdílení zařízení.')
+      } else if (result === 'downloaded') {
+        setSuccess('Sdílení není podporováno – PDF bylo staženo.')
       }
-      await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Odeslání e-mailu selhalo')
+      setError(err instanceof Error ? err.message : 'Sdílení PDF selhalo')
     } finally {
-      setEmailSending(false)
+      setPdfSharing(false)
     }
   }
 
@@ -307,9 +291,13 @@ export function InvoiceEditorPage() {
               <Save className="h-4 w-4" />
               Uložit
             </Button>
-            <Button onClick={handlePdf} disabled={pdfGenerating}>
+            <Button onClick={handlePdf} disabled={pdfGenerating || pdfSharing}>
               <FileDown className="h-4 w-4" />
-              {pdfGenerating ? 'Generuji PDF…' : 'Vytvořit PDF'}
+              {pdfGenerating ? 'Generuji PDF…' : 'Stáhnout PDF'}
+            </Button>
+            <Button variant="secondary" onClick={handleSharePdf} disabled={pdfGenerating || pdfSharing}>
+              <Share2 className="h-4 w-4" />
+              {pdfSharing ? 'Sdílím…' : 'Sdílet PDF'}
             </Button>
           </div>
         }
@@ -366,12 +354,6 @@ export function InvoiceEditorPage() {
               <Input label="Město" value={form.customer_city ?? ''} readOnly />
               <Input label="PSČ" value={form.customer_postal_code ?? ''} readOnly />
             </div>
-            <Input
-              label="E-mail odběratele"
-              type="email"
-              value={form.customer_email ?? ''}
-              onChange={(e) => patchForm({ customer_email: e.target.value })}
-            />
           </div>
         </Card>
       </div>
@@ -510,10 +492,6 @@ export function InvoiceEditorPage() {
         <div className="mt-6 flex flex-wrap gap-2">
           <Button onClick={handleFinalize} disabled={saving}>
             Označit jako vytvořenou
-          </Button>
-          <Button variant="secondary" onClick={handleEmail} disabled={saving || emailSending}>
-            <Mail className="h-4 w-4" />
-            {emailSending ? 'Odesílám…' : 'Odeslat e-mailem'}
           </Button>
           <Button variant="ghost" onClick={handleDelete} className="text-red-400">
             <Trash2 className="h-4 w-4" />

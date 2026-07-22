@@ -64,7 +64,6 @@ function customerBlock(invoice: IssuedInvoice): string {
     invoice.customer_ico ? `IČO: ${invoice.customer_ico}` : '',
     invoice.customer_dic ? `DIČ: ${invoice.customer_dic}` : '',
     [invoice.customer_address, invoice.customer_postal_code, invoice.customer_city].filter(Boolean).join(', '),
-    invoice.customer_email ? `E-mail: ${invoice.customer_email}` : '',
   ].filter(Boolean)
 
   return lines.map((line) => `<p>${escHtml(line)}</p>`).join('')

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Download, FileDown, Mail, Plus, Settings } from 'lucide-react'
+import { Download, FileDown, Plus, Settings, Share2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -9,7 +9,7 @@ import { InvoiceFiltersPanel } from '@/components/invoices/InvoiceFiltersPanel'
 import { InvoiceStatusBadge } from '@/components/invoices/InvoiceStatusBadge'
 import { useAuth } from '@/context/AuthContext'
 import { createDraftInvoice, fetchInvoice, fetchInvoiceSettings, fetchInvoices } from '@/lib/invoices/api'
-import { downloadInvoicePdf, sendInvoiceEmail } from '@/lib/invoices/email'
+import { downloadInvoicePdf, shareInvoicePdf } from '@/lib/invoices/pdf'
 import { exportInvoicesExcel } from '@/lib/invoices/export'
 import { printInvoiceReport } from '@/lib/invoices/invoiceReport'
 import type { InvoiceFilters, IssuedInvoice } from '@/types/invoices'
@@ -70,20 +70,19 @@ export function InvoicesModulePage() {
     }
   }
 
-  async function handleQuickEmail(invoice: IssuedInvoice) {
+  async function handleQuickShare(invoice: IssuedInvoice) {
     setActionError(null)
     try {
-      if (!invoice.customer_email?.trim()) {
-        throw new Error('Faktura nemá e-mail odběratele – otevřete fakturu a doplňte ho')
-      }
       const settings = await fetchInvoiceSettings()
       if (!settings) throw new Error('Nejdříve vyplňte Nastavení faktur')
       const full = await fetchInvoice(invoice.id)
       if (!full) return
-      await sendInvoiceEmail(full, settings, invoice.customer_email.trim())
-      await load()
+      const result = await shareInvoicePdf(full, settings)
+      if (result === 'downloaded') {
+        setActionError('Sdílení není podporováno v tomto prohlížeči – PDF bylo staženo.')
+      }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Odeslání e-mailu selhalo')
+      setActionError(err instanceof Error ? err.message : 'Sdílení PDF selhalo')
     }
   }
 
@@ -91,7 +90,7 @@ export function InvoicesModulePage() {
     <AppLayout>
       <PageHeader
         title="Fakturovač"
-        description="Kompletní fakturace VH Bulldig – vystavení, PDF, QR platba, historie a export."
+        description="Vystavení faktur, historie, PDF ke stažení a sdílení."
         action={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Link to="/nastaveni/faktury" className="btn-neon inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium sm:w-auto">
@@ -137,7 +136,6 @@ export function InvoicesModulePage() {
             { key: 'total', label: 'Cena', className: 'text-right' },
             { key: 'status', label: 'Stav' },
             { key: 'pdf', label: 'PDF' },
-            { key: 'sent', label: 'Odesláno' },
           ]}
           isEmpty={invoices.length === 0}
           emptyMessage="Zatím žádné faktury. Vytvořte první kliknutím na Nová faktura."
@@ -159,18 +157,14 @@ export function InvoicesModulePage() {
                 <InvoiceStatusBadge status={invoice.status} />
               </DataTableCell>
               <DataTableCell>
-                <Button variant="ghost" size="sm" onClick={() => handleQuickPdf(invoice)} aria-label="Vytvořit PDF">
-                  <FileDown className="h-4 w-4" />
-                </Button>
-              </DataTableCell>
-              <DataTableCell>
-                {invoice.sent_at ? (
-                  <span className="text-xs text-theme-muted">{formatDate(invoice.sent_at.slice(0, 10))}</span>
-                ) : (
-                  <Button variant="ghost" size="sm" onClick={() => handleQuickEmail(invoice)} aria-label="Odeslat e-mailem">
-                    <Mail className="h-4 w-4" />
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => handleQuickPdf(invoice)} aria-label="Stáhnout PDF">
+                    <FileDown className="h-4 w-4" />
                   </Button>
-                )}
+                  <Button variant="ghost" size="sm" onClick={() => handleQuickShare(invoice)} aria-label="Sdílet PDF">
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </DataTableCell>
             </DataTableRow>
           ))}
