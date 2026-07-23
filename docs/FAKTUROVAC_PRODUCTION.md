@@ -1,17 +1,30 @@
 # Fakturovač – produkční nasazení (VH Bulldig ERP 8)
 
+## Chyba `invoice_settings` v schema cache
+
+**Příčina:** Na produkční Supabase nejsou aplikované migrace **081** a **082**. Tabulky `invoice_settings`, `issued_invoices`, `issued_invoice_lines` a funkce `next_invoice_number()` v databázi neexistují. GitHub Actions workflow selhaly kvůli chybějícím secrets `SUPABASE_DB_PASSWORD` / `POSTGRES_URL`.
+
+**Oprava:** V Supabase Dashboard → SQL Editor spusťte celý soubor:
+
+`supabase/manual/081_082_fakturovac_production.sql`
+
+Po spuštění obnovte aplikaci (tvrdý refresh). PostgREST načte schéma automaticky (`NOTIFY pgrst` je v skriptu).
+
 ## 1. SQL migrace (Supabase)
 
-Spusťte v **SQL Editoru** nebo přes GitHub Actions workflow **Apply Fakturovač Migrations 081-082**:
+Alternativně jednotlivé soubory:
 
 1. `supabase/migrations/081_fakturovac_module.sql`
 2. `supabase/migrations/082_fakturovac_storage_update.sql`
 
+Nebo GitHub Actions workflow **Apply Fakturovač Migrations 081-082** (vyžaduje nastavené DB secrets).
+
 Ověření:
 
 ```sql
-SELECT id, label, path FROM erp_modules WHERE id = 'fakturovac';
 SELECT COUNT(*) FROM invoice_settings;
+SELECT id, label FROM erp_modules WHERE id = 'fakturovac';
+SELECT proname FROM pg_proc WHERE proname = 'next_invoice_number';
 ```
 
 ## 2. Frontend (Vercel)
