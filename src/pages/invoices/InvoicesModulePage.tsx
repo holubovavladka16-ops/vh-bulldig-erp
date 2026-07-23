@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Download, FileDown, Plus, Settings, Share2 } from 'lucide-react'
+import { Download, FileDown, Plus, Settings, Share2, Trash2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -8,7 +8,7 @@ import { DataTable, DataTableRow, DataTableCell } from '@/components/ui/DataTabl
 import { InvoiceFiltersPanel } from '@/components/invoices/InvoiceFiltersPanel'
 import { InvoiceStatusBadge } from '@/components/invoices/InvoiceStatusBadge'
 import { useAuth } from '@/context/AuthContext'
-import { createDraftInvoice, fetchInvoice, fetchInvoiceSettings, fetchInvoices } from '@/lib/invoices/api'
+import { createDraftInvoice, deleteInvoice, fetchInvoice, fetchInvoiceSettings, fetchInvoices } from '@/lib/invoices/api'
 import { downloadInvoicePdf, shareInvoicePdf } from '@/lib/invoices/pdf'
 import { exportInvoicesExcel } from '@/lib/invoices/export'
 import { printInvoiceReport } from '@/lib/invoices/invoiceReport'
@@ -23,7 +23,9 @@ export function InvoicesModulePage() {
   const [filters, setFilters] = useState<InvoiceFilters>({})
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -43,6 +45,7 @@ export function InvoicesModulePage() {
     if (!user) return
     setCreating(true)
     setActionError(null)
+    setActionSuccess(null)
     try {
       const draft = await createDraftInvoice(user.id)
       navigate(`/fakturace/${draft.id}`)
@@ -55,6 +58,7 @@ export function InvoicesModulePage() {
 
   async function handleQuickPdf(invoice: IssuedInvoice) {
     setActionError(null)
+    setActionSuccess(null)
     try {
       const settings = await fetchInvoiceSettings()
       if (!settings) throw new Error('Nejdříve vyplňte Nastavení faktur')
@@ -72,6 +76,7 @@ export function InvoicesModulePage() {
 
   async function handleQuickShare(invoice: IssuedInvoice) {
     setActionError(null)
+    setActionSuccess(null)
     try {
       const settings = await fetchInvoiceSettings()
       if (!settings) throw new Error('Nejdříve vyplňte Nastavení faktur')
@@ -83,6 +88,27 @@ export function InvoicesModulePage() {
       }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Sdílení PDF selhalo')
+    }
+  }
+
+  async function handleDelete(invoice: IssuedInvoice) {
+    if (
+      !confirm('Opravdu chcete tuto fakturu smazat? Tuto akci nelze vrátit.')
+    ) {
+      return
+    }
+
+    setDeletingId(invoice.id)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      await deleteInvoice(invoice.id)
+      setActionSuccess('Faktura byla úspěšně smazána.')
+      await load()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Smazání faktury selhalo')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -107,6 +133,10 @@ export function InvoicesModulePage() {
 
       {actionError ? (
         <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{actionError}</div>
+      ) : null}
+
+      {actionSuccess ? (
+        <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">{actionSuccess}</div>
       ) : null}
 
       <InvoiceFiltersPanel filters={filters} onChange={setFilters} />
@@ -136,6 +166,7 @@ export function InvoicesModulePage() {
             { key: 'total', label: 'Cena', className: 'text-right' },
             { key: 'status', label: 'Stav' },
             { key: 'pdf', label: 'PDF' },
+            { key: 'actions', label: 'Akce' },
           ]}
           isEmpty={invoices.length === 0}
           emptyMessage="Zatím žádné faktury. Vytvořte první kliknutím na Nová faktura."
@@ -165,6 +196,19 @@ export function InvoicesModulePage() {
                     <Share2 className="h-4 w-4" />
                   </Button>
                 </div>
+              </DataTableCell>
+              <DataTableCell>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-400 hover:text-red-300"
+                  onClick={() => handleDelete(invoice)}
+                  disabled={deletingId === invoice.id}
+                  aria-label="Smazat fakturu"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Smazat
+                </Button>
               </DataTableCell>
             </DataTableRow>
           ))}

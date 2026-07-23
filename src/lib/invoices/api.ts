@@ -329,7 +329,38 @@ export async function updateInvoiceStatus(
   if (error) throw new Error(error.message)
 }
 
+async function listInvoiceStoragePaths(invoiceId: string): Promise<string[]> {
+  const prefixes = [`invoices/${invoiceId}`, `attachments/${invoiceId}`]
+  const paths: string[] = []
+
+  for (const prefix of prefixes) {
+    const { data: files, error } = await supabase.storage.from('invoice-assets').list(prefix)
+    if (error || !files?.length) continue
+
+    for (const file of files) {
+      if (!file.name || !file.metadata) continue
+      paths.push(`${prefix}/${file.name}`)
+    }
+  }
+
+  return paths
+}
+
+async function removeInvoiceStorageFiles(invoiceId: string): Promise<void> {
+  const paths = await listInvoiceStoragePaths(invoiceId)
+  if (paths.length === 0) return
+
+  const { error } = await supabase.storage.from('invoice-assets').remove(paths)
+  if (error) throw new Error(error.message)
+}
+
 export async function deleteInvoice(id: string): Promise<void> {
+  try {
+    await removeInvoiceStorageFiles(id)
+  } catch {
+    // Pokračovat i když složka faktury ve Storage neexistuje (PDF se generuje lokálně).
+  }
+
   const { error } = await supabase.from('issued_invoices').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
