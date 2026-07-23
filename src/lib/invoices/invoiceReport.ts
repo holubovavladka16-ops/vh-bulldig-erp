@@ -15,7 +15,36 @@ import {
   type IssuedInvoice,
 } from '@/types/invoices'
 
+const INVOICE_PAGE_MARGIN = '4mm'
+
 const INVOICE_PRINT_CSS = `
+  @page { size: A4 portrait; margin: ${INVOICE_PAGE_MARGIN}; }
+  html, body {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .doc-shell {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 auto !important;
+    padding: ${INVOICE_PAGE_MARGIN} !important;
+    box-sizing: border-box !important;
+  }
+  @media print {
+    .doc-shell { padding: 0 !important; }
+  }
+  .doc-footer {
+    left: ${INVOICE_PAGE_MARGIN} !important;
+    right: ${INVOICE_PAGE_MARGIN} !important;
+    bottom: ${INVOICE_PAGE_MARGIN} !important;
+  }
+  body.has-doc-footer { padding-bottom: 14mm !important; }
   .doc-header { border-bottom-color: #b8860b !important; margin-bottom: 14px !important; }
   .doc-title-block { margin-bottom: 14px !important; }
   .doc-company-name, .doc-title, .doc-section h2, .doc-party h3 { color: #1a1a1a !important; }
