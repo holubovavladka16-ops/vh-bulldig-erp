@@ -16,23 +16,46 @@ import {
 } from '@/types/invoices'
 
 const INVOICE_PRINT_CSS = `
-  .doc-header { border-bottom-color: #b8860b !important; }
+  .doc-header { border-bottom-color: #b8860b !important; margin-bottom: 14px !important; }
+  .doc-title-block { margin-bottom: 14px !important; }
   .doc-company-name, .doc-title, .doc-section h2, .doc-party h3 { color: #1a1a1a !important; }
   .doc-table th { background: #f5f0e1 !important; color: #1a1a1a !important; border-color: #d4af37 !important; }
   .doc-table td { border-color: #e8dcc0 !important; }
   .doc-party { border-color: #d4af37 !important; background: #fffdf8 !important; }
+  .doc-section { margin: 11px 0 !important; }
+  .doc-parties { margin: 8px 0 12px !important; gap: 16px !important; }
+  .doc-meta-grid { margin: 6px 0 10px !important; gap: 6px 20px !important; }
+  .doc-text { margin: 0 !important; }
   .invoice-gold { color: #b8860b; font-weight: 700; }
-  .invoice-totals { margin-top: 16px; max-width: 360px; margin-left: auto; }
-  .invoice-totals table { width: 100%; border-collapse: collapse; }
-  .invoice-totals td { padding: 6px 8px; border-bottom: 1px solid #e8dcc0; }
-  .invoice-totals .label { color: #666; }
-  .invoice-totals .grand { font-size: 12pt; font-weight: 700; color: #1a1a1a; }
-  .invoice-qr-wrap { text-align: center; margin: 12px 0; page-break-inside: avoid; }
+  .invoice-totals { margin-top: 12px; max-width: 300px; margin-left: auto; }
+  .invoice-totals table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .invoice-totals td { padding: 5px 0; border-bottom: 1px solid #e8dcc0; vertical-align: baseline; }
+  .invoice-totals td.label { width: 58%; text-align: left; color: #666; padding-right: 12px; }
+  .invoice-totals td.amount {
+    width: 42%;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    padding-left: 8px;
+    letter-spacing: 0.01em;
+  }
+  .invoice-totals tr.grand-row td { border-bottom: none; border-top: 2px solid #b8860b; padding-top: 7px; }
+  .invoice-totals .grand { font-size: 11.5pt; font-weight: 700; color: #1a1a1a; }
+  .invoice-qr-wrap { text-align: center; margin: 10px 0 6px; page-break-inside: avoid; }
   .invoice-qr-wrap img { width: 36mm; height: 36mm; border: 1px solid #d4af37; padding: 4px; background: #fff; }
-  .invoice-signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 28px; align-items: end; page-break-inside: avoid; }
-  .invoice-signatures img { max-height: 22mm; max-width: 100%; object-fit: contain; }
-  .invoice-sign-box { min-height: 26mm; display: flex; align-items: flex-end; justify-content: center; }
+  .invoice-qr-wrap p { margin: 4px 0 0; font-size: 9.5pt; }
+  .invoice-signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    margin-top: 22px;
+    align-items: end;
+    page-break-inside: avoid;
+  }
+  .invoice-signatures img { max-height: 24mm; max-width: 100%; object-fit: contain; }
+  .invoice-sign-box { min-height: 28mm; display: flex; align-items: flex-end; justify-content: center; }
   .invoice-sign-caption { margin-top: 6px; font-size: 9pt; color: #666; text-align: center; border-top: 1px solid #ccc; padding-top: 4px; }
+  .doc-watermark { opacity: 0.035 !important; }
 `
 
 function invoiceIntroText(invoice: IssuedInvoice): string {
@@ -109,9 +132,9 @@ function buildTotalsBlock(invoice: IssuedInvoice): string {
   return `
     <div class="invoice-totals">
       <table>
-        <tr><td class="label">Celkem bez DPH</td><td class="num">${escHtml(formatCurrency(invoice.subtotal))}</td></tr>
-        <tr><td class="label">DPH</td><td class="num">${escHtml(formatCurrency(invoice.vat_amount))}</td></tr>
-        <tr><td class="label grand">Celkem k úhradě</td><td class="num grand">${escHtml(formatCurrency(invoice.total))}</td></tr>
+        <tr><td class="label">Celkem bez DPH</td><td class="amount">${escHtml(formatCurrency(invoice.subtotal))}</td></tr>
+        <tr><td class="label">DPH</td><td class="amount">${escHtml(formatCurrency(invoice.vat_amount))}</td></tr>
+        <tr class="grand-row"><td class="label grand">Celkem k úhradě</td><td class="amount grand">${escHtml(formatCurrency(invoice.total))}</td></tr>
       </table>
     </div>
   `
@@ -140,16 +163,11 @@ function buildQrBlock(invoice: IssuedInvoice, settings: InvoiceSettings): string
 }
 
 function buildSignaturesBlock(settings: InvoiceSettings): string {
-  const logo = getInvoiceAssetUrl(settings.logo_path)
   const signature = getInvoiceAssetUrl(settings.signature_path)
   const stamp = getInvoiceAssetUrl(settings.stamp_path)
 
   return `
     <section class="invoice-signatures">
-      <div>
-        ${logo ? `<div class="invoice-sign-box"><img src="${escHtml(logo)}" alt="Logo" /></div>` : '<div class="invoice-sign-box"></div>'}
-        <div class="invoice-sign-caption">Dodavatel</div>
-      </div>
       <div>
         ${signature ? `<div class="invoice-sign-box"><img src="${escHtml(signature)}" alt="Podpis" /></div>` : '<div class="invoice-sign-box"></div>'}
         <div class="invoice-sign-caption">Podpis</div>
@@ -163,8 +181,6 @@ function buildSignaturesBlock(settings: InvoiceSettings): string {
 }
 
 export function buildInvoiceReportHtml(invoice: IssuedInvoice, settings: InvoiceSettings): string {
-  const logo = getInvoiceAssetUrl(settings.logo_path)
-
   return `
     <section class="doc-section">
       <div class="doc-parties">
@@ -201,8 +217,6 @@ export function buildInvoiceReportHtml(invoice: IssuedInvoice, settings: Invoice
 
     ${buildQrBlock(invoice, settings)}
     ${buildSignaturesBlock(settings)}
-
-    ${logo ? `<img class="doc-watermark" src="${escHtml(logo)}" alt="" aria-hidden="true" />` : ''}
   `
 }
 
