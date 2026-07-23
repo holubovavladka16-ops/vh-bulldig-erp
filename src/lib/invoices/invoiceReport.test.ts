@@ -87,4 +87,13 @@ describe('invoiceReport template', () => {
     expect(watermarkCount).toBe(1)
     expect(html).toContain('opacity: 0.035 !important')
   })
+
+  it('uses uniform 4mm page margins in invoice template', () => {
+    const html = buildInvoiceReportDocument(sampleInvoice, settings)
+    expect(html).toContain('@page { size: A4 portrait; margin: 4mm; }')
+    expect(html).toContain('padding: 4mm !important')
+    expect(html).toContain('left: 4mm !important')
+    expect(html).toContain('right: 4mm !important')
+    expect(html).toContain('bottom: 4mm !important')
+  })
 })
