@@ -16,6 +16,22 @@ type InvoiceRow = IssuedInvoice & {
 
 type InvoiceLineRow = IssuedInvoiceLine
 
+const FAKTUROVAC_MIGRATION_HINT =
+  'Modul Fakturovač není inicializovaný v databázi. V Supabase SQL Editoru spusťte soubor supabase/manual/081_082_fakturovac_production.sql.'
+
+function wrapInvoiceDbError(error: { message?: string; code?: string }): Error {
+  if (
+    error.code === 'PGRST205' ||
+    error.message?.includes('schema cache') ||
+    error.message?.includes('invoice_settings') ||
+    error.message?.includes('issued_invoices') ||
+    error.message?.includes('next_invoice_number')
+  ) {
+    return new Error(FAKTUROVAC_MIGRATION_HINT)
+  }
+  return new Error(error.message ?? 'Chyba databáze')
+}
+
 function mapInvoiceRow(row: InvoiceRow, lines?: IssuedInvoiceLine[]): IssuedInvoice {
   return {
     id: row.id,
@@ -81,7 +97,7 @@ export function getInvoiceAssetUrl(path: string | null | undefined): string | nu
 
 export async function fetchInvoiceSettings(): Promise<InvoiceSettings | null> {
   const { data, error } = await supabase.from('invoice_settings').select('*').limit(1).maybeSingle()
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
   if (!data) return null
 
   const row = data as Record<string, unknown>
@@ -123,7 +139,7 @@ export async function saveInvoiceSettings(
     .select('*')
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
   const row = data as Record<string, unknown>
   return {
     ...(row as unknown as InvoiceSettings),
@@ -145,7 +161,7 @@ export async function uploadInvoiceAsset(
 
 export async function reserveInvoiceNumber(): Promise<string> {
   const { data, error } = await supabase.rpc('next_invoice_number')
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
   return String(data)
 }
 
@@ -161,7 +177,7 @@ export async function fetchInvoices(filters: InvoiceFilters = {}): Promise<Issue
   if (filters.dateTo) query = query.lte('issue_date', filters.dateTo)
 
   const { data, error } = await query
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
 
   let rows = ((data ?? []) as InvoiceRow[]).map((row) => mapInvoiceRow(row))
 
@@ -187,7 +203,7 @@ export async function fetchInvoice(id: string): Promise<IssuedInvoice | null> {
     .eq('id', id)
     .maybeSingle()
 
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
   if (!data) return null
 
   const { data: lines, error: linesError } = await supabase
@@ -196,7 +212,7 @@ export async function fetchInvoice(id: string): Promise<IssuedInvoice | null> {
     .eq('invoice_id', id)
     .order('sort_order')
 
-  if (linesError) throw new Error(linesError.message)
+  if (linesError) throw wrapInvoiceDbError(linesError)
 
   return mapInvoiceRow(data as InvoiceRow, ((lines ?? []) as InvoiceLineRow[]).map(mapLineRow))
 }
@@ -261,13 +277,13 @@ export async function createInvoice(
     .select('*, job_orders(name)')
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
 
   const created = data as InvoiceRow
   const linePayloads = buildLinePayloads(created.id, input.lines, input.vat_mode)
   if (linePayloads.length > 0) {
     const { error: linesError } = await supabase.from('issued_invoice_lines').insert(linePayloads)
-    if (linesError) throw new Error(linesError.message)
+    if (linesError) throw wrapInvoiceDbError(linesError)
   }
 
   return (await fetchInvoice(created.id))!
@@ -302,15 +318,15 @@ export async function updateInvoice(id: string, input: IssuedInvoiceInput): Prom
     })
     .eq('id', id)
 
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
 
   const { error: deleteError } = await supabase.from('issued_invoice_lines').delete().eq('invoice_id', id)
-  if (deleteError) throw new Error(deleteError.message)
+  if (deleteError) throw wrapInvoiceDbError(deleteError)
 
   const linePayloads = buildLinePayloads(id, input.lines, input.vat_mode)
   if (linePayloads.length > 0) {
     const { error: linesError } = await supabase.from('issued_invoice_lines').insert(linePayloads)
-    if (linesError) throw new Error(linesError.message)
+    if (linesError) throw wrapInvoiceDbError(linesError)
   }
 
   return (await fetchInvoice(id))!
@@ -326,12 +342,12 @@ export async function updateInvoiceStatus(
   if (extra?.sent_to_email !== undefined) payload.sent_to_email = extra.sent_to_email
 
   const { error } = await supabase.from('issued_invoices').update(payload).eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
   const { error } = await supabase.from('issued_invoices').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw wrapInvoiceDbError(error)
 }
 
 export async function createDraftInvoice(createdBy: string): Promise<IssuedInvoice> {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, FileDown, Loader2, Package, Save, Search, Share2, Trash2 } from 'lucide-react'
+import { ArrowLeft, Eye, FileDown, Loader2, Package, Save, Search, Share2, Trash2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -211,6 +211,18 @@ export function InvoiceEditorPage() {
     await handleSave('vytvorena')
   }
 
+  async function handlePreview() {
+    if (!invoice || !settings) return
+    setError(null)
+    try {
+      const full = await fetchInvoice(invoice.id)
+      if (!full) throw new Error('Faktura nebyla nalezena')
+      printInvoiceReport(full, settings)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Náhled A4 selhal')
+    }
+  }
+
   async function handlePdf() {
     if (!invoice || !settings) return
     setPdfGenerating(true)
@@ -290,6 +302,10 @@ export function InvoiceEditorPage() {
             <Button variant="secondary" onClick={() => handleSave()} disabled={saving}>
               <Save className="h-4 w-4" />
               Uložit
+            </Button>
+            <Button variant="secondary" onClick={handlePreview} disabled={pdfGenerating || pdfSharing}>
+              <Eye className="h-4 w-4" />
+              Náhled A4
             </Button>
             <Button onClick={handlePdf} disabled={pdfGenerating || pdfSharing}>
               <FileDown className="h-4 w-4" />

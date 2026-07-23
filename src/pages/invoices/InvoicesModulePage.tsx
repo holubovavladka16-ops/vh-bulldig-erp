@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Download, FileDown, Plus, Settings, Share2 } from 'lucide-react'
+import { Download, Eye, FileDown, Plus, Settings, Share2 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -67,6 +67,19 @@ export function InvoicesModulePage() {
       }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Vytvoření PDF selhalo')
+    }
+  }
+
+  async function handleQuickPreview(invoice: IssuedInvoice) {
+    setActionError(null)
+    try {
+      const settings = await fetchInvoiceSettings()
+      if (!settings) throw new Error('Nejdříve vyplňte Nastavení faktur')
+      const full = await fetchInvoice(invoice.id)
+      if (!full) return
+      printInvoiceReport(full, settings)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Náhled A4 selhal')
     }
   }
 
@@ -158,6 +171,9 @@ export function InvoicesModulePage() {
               </DataTableCell>
               <DataTableCell>
                 <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => handleQuickPreview(invoice)} aria-label="Náhled A4">
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => handleQuickPdf(invoice)} aria-label="Stáhnout PDF">
                     <FileDown className="h-4 w-4" />
                   </Button>
