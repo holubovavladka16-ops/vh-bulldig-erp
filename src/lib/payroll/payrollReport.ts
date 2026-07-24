@@ -1,14 +1,18 @@
 import { formatCurrency, formatDate } from '@/constants/workers'
 import {
-  buildProfessionalDocumentFooter,
-  buildProfessionalDocumentHeader,
-  buildProfessionalPrintDocument,
+  buildDiaryStylePrintDocument,
   companySettingsToHeader,
   escHtml,
   formatDocumentCreatedAt,
-  openPrintDocument,
+  kvRow,
   type CompanyHeader,
 } from '@/lib/print/printDocument'
+import {
+  downloadProfessionalPdf,
+  previewProfessionalPdf,
+  printProfessionalPdf,
+  type ProfessionalPdfOptions,
+} from '@/lib/print/professionalPdfExport'
 import type { CompanySettings } from '@/types'
 import type { PayrollSlipDetail } from '@/types/payroll'
 
@@ -26,15 +30,6 @@ const MONTH_NAMES = [
   'listopad',
   'prosinec',
 ]
-
-const PAYROLL_PRINT_EXTRA = `
-  .payroll-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  .payroll-table th, .payroll-table td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 11pt; vertical-align: top; }
-  .payroll-table th { background: #f5f5f5; }
-  .payroll-table .num { text-align: right; white-space: nowrap; }
-  .payroll-totals { margin-top: 16px; max-width: 380px; margin-left: auto; }
-  .net-row th, .net-row td { font-weight: bold; background: #f0f7ff; }
-`
 
 function formatPeriodLabel(year: number, month: number): string {
   return `${MONTH_NAMES[month - 1] ?? month} ${year}`
@@ -77,18 +72,50 @@ function buildPayrollSlipBodyHtml(detail: PayrollSlipDetail, company: CompanySet
 
   return `
     <section class="doc-section">
-      <h2>Údaje o zaměstnanci</h2>
+      <h2>Zaměstnanec</h2>
       <div class="doc-kv">
-        <span class="k">Zaměstnanec</span><span>${escHtml(summary.worker_first_name)} ${escHtml(summary.worker_last_name)}</span>
-        <span class="k">Období</span><span>${escHtml(formatPeriodLabel(period.year, period.month))}</span>
-        <span class="k">Počet schválených výkazů</span><span>${escHtml(summary.report_count)}</span>
-        ${company.bank_account ? `<span class="k">Bankovní účet</span><span>${escHtml(company.bank_account)}</span>` : ''}
+        ${kvRow('Jméno', `${summary.worker_first_name} ${summary.worker_last_name}`)}
+        ${kvRow('Období', formatPeriodLabel(period.year, period.month))}
+        ${kvRow('Počet schválených výkazů', summary.report_count)}
+        ${company.bank_account ? kvRow('Bankovní účet', company.bank_account) : ''}
       </div>
     </section>
 
     <section class="doc-section">
-      <h2>Přehled odpracovaných výkonů</h2>
-      <table class="payroll-table">
+      <h2>Docházka</h2>
+      <table class="doc-table doc-table-attendance">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Zakázka</th>
+            <th>Začátek</th>
+            <th>Konec</th>
+            <th>Přestávka</th>
+            <th>Hodiny</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reports
+            .map(
+              (report) => `
+            <tr>
+              <td>${escHtml(formatDate(report.report_date))}</td>
+              <td>${escHtml(report.order_name || '—')}</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="num">${escHtml(`${report.hours ?? 0} h`)}</td>
+            </tr>`
+            )
+            .join('') || '<tr><td colspan="6">Žádné záznamy docházky</td></tr>'}
+        </tbody>
+      </table>
+      <div class="doc-note-box">Docházka slouží pouze jako evidence přítomnosti. K výdělku se přičítají pouze samostatně zadané výkony z ceníku.</div>
+    </section>
+
+    <section class="doc-section">
+      <h2>Schválené výkony</h2>
+      <table class="doc-table doc-table-payroll">
         <thead>
           <tr>
             <th>Datum</th>
@@ -98,55 +125,74 @@ function buildPayrollSlipBodyHtml(detail: PayrollSlipDetail, company: CompanySet
             <th>Záloha</th>
           </tr>
         </thead>
-        <tbody>${performanceRows}</tbody>
+        <tbody>${performanceRows || '<tr><td colspan="5">Žádné výkony</td></tr>'}</tbody>
       </table>
     </section>
 
-    <section class="doc-section">
-      <h2>Vyúčtování</h2>
-      <table class="payroll-table payroll-totals">
-        <tr><th>Celkový výdělek</th><td class="num">${escHtml(formatCurrency(summary.total_earnings))}</td></tr>
-        <tr><th>Vyplacené zálohy</th><td class="num">${escHtml(formatCurrency(summary.total_advances))}</td></tr>
-        <tr class="net-row"><th>Konečná částka k výplatě</th><td class="num">${escHtml(formatCurrency(summary.net_amount))}</td></tr>
+    <section class="doc-section summary-section">
+      <h2>Rekapitulace výplaty</h2>
+      <table class="doc-table doc-table-kv doc-table-totals doc-summary-table">
+        <tbody>
+          <tr><th>Celkový výdělek</th><td class="num">${escHtml(formatCurrency(summary.total_earnings))}</td></tr>
+          <tr><th>Vyplacené zálohy</th><td class="num">${escHtml(formatCurrency(summary.total_advances))}</td></tr>
+          <tr class="net-row"><th>Částka k výplatě</th><td class="num">${escHtml(formatCurrency(summary.net_amount))}</td></tr>
+        </tbody>
       </table>
+    </section>
+
+    <section class="doc-section doc-section-signatures signature-section">
+      <h2>Podpisy</h2>
+      <div class="doc-signatures">
+        <div class="doc-sign-box">
+          <div class="doc-sign-line">Podpis zaměstnance</div>
+          <div class="doc-sign-role">Datum a podpis</div>
+        </div>
+        <div class="doc-sign-box">
+          <div class="doc-sign-line">Schválil / podpis odpovědné osoby</div>
+          <div class="doc-sign-role">Datum, razítko a podpis</div>
+        </div>
+      </div>
     </section>
   `
 }
 
+/** Stejná struktura jako buildDiaryReportDocument. */
 export function buildPayrollSlipDocument(detail: PayrollSlipDetail, company: CompanySettings): string {
   const headerCompany = resolveCompanyHeader(company)
   const createdAt = formatDocumentCreatedAt()
   const documentNumber = `VP-${detail.period.year}-${String(detail.period.month).padStart(2, '0')}-${detail.summary.worker_id.slice(0, 8)}`
-  const meta = {
-    title: 'Výplatní páska',
-    documentNumber,
-    createdAt,
-  }
-  const content = `${buildProfessionalDocumentHeader(headerCompany, meta)}${buildPayrollSlipBodyHtml(detail, company)}${buildProfessionalDocumentFooter(headerCompany, createdAt)}`
-  return buildProfessionalPrintDocument(buildPayrollSlipTitle(detail), content, {
-    company: headerCompany,
-    extraStyles: PAYROLL_PRINT_EXTRA,
-  })
+  return buildDiaryStylePrintDocument(
+    buildPayrollSlipTitle(detail),
+    {
+      title: 'Výplatní páska',
+      documentNumber,
+      createdAt,
+      employeeName: `${detail.summary.worker_first_name} ${detail.summary.worker_last_name}`,
+      periodLabel: formatPeriodLabel(detail.period.year, detail.period.month),
+    },
+    buildPayrollSlipBodyHtml(detail, company),
+    headerCompany
+  )
 }
 
-export function openPayrollSlipReport(detail: PayrollSlipDetail, company: CompanySettings): void {
-  const win = window.open('', '_blank', 'width=900,height=700')
-  if (!win) return
-  win.document.write(buildPayrollSlipDocument(detail, company))
-  win.document.close()
+function payrollPdfOptions(detail: PayrollSlipDetail): ProfessionalPdfOptions {
+  const { summary, period } = detail
+  return {
+    fileName: `vyplatni-paska-${summary.worker_last_name}-${period.year}-${String(period.month).padStart(2, '0')}.pdf`,
+    title: buildPayrollSlipTitle(detail),
+    shareText: buildPayrollSlipTitle(detail),
+  }
+}
+
+export function previewPayrollSlipPdf(detail: PayrollSlipDetail, company: CompanySettings): void {
+  previewProfessionalPdf(buildPayrollSlipDocument(detail, company), payrollPdfOptions(detail))
 }
 
 export function printPayrollSlipReport(detail: PayrollSlipDetail, company: CompanySettings): void {
-  openPrintDocument(buildPayrollSlipDocument(detail, company))
+  printProfessionalPdf(buildPayrollSlipDocument(detail, company), payrollPdfOptions(detail))
 }
 
-export function downloadPayrollSlipReport(detail: PayrollSlipDetail, company: CompanySettings): void {
-  const html = buildPayrollSlipDocument(detail, company)
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `vyplatni_paska_${detail.summary.worker_last_name}_${detail.period.year}_${String(detail.period.month).padStart(2, '0')}.html`
-  link.click()
-  URL.revokeObjectURL(url)
+export async function downloadPayrollSlipReport(detail: PayrollSlipDetail, company: CompanySettings): Promise<void> {
+  const opts = payrollPdfOptions(detail)
+  await downloadProfessionalPdf(buildPayrollSlipDocument(detail, company), opts.fileName ?? 'vyplatni-paska.pdf')
 }

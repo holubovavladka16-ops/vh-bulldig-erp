@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  Camera,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,8 +15,8 @@ import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
-import { PhotoCaptureModal } from '@/components/photos/PhotoCaptureModal'
-import { PhotoDocumentView } from '@/components/photos/PhotoDocumentView'
+// import { PhotoCaptureModal } from '@/components/photos/PhotoCaptureModal'
+// import { PhotoDocumentView } from '@/components/photos/PhotoDocumentView'
 import {
   createConstructionPointNote,
   deleteConstructionPoint,
@@ -29,16 +28,16 @@ import {
   updateConstructionPoint,
   updateConstructionPointNote,
 } from '@/lib/constructionPoints/api'
-import { updateGpsPhotoNote } from '@/lib/photos/api'
-import {
-  formatCaptureDateLabel,
-  formatCaptureTime,
-  formatGpsCoordinatesCompact,
-  formatPhotoAddress,
-} from '@/lib/photos/photoDisplay'
+// import { updateGpsPhotoNote } from '@/lib/photos/api'
+// import {
+//   formatCaptureDateLabel,
+//   formatCaptureTime,
+//   formatGpsCoordinatesCompact,
+//   formatPhotoAddress,
+// } from '@/lib/photos/photoDisplay'
 import { formatPointLabel } from '@/types/constructionPoints'
 import type { ConstructionPointDetail } from '@/types/constructionPoints'
-import type { GpsPhoto } from '@/types/photos'
+// import type { GpsPhoto } from '@/types/photos'
 import { formatDate, formatDateTime } from '@/constants/workers'
 
 interface ConstructionPointDetailPanelProps {

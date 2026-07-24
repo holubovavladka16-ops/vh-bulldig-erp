@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { fetchUtilityConnectionDetail } from '@/lib/pripojky/api'
-import { getGpsPhotoUrl } from '@/lib/photos/api'
+// import { getGpsPhotoUrl } from '@/lib/photos/api'
 import { PHOTO_PHASE_LABELS, WORK_TYPE_OPTIONS } from '@/types/pripojky'
 import type { UtilityConnectionDetail } from '@/types/pripojky'
 import { formatDate } from '@/constants/workers'
@@ -68,32 +68,8 @@ export function ConnectionDetailModal({ connectionId, onClose }: ConnectionDetai
 
             <Card>
               <h3 className="mb-3 font-semibold text-theme-primary">Fotodokumentace</h3>
-              {detail.photos.length === 0 ? (
-                <p className="text-sm text-theme-muted">Bez fotografií.</p>
-              ) : (
-                <div className="space-y-4">
-                  {(['pred', 'po'] as const).map((phase) => {
-                    const photos = detail.photos.filter((p) => p.photo_phase === phase)
-                    if (photos.length === 0) return null
-                    return (
-                      <div key={phase}>
-                        <p className="mb-2 text-sm font-medium text-theme-secondary">{PHOTO_PHASE_LABELS[phase]}</p>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {photos.map((photo) => (
-                            <div key={photo.id} className="neon-border rounded-xl p-2">
-                              <img src={getGpsPhotoUrl(photo.file_path)} alt="" className="max-h-36 w-full rounded-lg object-cover" />
-                              <p className="mt-2 text-xs text-theme-primary">
-                                {formatDate(photo.captured_date)} · {photo.captured_time.slice(0, 5)}
-                              </p>
-                              <p className="text-xs text-theme-muted">{photo.address_full}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              {/* Photo module removed - photo display disabled */}
+              <p className="text-sm text-theme-muted">Fotodokumentace byla odstraněna s modulem fotodokumentace.</p>
             </Card>
 
             <Button variant="secondary" onClick={onClose}>Zavřít</Button>

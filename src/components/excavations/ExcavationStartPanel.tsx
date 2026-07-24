@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Loader2, MapPin, Navigation, Search } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { GpsPreflightPanel } from '@/components/photos/GpsPreflightPanel'
-import { useGpsPreflight } from '@/hooks/useGpsPreflight'
-import { forwardGeocode } from '@/lib/photos/geocoding'
+// import { GpsPreflightPanel } from '@/components/photos/GpsPreflightPanel'
+// import { useGpsPreflight } from '@/hooks/useGpsPreflight'
+// import { forwardGeocode } from '@/lib/photos/geocoding'
 
 export interface MapStartFocus {
   lat: number
@@ -28,26 +28,17 @@ export function ExcavationStartPanel({ disabled, onMapReady }: ExcavationStartPa
   const [addressSearching, setAddressSearching] = useState(false)
   const [addressError, setAddressError] = useState('')
 
-  const gps = useGpsPreflight(gpsEnabled)
+  // Photo module removed - GPS functionality disabled
+  const gps = { position: null, phase: 'disabled', address: null }
 
-  const gpsReady =
-    gps.position != null &&
-    (gps.phase === 'ready' || gps.phase === 'relaxed')
+  const gpsReady = false
 
   function startGpsLocate() {
-    setAddressError('')
-    setGpsEnabled(true)
+    setAddressError('GPS funkce byla odstraněna s modulem fotodokumentace.')
   }
 
   function openMapFromGps() {
-    if (!gps.position) return
-    onMapReady({
-      lat: gps.position.lat,
-      lng: gps.position.lng,
-      zoom: 19,
-      label: gps.address?.address_full ?? `${gps.position.lat.toFixed(6)}, ${gps.position.lng.toFixed(6)}`,
-      accuracy: gps.position.accuracy,
-    })
+    setAddressError('GPS funkce byla odstraněna s modulem fotodokumentace.')
   }
 
   async function searchAddress() {
@@ -58,17 +49,20 @@ export function ExcavationStartPanel({ disabled, onMapReady }: ExcavationStartPa
     }
     setAddressSearching(true)
     try {
-      const result = await forwardGeocode(addressQuery)
-      if (!result) {
-        setAddressError('Adresu se nepodařilo najít. Zkuste upřesnit (ulice, město).')
-        return
-      }
-      onMapReady({
-        lat: result.lat,
-        lng: result.lng,
-        zoom: 18,
-        label: result.display_name,
-      })
+      // Photo module removed - geocoding functionality disabled
+      setAddressError('Funkce geokódování byla odstraněna s modulem fotodokumentace.')
+      return
+      // const result = await forwardGeocode(addressQuery)
+      // if (!result) {
+      //   setAddressError('Adresu se nepodařilo najít. Zkuste upřesnit (ulice, město).')
+      //   return
+      // }
+      // onMapReady({
+      //   lat: result.lat,
+      //   lng: result.lng,
+      //   zoom: 18,
+      //   label: result.display_name,
+      // })
     } finally {
       setAddressSearching(false)
     }
@@ -108,30 +102,9 @@ export function ExcavationStartPanel({ disabled, onMapReady }: ExcavationStartPa
 
       {mode === 'gps' && (
         <div className="space-y-3">
-          {!gpsEnabled ? (
-            <Button type="button" onClick={startGpsLocate} disabled={disabled} className="w-full sm:w-auto">
-              <Navigation className="h-4 w-4" />
-              Zaměřit moji aktuální polohu
-            </Button>
-          ) : (
-            <>
-              <GpsPreflightPanel
-                phase={gps.phase}
-                position={gps.position}
-                address={gps.address}
-                addressLoading={gps.addressLoading}
-                error={gps.error}
-                onAcceptRelaxed={gps.acceptRelaxedAccuracy}
-                onContinueSearching={gps.continueSearching}
-              />
-              {gpsReady && (
-                <Button type="button" onClick={openMapFromGps} disabled={disabled} className="w-full">
-                  <MapPin className="h-4 w-4" />
-                  Otevřít mapu na mé poloze a kreslit
-                </Button>
-              )}
-            </>
-          )}
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+            GPS funkce byla odstraněna s modulem fotodokumentace. Použijte manuální kreslení na mapě.
+          </div>
         </div>
       )}
 

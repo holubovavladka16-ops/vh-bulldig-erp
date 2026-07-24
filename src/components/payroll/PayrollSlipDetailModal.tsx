@@ -8,7 +8,7 @@ import { fetchPayrollSlipDetail } from '@/lib/payroll/api'
 import {
   buildPayrollSlipTitle,
   downloadPayrollSlipReport,
-  openPayrollSlipReport,
+  previewPayrollSlipPdf,
   printPayrollSlipReport,
 } from '@/lib/payroll/payrollReport'
 import {
@@ -54,6 +54,7 @@ function formatPerformance(hours: number, meters: number, pieces: number, activi
 export function PayrollSlipDetailModal({ workerId, period, onClose }: PayrollSlipDetailModalProps) {
   const { settings: companySettings } = useCompanySettings()
   const [loading, setLoading] = useState(false)
+  const [pdfBusy, setPdfBusy] = useState(false)
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof fetchPayrollSlipDetail>>>(null)
 
   useEffect(() => {
@@ -157,17 +158,25 @@ export function PayrollSlipDetailModal({ workerId, period, onClose }: PayrollSli
             <Card>
               <h3 className="mb-3 font-semibold text-theme-primary">PDF a sdílení</h3>
               <div className="mb-4 flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={() => openPayrollSlipReport(detail, company)}>
+                <Button variant="secondary" size="sm" onClick={() => previewPayrollSlipPdf(detail, company)}>
                   <Eye className="h-4 w-4" />
-                  Otevřít
+                  Náhled
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => printPayrollSlipReport(detail, company)}>
                   <Printer className="h-4 w-4" />
-                  Vytisknout / PDF A4
+                  Tisk / PDF
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => downloadPayrollSlipReport(detail, company)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={pdfBusy}
+                  onClick={() => {
+                    setPdfBusy(true)
+                    void downloadPayrollSlipReport(detail, company).finally(() => setPdfBusy(false))
+                  }}
+                >
                   <FileDown className="h-4 w-4" />
-                  Exportovat PDF
+                  Stáhnout
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">

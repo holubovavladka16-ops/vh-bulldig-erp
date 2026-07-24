@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { forwardGeocode } from '@/lib/photos/geocoding'
+// import { forwardGeocode } from '@/lib/photos/geocoding'
 import type { ExcavationPoint } from '@/types/excavations'
 
 export interface AddressRouteResult {
@@ -40,33 +40,37 @@ export function AddressRouteMeasurementPanel({
 
     setSearching(true)
     try {
-      const [startResult, endResult] = await Promise.all([
-        forwardGeocode(startAddress),
-        forwardGeocode(endAddress),
-      ])
+      // Photo module removed - geocoding functionality disabled
+      setError('Funkce geokódování byla odstraněna s modulem fotodokumentace.')
+      return
+      
+      // const [startResult, endResult] = await Promise.all([
+      //   forwardGeocode(startAddress),
+      //   forwardGeocode(endAddress),
+      // ])
 
-      if (!startResult) {
-        setError('Adresu začátku se nepodařilo najít. Zkuste upřesnit (ulice, č.p., město).')
-        return
-      }
-      if (!endResult) {
-        setError('Adresu konce se nepodařilo najít. Zkuste upřesnit (ulice, č.p., město).')
-        return
-      }
+      // if (!startResult) {
+      //   setError('Adresu začátku se nepodařilo najít. Zkuste upřesnit (ulice, č.p., město).')
+      //   return
+      // }
+      // if (!endResult) {
+      //   setError('Adresu konce se nepodařilo najít. Zkuste upřesnit (ulice, č.p., město).')
+      //   return
+      // }
 
-      const points: ExcavationPoint[] = [
-        { lat: startResult.lat, lng: startResult.lng, label: startResult.display_name },
-        { lat: endResult.lat, lng: endResult.lng, label: endResult.display_name },
-      ]
+      // const points: ExcavationPoint[] = [
+      //   { lat: startResult.lat, lng: startResult.lng, label: startResult.display_name },
+      //   { lat: endResult.lat, lng: endResult.lng, label: endResult.display_name },
+      // ]
 
-      const centerLat = (startResult.lat + endResult.lat) / 2
-      const centerLng = (startResult.lng + endResult.lng) / 2
+      // const centerLat = (startResult.lat + endResult.lat) / 2
+      // const centerLng = (startResult.lng + endResult.lng) / 2
 
-      onComplete({
-        points,
-        label: `${startResult.display_name} → ${endResult.display_name}`,
-        mapFocus: { lat: centerLat, lng: centerLng, zoom: 16 },
-      })
+      // onComplete({
+      //   points,
+      //   label: `${startResult.display_name} → ${endResult.display_name}`,
+      //   mapFocus: { lat: centerLat, lng: centerLng, zoom: 16 },
+      // })
     } finally {
       setSearching(false)
     }

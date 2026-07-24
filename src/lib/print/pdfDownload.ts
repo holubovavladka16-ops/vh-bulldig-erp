@@ -103,6 +103,29 @@ export function downloadPdfBlob(pdfBlob: Blob, fileName: string): void {
   }, 1500)
 }
 
+export function printPdfBlob(pdfBlob: Blob): void {
+  const url = URL.createObjectURL(pdfBlob)
+  const frame = document.createElement('iframe')
+  frame.setAttribute('title', 'Tisk PDF')
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:0;height:0;border:0;'
+  frame.src = url
+  document.body.appendChild(frame)
+
+  const cleanup = () => {
+    URL.revokeObjectURL(url)
+    if (frame.parentNode) frame.parentNode.removeChild(frame)
+  }
+
+  frame.onload = () => {
+    try {
+      frame.contentWindow?.focus()
+      frame.contentWindow?.print()
+    } finally {
+      window.setTimeout(cleanup, 60_000)
+    }
+  }
+}
+
 export type SharePdfResult = 'shared' | 'cancelled' | 'unsupported'
 
 export async function sharePdfFile(
@@ -127,6 +150,197 @@ export async function sharePdfFile(
   }
 
   return 'unsupported'
+}
+
+function waitForDocumentImages(doc: Document): Promise<void> {
+  const images = Array.from(doc.images)
+  if (images.length === 0) return Promise.resolve()
+
+  return Promise.all(
+    images.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete) {
+            resolve()
+            return
+          }
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+        })
+    )
+  ).then(() => undefined)
+}
+
+/** Vynutí tmavý text a bílé pozadí – html2canvas jinak přebírá barvy z dark mode aplikace. */
+function enforcePdfTextContrast(doc: Document): void {
+  const style = doc.createElement('style')
+  style.setAttribute('data-pdf-contrast', 'true')
+  style.textContent = `
+    html, body {
+      background: #ffffff !important;
+      color: #1a1a1a !important;
+      color-scheme: light only !important;
+    }
+    .pdf-document,
+    .pdf-document .pdf-page,
+    .pdf-document .pdf-content,
+    .pdf-document .doc-shell,
+    .pdf-document .doc-section,
+    .pdf-document p,
+    .pdf-document span,
+    .pdf-document td,
+    .pdf-document li,
+    .pdf-document label,
+    .pdf-document .doc-kv,
+    .pdf-document .doc-kv > div,
+    .pdf-document .doc-meta-grid,
+    .pdf-document .doc-meta-grid > div,
+    .pdf-document .doc-text,
+    .pdf-document .doc-note-box,
+    .pdf-document .doc-company-meta,
+    .pdf-document .doc-sign-line,
+    .pdf-document .doc-sign-role,
+    .pdf-document .doc-footer {
+      color: #1a1a1a !important;
+      text-shadow: none !important;
+    }
+    .pdf-document .doc-kv .k,
+    .pdf-document .doc-meta-grid .label,
+    .pdf-document .doc-sign-role,
+    .pdf-document .doc-footer {
+      color: #4a4a4a !important;
+    }
+    .pdf-document .doc-company-name,
+    .pdf-document .doc-title,
+    .pdf-document .net-row th,
+    .pdf-document .net-row td {
+      color: #000000 !important;
+    }
+    .pdf-page,
+    .pdf-document .doc-section,
+    .pdf-document .doc-party,
+    .pdf-document .doc-kv,
+    .pdf-document .doc-meta-grid,
+    .pdf-document .doc-photo-block {
+      background: #ffffff !important;
+    }
+    .pdf-document .doc-section h2 {
+      background: #111111 !important;
+      color: #d4af37 !important;
+    }
+    .pdf-document .doc-table > thead > tr > th {
+      background: #111111 !important;
+      color: #ffffff !important;
+      border-bottom: 2px solid #d4af37 !important;
+    }
+    .pdf-document .doc-table-kv th,
+    .pdf-document .doc-summary-table th {
+      background: #f7f7f7 !important;
+      color: #1a1a1a !important;
+      border: 1px solid #d7d7d7 !important;
+    }
+    .pdf-document .doc-table td,
+    .pdf-document .doc-table-kv td {
+      background: #ffffff !important;
+      color: #1a1a1a !important;
+    }
+    .pdf-document .doc-table tbody tr:nth-child(even) td {
+      background: #f7f7f7 !important;
+      color: #1a1a1a !important;
+    }
+    .pdf-document .net-row th,
+    .pdf-document .net-row td {
+      background: #ffffff !important;
+      color: #000000 !important;
+      border-top: 3px solid #d4af37 !important;
+      font-weight: 700 !important;
+    }
+  `
+  doc.head.appendChild(style)
+
+  doc.documentElement.classList.add('pdf-document')
+  doc.body?.classList.add('pdf-document')
+
+  doc.querySelectorAll<HTMLElement>('.pdf-page, .pdf-content, .doc-shell').forEach((el) => {
+    el.style.setProperty('background', '#ffffff', 'important')
+    el.style.setProperty('color', '#1a1a1a', 'important')
+  })
+
+  const content = doc.querySelector<HTMLElement>('.pdf-content')
+  if (content) {
+    content.style.setProperty('position', 'relative', 'important')
+    content.style.setProperty('z-index', '1', 'important')
+  }
+}
+
+/** Vynutí pevné mm rozměry loga a vodoznaku – html2canvas jinak bere původní pixelové rozměry obrázku. */
+function enforcePdfImageDimensions(doc: Document): void {
+  enforcePdfTextContrast(doc)
+
+  doc.querySelectorAll<HTMLImageElement>('.pdf-company-logo, .doc-logo').forEach((img) => {
+    img.removeAttribute('width')
+    img.removeAttribute('height')
+    img.style.setProperty('width', '22mm', 'important')
+    img.style.setProperty('height', '22mm', 'important')
+    img.style.setProperty('max-width', '22mm', 'important')
+    img.style.setProperty('max-height', '22mm', 'important')
+    img.style.setProperty('object-fit', 'contain', 'important')
+    img.style.setProperty('display', 'block', 'important')
+  })
+
+  doc.querySelectorAll<HTMLImageElement>('.pdf-watermark-company, .doc-watermark').forEach((img) => {
+    img.removeAttribute('width')
+    img.removeAttribute('height')
+    img.style.setProperty('position', 'absolute', 'important')
+    img.style.setProperty('inset', '0', 'important')
+    img.style.setProperty('width', '100%', 'important')
+    img.style.setProperty('height', '100%', 'important')
+    img.style.setProperty('object-fit', 'contain', 'important')
+    img.style.setProperty('opacity', '1', 'important')
+    img.style.setProperty('pointer-events', 'none', 'important')
+  })
+
+  doc.querySelectorAll<HTMLElement>('.pdf-watermark-layer').forEach((layer) => {
+    layer.style.setProperty('position', 'absolute', 'important')
+    layer.style.setProperty('left', '50%', 'important')
+    layer.style.setProperty('top', '50%', 'important')
+    layer.style.setProperty('transform', 'translate(-50%, -50%)', 'important')
+    layer.style.setProperty('width', '100mm', 'important')
+    layer.style.setProperty('height', '100mm', 'important')
+    layer.style.setProperty('max-width', '50%', 'important')
+    layer.style.setProperty('max-height', '50%', 'important')
+    layer.style.setProperty('z-index', '0', 'important')
+    layer.style.setProperty('pointer-events', 'none', 'important')
+    layer.style.setProperty('overflow', 'hidden', 'important')
+    layer.style.setProperty('opacity', '0.04', 'important')
+  })
+
+  doc.querySelectorAll<HTMLElement>('.doc-footer').forEach((footer) => {
+    footer.style.position = 'static'
+    footer.style.marginTop = '14mm'
+    footer.style.left = 'auto'
+    footer.style.right = 'auto'
+    footer.style.bottom = 'auto'
+  })
+
+  doc.querySelectorAll<HTMLElement>('.page-num').forEach((el) => {
+    el.textContent = '1 / 1'
+  })
+
+  if (doc.querySelector('.doc-footer .page-num')) {
+    const style = doc.createElement('style')
+    style.textContent = '.doc-footer .page-num::after { content: none !important; }'
+    doc.head.appendChild(style)
+  }
+
+  const page = doc.querySelector<HTMLElement>('.pdf-page')
+  if (page) {
+    page.style.setProperty('overflow', 'visible', 'important')
+    page.style.setProperty('background', '#ffffff', 'important')
+    page.style.setProperty('color', '#1a1a1a', 'important')
+    page.style.setProperty('height', 'auto', 'important')
+    page.style.setProperty('max-height', 'none', 'important')
+  }
 }
 
 export async function htmlToPdfBlob(html: string): Promise<Blob> {
@@ -156,9 +370,11 @@ export async function htmlToPdfBlob(html: string): Promise<Blob> {
       await frameDoc.fonts.ready.catch(() => undefined)
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, 350))
+    await waitForDocumentImages(frameDoc)
+    enforcePdfImageDimensions(frameDoc)
+    await new Promise((resolve) => window.setTimeout(resolve, 400))
 
-    const pageEl = frameDoc.querySelector<HTMLElement>('.doc-shell') ?? frameDoc.body
+    const pageEl = frameDoc.querySelector<HTMLElement>('.pdf-page') ?? frameDoc.querySelector<HTMLElement>('.pdf-content') ?? frameDoc.body
     const captureWidth = pageEl.offsetWidth || pageEl.scrollWidth
     const captureHeight = pageEl.offsetHeight || pageEl.scrollHeight
 
@@ -180,6 +396,9 @@ export async function htmlToPdfBlob(html: string): Promise<Blob> {
           windowHeight: captureHeight,
           scrollX: 0,
           scrollY: 0,
+          onclone: (clonedDoc: Document) => {
+            enforcePdfImageDimensions(clonedDoc)
+          },
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] },

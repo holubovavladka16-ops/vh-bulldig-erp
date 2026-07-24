@@ -99,8 +99,9 @@ export function exportProfitOverviewPdf(
 
   const body = `
     <section class="doc-section">
+      <h2>Přehled hospodaření a zisku</h2>
       <p class="doc-subtitle">Období: ${escHtml(periodLabel)} · Počet zakázek: ${rows.length}</p>
-      <table class="doc-table doc-table-compact">
+      <table class="doc-table doc-table-compact doc-table-profit">
         <thead>
           <tr>
             ${EXPORT_COLUMNS.map((col) => `<th>${escHtml(col.label)}</th>`).join('')}

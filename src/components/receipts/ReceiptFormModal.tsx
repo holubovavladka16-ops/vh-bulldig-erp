@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
-import { captureCurrentPosition, reverseGeocode } from '@/lib/photos/geocoding'
+// import { captureCurrentPosition, reverseGeocode } from '@/lib/photos/geocoding'
 import { getReceiptPhotoUrl } from '@/lib/receipts/api'
 import type { Receipt, ReceiptCaptureMeta, ReceiptCreateInput } from '@/types/receipts'
 
@@ -81,12 +81,18 @@ export function ReceiptFormModal({ open, initial, orderOptions, onClose, onSubmi
     setCapturedAt(new Date())
 
     try {
-      const position = await captureCurrentPosition()
-      const lat = position.coords.latitude
-      const lng = position.coords.longitude
-      const accuracy = position.coords.accuracy
-      setGps({ lat, lng, accuracy })
-      setAddress(await reverseGeocode(lat, lng))
+      // Photo module removed - GPS functionality disabled
+      setGps(null)
+      setAddress(null)
+      setError('GPS funkce byla odstraněna s modulem fotodokumentace.')
+      return
+      
+      // const position = await captureCurrentPosition()
+      // const lat = position.coords.latitude
+      // const lng = position.coords.longitude
+      // const accuracy = position.coords.accuracy
+      // setGps({ lat, lng, accuracy })
+      // setAddress(await reverseGeocode(lat, lng))
     } catch (err) {
       setGps(null)
       setAddress(null)

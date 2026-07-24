@@ -41,7 +41,7 @@ export function buildExcavationReportHtml(route: ExcavationRoute): string {
   return `
     <section class="doc-section">
       <h2>Údaje o trase</h2>
-      <table class="doc-table">
+      <table class="doc-table doc-table-kv">
         ${row('Zakázka', route.order_name ?? '')}
         ${row('Název trasy', route.name)}
         ${row('Délka výkopu', formatRouteLength(route.total_length_m))}

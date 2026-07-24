@@ -45,8 +45,9 @@ export function exportAttendancePdf(records: AttendanceListRecord[], company: Co
 
   const body = `
     <section class="doc-section">
+      <h2>Přehled docházky</h2>
       <p class="doc-subtitle">Období exportu: ${escHtml(formatDate(new Date().toISOString().slice(0, 10)))} · Počet záznamů: ${records.length}</p>
-      <table class="doc-table doc-table-compact">
+      <table class="doc-table doc-table-compact doc-table-attendance">
         <thead>
           <tr>
             <th>Datum</th>

@@ -3,7 +3,7 @@ import { X, Eye, Printer, FileDown, Mail, MessageCircle, Pencil, Trash2 } from '
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
-import { getGoogleMapsUrl, getOpenStreetMapEmbedUrl } from '@/lib/photos/mapLinks'
+// import { getGoogleMapsUrl, getOpenStreetMapEmbedUrl } from '@/lib/photos/mapLinks'
 import { getReceiptPhotoUrl, deleteReceipt } from '@/lib/receipts/api'
 import {
   downloadReceiptReportHtml,
@@ -81,7 +81,8 @@ export function ReceiptDetailModal({ receipt, onClose, onEdit, onDeleted }: Rece
           </div>
 
           <div className="space-y-6">
-            {hasGps && (
+            {/* Photo module removed - map functionality disabled */}
+            {/* {hasGps && (
               <Card>
                 <h3 className="mb-3 font-semibold text-theme-primary">Mapa</h3>
                 <iframe
@@ -99,7 +100,7 @@ export function ReceiptDetailModal({ receipt, onClose, onEdit, onDeleted }: Rece
                   Otevřít v Google Maps
                 </a>
               </Card>
-            )}
+            )} */}
 
             <Card>
               <h3 className="mb-3 font-semibold text-theme-primary">Sdílení a export</h3>

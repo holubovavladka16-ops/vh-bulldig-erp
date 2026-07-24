@@ -31,7 +31,7 @@ export function buildReceiptReportHtml(receipt: Receipt): string {
 
     <section class="doc-section">
       <h2>Údaje o výdaji</h2>
-      <table class="doc-table">
+      <table class="doc-table doc-table-kv">
         ${row('Datum', formatDate(receipt.receipt_date))}
         ${row('Zakázka', receipt.order_name ?? '')}
         ${row('Název výdaje', receipt.expense_name)}
@@ -43,7 +43,7 @@ export function buildReceiptReportHtml(receipt: Receipt): string {
 
     <section class="doc-section">
       <h2>Údaje o pořízení fotografie</h2>
-      <table class="doc-table">
+      <table class="doc-table doc-table-kv">
         ${row('Datum pořízení', formatDate(receipt.captured_date))}
         ${row('Čas pořízení', formatTime(receipt.captured_time))}
         ${row('GPS souřadnice', hasGps ? `${receipt.gps_lat!.toFixed(6)}, ${receipt.gps_lng!.toFixed(6)}` : '')}

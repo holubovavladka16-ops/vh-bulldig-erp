@@ -26,17 +26,6 @@ import type { GpsPhoto } from '@/types/photos'
 const DIARY_PRINT_EXTRA = `
   .diary-entry-page { page-break-before: always; }
   .diary-entry-page:first-child { page-break-before: auto; }
-  .diary-kv { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; font-size: 10pt; margin: 8px 0; }
-  .diary-kv .k { color: #666; font-weight: 500; }
-  .diary-photo-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 8px; }
-  .diary-photo-item { page-break-inside: avoid; border: 1px solid #d9e2ef; border-radius: 4px; padding: 10px; }
-  .diary-photo-item img.photo-main { max-height: 220px; width: 100%; object-fit: contain; border: 1px solid #ddd; }
-  .diary-photo-item img.photo-map { max-height: 120px; width: 100%; object-fit: cover; border: 1px solid #ddd; margin-top: 8px; }
-  .diary-photo-map-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-  .diary-photo-map-row img { max-height: 100px; width: 100%; object-fit: cover; border: 1px solid #ddd; }
-  .diary-photo-meta { font-size: 9pt; color: #444; margin-top: 6px; line-height: 1.45; }
-  .diary-workers { white-space: pre-wrap; }
-  .diary-performances { white-space: pre-wrap; font-size: 10pt; }
 `
 
 function resolveLogoUrl(company?: CompanyHeader | null): string {
@@ -179,14 +168,17 @@ export function buildDiaryEntryBodyHtml(entry: ConstructionDiaryDetail, company?
       ${photosHtml}
     </section>
 
-    <section class="doc-section doc-signatures">
-      <div class="doc-sign-box">
-        <div class="doc-sign-line">Stavbyvedoucí</div>
-        <div class="doc-sign-role">Podpis a razítko</div>
-      </div>
-      <div class="doc-sign-box">
-        <div class="doc-sign-line">Zástupce investora / stavební dozor</div>
-        <div class="doc-sign-role">Podpis</div>
+    <section class="doc-section doc-section-signatures">
+      <h2>Podpisy</h2>
+      <div class="doc-signatures">
+        <div class="doc-sign-box">
+          <div class="doc-sign-line">Stavbyvedoucí</div>
+          <div class="doc-sign-role">Podpis a razítko</div>
+        </div>
+        <div class="doc-sign-box">
+          <div class="doc-sign-line">Zástupce investora / stavební dozor</div>
+          <div class="doc-sign-role">Podpis</div>
+        </div>
       </div>
     </section>
 

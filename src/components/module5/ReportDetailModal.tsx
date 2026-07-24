@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react'
-import { X, Check, RotateCcw, Trash2, Printer, FileSpreadsheet, Pencil } from 'lucide-react'
+import { X, Check, RotateCcw, Trash2, Printer, FileSpreadsheet, Pencil, Eye, FileDown, Mail, MessageCircle, Send } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { ReportDetailView, buildReportPrintDocument } from '@/components/module5/ReportDetailView'
+import { ReportDetailView } from '@/components/module5/ReportDetailView'
+import {
+  buildDailyReportTitle,
+  downloadDailyReportPdf,
+  previewDailyReportPdf,
+  printDailyReportPdf,
+} from '@/lib/module5/reportPrint'
+import { buildDailyReportShareText } from '@/lib/module5/reportShare'
+import {
+  getEmailShareUrl,
+  getMessengerShareUrl,
+  getWhatsAppShareUrl,
+} from '@/lib/payroll/share'
 import {
   DailyFormFields,
   formStateFromWorkerForm,
@@ -21,7 +33,6 @@ import {
   fetchPriceItems,
 } from '@/lib/workers/api'
 import { downloadCsv } from '@/lib/export'
-import { openPrintDocument } from '@/lib/print/printDocument'
 import { useCompanySettings } from '@/context/CompanySettingsContext'
 import type { ReportDetail, WorkerPriceItem } from '@/types/workers'
 import { WORKER_REPORT_STATUS_LABELS, formatCurrency, formatDate, PRICE_UNIT_LABELS } from '@/constants/workers'
@@ -52,6 +63,7 @@ export function ReportDetailModal({
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [pdfBusy, setPdfBusy] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -135,14 +147,34 @@ export function ReportDetailModal({
     onClose()
   }
 
+  function handlePreviewPdf() {
+    if (!detail) return
+    previewDailyReportPdf(detail, company)
+  }
+
   function handlePrint() {
     if (!detail) return
-    const workerName = `${detail.worker.first_name} ${detail.worker.last_name}`
-    openPrintDocument(buildReportPrintDocument(detail, company), {
-      fileName: `Denni-vykaz-${workerName}-${detail.report.report_date}.pdf`,
-      title: `Denní výkaz – ${workerName}`,
-      shareText: `Denní výkaz – ${workerName} – ${formatDate(detail.report.report_date)}`,
-    })
+    printDailyReportPdf(detail, company)
+  }
+
+  async function handleDownloadPdf() {
+    if (!detail) return
+    setPdfBusy(true)
+    try {
+      await downloadDailyReportPdf(detail, company)
+    } finally {
+      setPdfBusy(false)
+    }
+  }
+
+  function sharePdf(channel: 'whatsapp' | 'messenger' | 'email') {
+    if (!detail) return
+    printDailyReportPdf(detail, company)
+    const text = buildDailyReportShareText(detail, company?.company_name ?? 'VH Bulldig s.r.o.')
+    const subject = buildDailyReportTitle(detail)
+    if (channel === 'whatsapp') window.open(getWhatsAppShareUrl(text), '_blank')
+    else if (channel === 'messenger') window.open(getMessengerShareUrl(text), '_blank')
+    else window.location.href = getEmailShareUrl(text, subject)
   }
 
   function handleExportExcel() {
@@ -216,9 +248,29 @@ export function ReportDetailModal({
 
         {!loading && detail && (
           <div className="modal-footer border-t border-[var(--border-glass)] px-4 py-4 sm:px-6">
+            <Button variant="secondary" size="sm" onClick={handlePreviewPdf}>
+              <Eye className="h-4 w-4" />
+              Náhled
+            </Button>
             <Button variant="secondary" size="sm" onClick={handlePrint}>
               <Printer className="h-4 w-4" />
               Tisk / PDF
+            </Button>
+            <Button variant="secondary" size="sm" loading={pdfBusy} onClick={() => void handleDownloadPdf()}>
+              <FileDown className="h-4 w-4" />
+              Stáhnout
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => sharePdf('whatsapp')}>
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => sharePdf('messenger')}>
+              <Send className="h-4 w-4" />
+              Messenger
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => sharePdf('email')}>
+              <Mail className="h-4 w-4" />
+              E-mail
             </Button>
             <Button variant="secondary" size="sm" onClick={handleExportExcel}>
               <FileSpreadsheet className="h-4 w-4" />
