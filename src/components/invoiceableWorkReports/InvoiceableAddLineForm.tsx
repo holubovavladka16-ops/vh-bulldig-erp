@@ -20,6 +20,22 @@ interface InvoiceableAddLineFormProps {
 }
 
 const CUSTOM_PRICE_VALUE = '__custom__'
+/** Seed položky mají široký rozsah (0–999999) – bez limitu by Select vykreslil desítky tisíc option prvků a UI zamrzlo. */
+const MAX_PRICE_SELECT_OPTIONS = 200
+
+function buildPriceSelectOptions(item: InvoiceableItem): { value: string; label: string }[] {
+  const steps = generatePriceSteps(item)
+  const entries =
+    steps.length <= MAX_PRICE_SELECT_OPTIONS
+      ? steps.map((v) => ({ value: String(v), label: formatCurrency(v) }))
+      : [{ value: String(item.default_price), label: formatCurrency(item.default_price) }]
+
+  if (item.allow_custom_price) {
+    entries.push({ value: CUSTOM_PRICE_VALUE, label: 'Vlastní cena…' })
+  }
+
+  return entries
+}
 
 interface DraftLineState {
   orderId: string
@@ -127,12 +143,7 @@ export function InvoiceableAddLineForm({ reportId, orders, items, onItemCreated,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, itemId])
 
-  const priceOptions = selectedItem
-    ? [
-        ...generatePriceSteps(selectedItem).map((v) => ({ value: String(v), label: formatCurrency(v) })),
-        ...(selectedItem.allow_custom_price ? [{ value: CUSTOM_PRICE_VALUE, label: 'Vlastní cena…' }] : []),
-      ]
-    : []
+  const priceOptions = selectedItem ? buildPriceSelectOptions(selectedItem) : []
 
   const isCustomPrice = priceSelection === CUSTOM_PRICE_VALUE
   const effectivePrice = isCustomPrice ? parseFloat(customPrice) : parseFloat(priceSelection)
