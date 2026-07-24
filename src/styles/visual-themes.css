@@ -1,0 +1,126 @@
+/* ============================================================
+   Vizuální motivy – přepínání přes data-visual-theme
+   ============================================================ */
+
+/* Neon Glass – výchozí (barvy doplňuje JS rotace akcentů) */
+[data-visual-theme='neon-glass'][data-theme='dark'] {
+  --bg-base: #0a0e17;
+  --bg-elevated: #111827;
+  --bg-glass: rgba(17, 24, 39, 0.65);
+  --bg-glass-hover: rgba(30, 41, 59, 0.75);
+}
+
+[data-visual-theme='neon-glass'][data-theme='light'] {
+  --bg-base: #f0f4f8;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.72);
+  --bg-glass-hover: rgba(255, 255, 255, 0.88);
+}
+
+/* Black & Gold */
+[data-visual-theme='black-gold'][data-theme='dark'] {
+  --bg-base: #0a0a0a;
+  --bg-elevated: #141414;
+  --bg-glass: rgba(20, 20, 20, 0.72);
+  --bg-glass-hover: rgba(32, 32, 32, 0.85);
+  --border-glass: rgba(212, 175, 55, 0.12);
+  --border-glass-active: rgba(212, 175, 55, 0.28);
+  --accent-primary: #d4af37;
+  --accent-secondary: #b8860b;
+  --accent-glow: rgba(212, 175, 55, 0.35);
+  --surface-input: rgba(10, 10, 10, 0.75);
+}
+
+[data-visual-theme='black-gold'][data-theme='light'] {
+  --bg-base: #f5f3ee;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --bg-glass-hover: rgba(255, 255, 255, 0.94);
+  --border-glass: rgba(184, 134, 11, 0.18);
+  --border-glass-active: rgba(184, 134, 11, 0.32);
+  --accent-primary: #b8860b;
+  --accent-secondary: #996515;
+  --accent-glow: rgba(184, 134, 11, 0.28);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+
+/* Premium Gold */
+[data-visual-theme='premium-gold'][data-theme='dark'] {
+  --bg-base: #14100c;
+  --bg-elevated: #1c1610;
+  --bg-glass: rgba(28, 22, 16, 0.72);
+  --bg-glass-hover: rgba(38, 30, 22, 0.85);
+  --border-glass: rgba(232, 185, 35, 0.12);
+  --border-glass-active: rgba(232, 185, 35, 0.26);
+  --accent-primary: #e8b923;
+  --accent-secondary: #c9971a;
+  --accent-glow: rgba(232, 185, 35, 0.38);
+  --surface-input: rgba(20, 16, 12, 0.78);
+}
+
+[data-visual-theme='premium-gold'][data-theme='light'] {
+  --bg-base: #faf6ef;
+  --bg-elevated: #fffdf8;
+  --bg-glass: rgba(255, 253, 248, 0.86);
+  --bg-glass-hover: rgba(255, 253, 248, 0.96);
+  --border-glass: rgba(201, 151, 26, 0.16);
+  --border-glass-active: rgba(201, 151, 26, 0.3);
+  --accent-primary: #c9971a;
+  --accent-secondary: #a67c00;
+  --accent-glow: rgba(201, 151, 26, 0.26);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+
+/* Purple Premium */
+[data-visual-theme='purple-premium'][data-theme='dark'] {
+  --bg-base: #120818;
+  --bg-elevated: #1a0f24;
+  --bg-glass: rgba(26, 15, 36, 0.72);
+  --bg-glass-hover: rgba(36, 20, 50, 0.85);
+  --border-glass: rgba(168, 85, 247, 0.14);
+  --border-glass-active: rgba(168, 85, 247, 0.28);
+  --accent-primary: #a855f7;
+  --accent-secondary: #7c3aed;
+  --accent-glow: rgba(168, 85, 247, 0.38);
+  --surface-input: rgba(18, 8, 24, 0.78);
+}
+
+[data-visual-theme='purple-premium'][data-theme='light'] {
+  --bg-base: #f5f0fa;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --bg-glass-hover: rgba(255, 255, 255, 0.94);
+  --border-glass: rgba(124, 58, 237, 0.14);
+  --border-glass-active: rgba(124, 58, 237, 0.28);
+  --accent-primary: #7c3aed;
+  --accent-secondary: #6d28d9;
+  --accent-glow: rgba(124, 58, 237, 0.28);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+
+/* Industrial Blue */
+[data-visual-theme='industrial-blue'][data-theme='dark'] {
+  --bg-base: #0f1419;
+  --bg-elevated: #151c24;
+  --bg-glass: rgba(21, 28, 36, 0.72);
+  --bg-glass-hover: rgba(30, 40, 52, 0.85);
+  --border-glass: rgba(59, 130, 246, 0.12);
+  --border-glass-active: rgba(59, 130, 246, 0.26);
+  --accent-primary: #3b82f6;
+  --accent-secondary: #1e40af;
+  --accent-glow: rgba(59, 130, 246, 0.35);
+  --surface-input: rgba(15, 20, 25, 0.78);
+}
+
+[data-visual-theme='industrial-blue'][data-theme='light'] {
+  --bg-base: #eef2f7;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --bg-glass-hover: rgba(255, 255, 255, 0.94);
+  --border-glass: rgba(30, 64, 175, 0.14);
+  --border-glass-active: rgba(30, 64, 175, 0.28);
+  --accent-primary: #2563eb;
+  --accent-secondary: #1d4ed8;
+  --accent-glow: rgba(37, 99, 235, 0.28);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}

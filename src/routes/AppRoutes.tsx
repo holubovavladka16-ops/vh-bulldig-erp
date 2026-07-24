@@ -1,0 +1,453 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { LoginPage } from '@/pages/auth/LoginPage'
+import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
+import { DashboardPage } from '@/pages/dashboard/DashboardPage'
+import { ModulePlaceholderPage } from '@/pages/modules/ModulePlaceholderPage'
+import { SettingsHubPage } from '@/pages/settings/SettingsHubPage'
+import { CompanySettingsPage } from '@/pages/settings/CompanySettingsPage'
+import { ProfileSettingsPage } from '@/pages/settings/ProfileSettingsPage'
+import { PermissionsSettingsPage } from '@/pages/settings/PermissionsSettingsPage'
+import { AppSettingsPage } from '@/pages/settings/AppSettingsPage'
+import { WorkersListPage } from '@/pages/workers/WorkersListPage'
+import { WorkerDetailPage } from '@/pages/workers/WorkerDetailPage'
+import { WorkerDetailRedirect } from '@/pages/workers/WorkerDetailRedirect'
+import { EmployeePortalPage } from '@/pages/portal/EmployeePortalPage'
+import { AttendanceModulePage } from '@/pages/attendance/AttendanceModulePage'
+import { ReportsModulePage } from '@/pages/reports/ReportsModulePage'
+import { OrdersModulePage } from '@/pages/orders/OrdersModulePage'
+import { OrderDetailPage } from '@/pages/orders/OrderDetailPage'
+import { CostsModulePage } from '@/pages/ekonomika/CostsModulePage'
+import { ExcavationsMapModulePage } from '@/pages/excavations/ExcavationsMapModulePage'
+import { DiaryModulePage } from '@/pages/diary/DiaryModulePage'
+import { ConnectionsModulePage } from '@/pages/pripojky/ConnectionsModulePage'
+import { PayrollModulePage } from '@/pages/payroll/PayrollModulePage'
+import { ReceiptsModulePage } from '@/pages/receipts/ReceiptsModulePage'
+import { InvoicesModulePage } from '@/pages/invoices/InvoicesModulePage'
+import { InvoiceEditorPage } from '@/pages/invoices/InvoiceEditorPage'
+import { InvoiceSettingsPage } from '@/pages/settings/InvoiceSettingsPage'
+import { ContractsModulePage } from '@/pages/contracts/ContractsModulePage'
+import { ProfitOverviewPage } from '@/pages/profit/ProfitOverviewPage'
+import { DailyFormsModulePage } from '@/pages/dailyForms/DailyFormsModulePage'
+import { PaperFormsModulePage } from '@/pages/paperForms/PaperFormsModulePage'
+import { PaperFormDetailPage } from '@/pages/paperForms/PaperFormDetailPage'
+import { FormCheckModulePage } from '@/pages/formCheck/FormCheckModulePage'
+import { FormCheckHistoryPage } from '@/pages/formCheck/FormCheckHistoryPage'
+import { FormCheckDetailPage } from '@/pages/formCheck/FormCheckDetailPage'
+import { GpsFotoarchivPage } from '@/pages/gpsFotoarchiv/GpsFotoarchivPage'
+import { DailyCalendarPage } from '@/pages/dailyCalendar/DailyCalendarPage'
+import { InvoiceableWorkReportsPage } from '@/pages/invoiceableWorkReports/InvoiceableWorkReportsPage'
+import { InvoiceableWorkReportEditorPage } from '@/pages/invoiceableWorkReports/InvoiceableWorkReportEditorPage'
+import { ZakazkyMapaPage } from '@/pages/zakazkyMapa/ZakazkyMapaPage'
+import { StavbyvedouciHubPage } from '@/pages/stavbyvedouci/StavbyvedouciHubPage'
+import { StavbyvedouciAttendancePage } from '@/pages/stavbyvedouci/StavbyvedouciAttendancePage'
+import { StavbyvedouciCostPage } from '@/pages/stavbyvedouci/StavbyvedouciCostPage'
+import { StavbyvedouciDiaryPage } from '@/pages/stavbyvedouci/StavbyvedouciDiaryPage'
+import { StavbyvedouciOrdersPage } from '@/pages/stavbyvedouci/StavbyvedouciOrdersPage'
+import { FUTURE_MODULES } from '@/constants/modules'
+
+const placeholderModules = FUTURE_MODULES.filter(
+  (m) =>
+    ![
+      'nastaveni',
+      'delnici',
+      'dochazka',
+      'vykazy',
+      'papierove-vykazy',
+      'kontrola-formulare',
+      'vyplatni-pasky',
+      'zakazky',
+      'zakazky-mapa',
+      'ekonomika',
+      'mapa-vykopu',
+      'denik',
+      'pripojky',
+      'gps-fotoarchiv',
+      'denni-formulare',
+      'paragony',
+      'fakturovac',
+      'dokumenty',
+      'statistiky',
+      'denni-kalendar',
+      'fakturacni-vykaz',
+    ].includes(m.id)
+)
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/prihlaseni" element={<LoginPage />} />
+      <Route path="/zapomenute-heslo" element={<ForgotPasswordPage />} />
+      <Route path="/obnova-hesla" element={<ResetPasswordPage />} />
+
+      {/* Portál zaměstnance – veřejný, bez ERP přístupu */}
+      <Route path="/portal/:token" element={<EmployeePortalPage />} />
+      <Route path="/portal/:token/:tab" element={<EmployeePortalPage />} />
+
+      <Route
+        path="/stavbyvedouci"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciHubPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stavbyvedouci/dochazka"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciAttendancePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stavbyvedouci/naklad"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciCostPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stavbyvedouci/denik"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciDiaryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stavbyvedouci/zakazky"
+        element={
+          <ProtectedRoute requiredModule="stavbyvedouci">
+            <StavbyvedouciOrdersPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute requiredModule="dashboard">
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Modul 2 – Dělníci */}
+      <Route
+        path="/delnici"
+        element={
+          <ProtectedRoute requiredModule="delnici">
+            <WorkersListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/delnici/:id/:tab"
+        element={
+          <ProtectedRoute requiredModule="delnici">
+            <WorkerDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/delnici/:id"
+        element={
+          <ProtectedRoute requiredModule="delnici">
+            <WorkerDetailRedirect />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/dochazka"
+        element={
+          <ProtectedRoute requiredModule="dochazka">
+            <AttendanceModulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vykazy"
+        element={
+          <ProtectedRoute requiredModule="vykazy">
+            <ReportsModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/vykazy/papierove"
+        element={
+          <ProtectedRoute requiredModule="papierove-vykazy">
+            <PaperFormsModulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vykazy/papierove/:id"
+        element={
+          <ProtectedRoute requiredModule="papierove-vykazy">
+            <PaperFormDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/kontrola-formulare"
+        element={
+          <ProtectedRoute requiredModule="kontrola-formulare">
+            <FormCheckModulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kontrola-formulare/historie"
+        element={
+          <ProtectedRoute requiredModule="kontrola-formulare">
+            <FormCheckHistoryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kontrola-formulare/historie/:id"
+        element={
+          <ProtectedRoute requiredModule="kontrola-formulare">
+            <FormCheckDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/zakazky"
+        element={
+          <ProtectedRoute requiredModule="zakazky">
+            <OrdersModulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/zakazky/:id"
+        element={
+          <ProtectedRoute requiredModule="zakazky">
+            <OrderDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/zakazky-mapa"
+        element={
+          <ProtectedRoute requiredModule="zakazky-mapa">
+            <ZakazkyMapaPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/ekonomika"
+        element={
+          <ProtectedRoute requiredModule="ekonomika">
+            <CostsModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/mapa-vykopu"
+        element={
+          <ProtectedRoute requiredModule="mapa-vykopu">
+            <ExcavationsMapModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/denik"
+        element={
+          <ProtectedRoute requiredModule="denik">
+            <DiaryModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/vyplatni-pasky"
+        element={
+          <ProtectedRoute requiredModule="vyplatni-pasky">
+            <PayrollModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/pripojky"
+        element={
+          <ProtectedRoute requiredModule="pripojky">
+            <ConnectionsModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/gps-fotoarchiv"
+        element={
+          <ProtectedRoute requiredModule="gps-fotoarchiv">
+            <GpsFotoarchivPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/paragony"
+        element={
+          <ProtectedRoute requiredModule="paragony">
+            <ReceiptsModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/fakturace"
+        element={
+          <ProtectedRoute requiredModule="fakturovac">
+            <InvoicesModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/fakturace/:id"
+        element={
+          <ProtectedRoute requiredModule="fakturovac">
+            <InvoiceEditorPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/dokumenty"
+        element={
+          <ProtectedRoute requiredModule="dokumenty">
+            <ContractsModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/denni-formulare"
+        element={
+          <ProtectedRoute requiredModule="denni-formulare">
+            <DailyFormsModulePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/statistiky"
+        element={
+          <ProtectedRoute requiredModule="statistiky">
+            <ProfitOverviewPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/daily-calendar"
+        element={
+          <ProtectedRoute requiredModule="denni-kalendar">
+            <DailyCalendarPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/fakturacni-vykaz"
+        element={
+          <ProtectedRoute requiredModule="fakturacni-vykaz">
+            <InvoiceableWorkReportsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/fakturacni-vykaz/:id"
+        element={
+          <ProtectedRoute requiredModule="fakturacni-vykaz">
+            <InvoiceableWorkReportEditorPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {placeholderModules.map((module) => (
+        <Route
+          key={module.id}
+          path={module.path}
+          element={
+            <ProtectedRoute requiredModule={module.module}>
+              <ModulePlaceholderPage moduleId={module.id} />
+            </ProtectedRoute>
+          }
+        />
+      ))}
+
+      <Route
+        path="/nastaveni"
+        element={
+          <ProtectedRoute requiredModule="nastaveni">
+            <SettingsHubPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/nastaveni/spolecnost"
+        element={
+          <ProtectedRoute requiredModule="nastaveni-spolecnost">
+            <CompanySettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/nastaveni/faktury"
+        element={
+          <ProtectedRoute requiredModule="nastaveni-faktury">
+            <InvoiceSettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/nastaveni/profil"
+        element={
+          <ProtectedRoute requiredModule="nastaveni-profil">
+            <ProfileSettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/nastaveni/opravneni"
+        element={
+          <ProtectedRoute requiredModule="nastaveni-opravneni">
+            <PermissionsSettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/nastaveni/aplikace"
+        element={
+          <ProtectedRoute requiredModule="nastaveni-aplikace">
+            <AppSettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route path="*" element={<Navigate to="/prihlaseni" replace />} />
+    </Routes>
+  )
+}
