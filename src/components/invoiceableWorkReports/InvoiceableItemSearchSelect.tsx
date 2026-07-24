@@ -102,6 +102,7 @@ export function InvoiceableItemSearchSelect({ items, value, onChange, disabled }
               <li key={item.id}>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelect(item)}
                   className={`block w-full px-3 py-2 text-left text-sm hover:bg-white/5 ${
                     item.id === value ? 'text-[var(--accent-primary)]' : 'text-theme-primary'
