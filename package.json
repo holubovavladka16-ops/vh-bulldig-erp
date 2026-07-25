@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/inject-gemini-runtime.mjs && tsc -b && vite build",
-    "typecheck": "tsc -b",
+    "build": "node scripts/inject-gemini-runtime.mjs && node ./node_modules/typescript/bin/tsc -b && vite build",
+    "typecheck": "node ./node_modules/typescript/bin/tsc -b",
     "lint": "eslint .",
     "preview": "vite preview",
     "bootstrap-admin": "node scripts/bootstrap-admin.mjs",

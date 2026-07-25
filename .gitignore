@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+.vite
+*.local
+
+.env
+.env.local
+.env.*.local
+
+api/.runtime-env.json
+
+.DS_Store
+Thumbs.db
+
+*.log
+npm-debug.log*
