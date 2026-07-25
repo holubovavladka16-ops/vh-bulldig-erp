@@ -1,6 +1,6 @@
 import pg from 'pg'
-import { getSupabaseConfig } from './lib/config.js'
-import { getDbPasswordFromEnv, getDbConnectionCandidates } from './lib/db-credentials.js'
+import { getSupabaseConfig } from '../lib/config.js'
+import { getDbPasswordFromEnv, getDbConnectionCandidates } from '../lib/db-credentials.js'
 
 const MIGRATION_060 = `
 DO $$ BEGIN

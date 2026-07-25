@@ -1,4 +1,4 @@
-import { getGeminiApiKey, getSupabaseConfig } from './lib/config.js'
+import { getGeminiApiKey, getSupabaseConfig } from '../lib/config.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -11,19 +11,21 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
 const SYSTEM_PROMPT = `Jsi expert na OCR ručně psaných stavebních měsíčních výkazů VH Bulldig ERP v češtině.
 Analyzuj fotografii formuláře a vrať POUZE validní JSON (bez markdown) podle schématu:
 {
+  "worker_name": "Příjmení Jméno",
+  "month_label": "Červen 2026",
+  "month": 6,
+  "year": 2026,
   "lines": [
     {
       "form_date": "YYYY-MM-DD",
-      "line_role": "attendance_primary",
-      "work_start": "HH:MM",
-      "work_end": "HH:MM",
       "order_code": "BRN-024",
+      "order_name": "název zakázky",
       "performance_hours": 0,
       "manual_dig_bm": 0,
       "penetration_ks": 0,
       "daily_advance": 0,
-      "ai_confidence": 0.0,
-      "attendance_status": "pritomen"
+      "note": "",
+      "ai_confidence": 0.0
     }
   ],
   "summary": {
@@ -37,17 +39,19 @@ Analyzuj fotografii formuláře a vrať POUZE validní JSON (bez markdown) podle
 
 Pravidla:
 - Formulář má jednu stránku A4 s 31 řádky.
-- Sloupce tabulky: Den, Datum, Zakázka, Od, Do, Celkem hodin, Ruční výkop hloubka 50–70 cm (bm), Průraz do objektu (ks), Záloha (Kč), Podpis.
-- Osobní údaje v hlavičce IGNORUJ — jsou již v ERP.
-- attendance_primary = jeden řádek za den s vyplněnými daty.
-- performance_hours = sloupec Celkem hodin.
-- manual_dig_bm = metry výkopu (bm).
-- penetration_ks = počet průrazů (ks).
+- Sloupce tabulky: Den, Datum, Zakázka, Od, Do, Celkem hodin, Ruční výkop hloubka 50–70 cm (bm), Průraz do objektu (ks), Záloha (Kč), Podpis, Poznámka.
+- worker_name a month_label načti z hlavičky formuláře.
+- performance_hours = sloupec Celkem hodin (odpracované hodiny).
+- manual_dig_bm = metry ručního výkopu (bm).
+- penetration_ks = počet protlaků / průrazů (ks).
 - daily_advance = záloha v Kč.
+- note = poznámka u řádku, pokud je vyplněná.
 - order_code ve formátu XXX-NNN (např. BRN-024).
-- Každý den může mít jinou zakázku — nikdy nepředpokládej jednu zakázku pro celý měsíc.
+- Každý den může mít jinou zakázku.
 - Prázdné dny neuváděj.
-- Souhrn na konci: total_hours, total_bm, total_penetrations, total_advance.`
+- ai_confidence u každého řádku 0.0–1.0 dle čitelnosti.
+- overall_confidence = celková spolehlivost extrakce 0.0–1.0.
+- Souhrn: total_hours, total_bm, total_penetrations, total_advance.`
 
 function setCors(res) {
   for (const [key, value] of Object.entries(CORS_HEADERS)) {
@@ -70,19 +74,22 @@ async function verifyAdmin(req) {
   return res.ok ? { ok: true } : { ok: false, reason: 'unauthorized' }
 }
 
-async function extractWithGemini(imageBase64, mimeType, orderLegend, month, year) {
+async function extractWithGemini(imageBase64, mimeType, options) {
   const apiKey = getGeminiApiKey()
   if (!apiKey) throw new Error('GEMINI_API_KEY_MISSING')
 
+  const { orderLegend, month, year, workerName, formNumber } = options
   const legendText = Array.isArray(orderLegend)
     ? orderLegend.map((o) => `${o.short_code}: ${o.name} (${o.location})`).join('\n')
     : ''
 
-  const userPrompt = `Měsíc/rok formuláře: ${month}/${year}
+  const userPrompt = `Číslo formuláře v ERP: ${formNumber ?? '(neuvedeno)'}
+Očekávaný zaměstnanec: ${workerName ?? '(neuvedeno)'}
+Měsíc/rok formuláře: ${month}/${year}
 Legenda zakázek:
 ${legendText || '(bez legendy)'}
 
-Extrahuj pouze ručně vyplněná pole z tabulky a souhrnu.`
+Extrahuj zaměstnance, měsíc, všechny vyplněné řádky tabulky a souhrn.`
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`
 
@@ -136,7 +143,7 @@ export default async function handler(req, res) {
       if (access.reason === 'missing_supabase_config') {
         return res.status(503).json({ error: 'Chybí konfigurace Supabase na serveru.' })
       }
-      return res.status(401).json({ error: 'Pro import se musíte přihlásit jako administrátor.' })
+      return res.status(401).json({ error: 'Pro OCR se musíte přihlásit jako administrátor.' })
     }
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
@@ -145,17 +152,25 @@ export default async function handler(req, res) {
     const orderLegend = body?.order_legend ?? []
     const month = Number(body?.month ?? 0)
     const year = Number(body?.year ?? 0)
+    const workerName = String(body?.worker_name ?? '')
+    const formNumber = String(body?.form_number ?? '')
 
     if (!imageBase64 || imageBase64.length < 100) {
-      return res.status(400).json({ error: 'Chybí soubor formuláře (foto nebo PDF).' })
+      return res.status(400).json({ error: 'Chybí fotografie formuláře.' })
     }
 
     const allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
     if (!allowedMime.includes(mimeType)) {
-      return res.status(400).json({ error: 'Nepodporovaný formát. Použijte JPG, PNG, WEBP nebo PDF.' })
+      return res.status(400).json({ error: 'Nepodporovaný formát. Použijte JPG, PNG nebo WEBP.' })
     }
 
-    const result = await extractWithGemini(imageBase64, mimeType, orderLegend, month, year)
+    const result = await extractWithGemini(imageBase64, mimeType, {
+      orderLegend,
+      month,
+      year,
+      workerName,
+      formNumber,
+    })
 
     return res.status(200).json({
       ...result,
@@ -166,13 +181,13 @@ export default async function handler(req, res) {
     const message = err instanceof Error ? err.message : 'Internal error'
 
     if (message === 'GEMINI_API_KEY_MISSING') {
-      return res.status(503).json({ error: 'AI import není dostupný. Chybí GEMINI_API_KEY.' })
+      return res.status(503).json({ error: 'OCR není dostupné. Chybí GEMINI_API_KEY.' })
     }
 
     if (message.includes('abort') || message.includes('AbortError')) {
-      return res.status(504).json({ error: 'AI zpracování trvalo příliš dlouho. Zkuste menší foto nebo lepší osvětlení.' })
+      return res.status(504).json({ error: 'OCR zpracování trvalo příliš dlouho. Zkuste menší foto nebo lepší osvětlení.' })
     }
 
-    return res.status(500).json({ error: 'AI import se nezdařil. Zkuste ruční zadání nebo lepší fotografii.' })
+    return res.status(500).json({ error: 'OCR rozpoznání se nezdařilo. Zkuste vyfotit znovu.' })
   }
 }

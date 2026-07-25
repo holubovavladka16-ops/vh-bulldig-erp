@@ -5,8 +5,8 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import pg from 'pg'
 import { createClient } from '@supabase/supabase-js'
-import { getSupabaseConfig } from './lib/config.js'
-import { getDbPasswordFromEnv, getDbConnectionCandidates } from './lib/db-credentials.js'
+import { getSupabaseConfig } from '../lib/config.js'
+import { getDbPasswordFromEnv, getDbConnectionCandidates } from '../lib/db-credentials.js'
 
 const MIGRATION_FILES = ['081_fakturovac_module.sql', '082_fakturovac_storage_update.sql']
 

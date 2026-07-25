@@ -6,9 +6,9 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import pg from 'pg'
 import { createClient } from '@supabase/supabase-js'
-import { getSupabaseConfig } from './lib/config.js'
-import { getDbPasswordFromEnv, getDbConnectionCandidates } from './lib/db-credentials.js'
-import { INVOICEABLE_SEED_ITEMS, INVOICEABLE_SEED_EXPECTED_COUNT } from './lib/invoiceable-items-seed-data.js'
+import { getSupabaseConfig } from '../lib/config.js'
+import { getDbPasswordFromEnv, getDbConnectionCandidates } from '../lib/db-credentials.js'
+import { INVOICEABLE_SEED_ITEMS, INVOICEABLE_SEED_EXPECTED_COUNT } from '../lib/invoiceable-items-seed-data.js'
 
 const MIGRATION_FILE = '088_invoiceable_items_seed.sql'
 
