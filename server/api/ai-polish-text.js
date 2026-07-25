@@ -1,4 +1,4 @@
-import { getGeminiApiKey, getSupabaseConfig } from './lib/config.js'
+import { getGeminiApiKey, getSupabaseConfig } from '../lib/config.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',

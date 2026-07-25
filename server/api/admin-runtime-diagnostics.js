@@ -1,5 +1,5 @@
-import { getSupabaseConfig } from './lib/config.js'
-import { getDbCredentialFlags, listDbRelatedEnvKeys } from './lib/db-credentials.js'
+import { getSupabaseConfig } from '../lib/config.js'
+import { getDbCredentialFlags, listDbRelatedEnvKeys } from '../lib/db-credentials.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')

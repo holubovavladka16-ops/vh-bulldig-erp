@@ -7,7 +7,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { connectSupabaseDb, getProjectRef } from './supabase-db-client.mjs'
-import { INVOICEABLE_SEED_ITEMS, INVOICEABLE_SEED_EXPECTED_COUNT } from '../api/lib/invoiceable-items-seed-data.js'
+import { INVOICEABLE_SEED_ITEMS, INVOICEABLE_SEED_EXPECTED_COUNT } from '../server/lib/invoiceable-items-seed-data.js'
 
 function loadEnvFile(filename) {
   const path = resolve(process.cwd(), filename)
