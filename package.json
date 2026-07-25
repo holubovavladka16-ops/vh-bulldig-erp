@@ -43,8 +43,6 @@
     "deploy:pdf8": "node scripts/deploy-pdf8-zakazky-mapa-production.mjs",
     "apply:pdf8-migrations": "node scripts/apply-pdf8-migrations-production.mjs",
     "apply:fakturovac-migrations": "node scripts/apply-fakturovac-migrations-081-082.mjs",
-    "apply:invoiceable-items-seed": "node scripts/apply-invoiceable-items-seed-088.mjs",
-    "verify:invoiceable-items-seed": "node scripts/verify-invoiceable-items-seed.mjs",
     "deploy:fakturovac": "node scripts/deploy-fakturovac-production.mjs",
     "verify:fakturovac": "node scripts/verify-fakturovac-production.mjs",
     "smoke:pdf8": "node scripts/verify-pdf8-production-smoke.mjs",
