@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -120,20 +121,20 @@ export function ThemeProvider({
     return () => clearInterval(interval)
   }, [visualTheme])
 
-  function setTheme(mode: ThemeMode) {
+  const setTheme = useCallback((mode: ThemeMode) => {
     setThemeState(mode)
-  }
+  }, [])
 
-  function setVisualTheme(nextVisualTheme: VisualThemeId) {
+  const setVisualTheme = useCallback((nextVisualTheme: VisualThemeId) => {
     setVisualThemeState(nextVisualTheme)
     if (nextVisualTheme !== 'neon-glass') {
       setAccentIndex(0)
     }
-  }
+  }, [])
 
-  function toggleTheme() {
+  const toggleTheme = useCallback(() => {
     setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'))
-  }
+  }, [])
 
   return (
     <ThemeContext.Provider
