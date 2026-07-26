@@ -104,7 +104,7 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader title="Moduly ERP" description="Všechny dostupné sekce systému" />
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2 dashboard-module-grid">
             {accessibleModules.map((item) => (
               <Link
                 key={item.id}
