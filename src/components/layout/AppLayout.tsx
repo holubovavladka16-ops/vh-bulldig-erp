@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { Sidebar } from './Sidebar'
-import { Header } from './Header'
 import { AppVersionFooter } from './AppVersionFooter'
+import { useHeaderComponent, useSidebarComponent } from '@/themes/engine/useThemedComponents'
 
 interface AppLayoutProps {
   title?: string
@@ -11,6 +10,8 @@ interface AppLayoutProps {
 
 export function AppLayout({ title = '', children, headerAction }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const Sidebar = useSidebarComponent()
+  const Header = useHeaderComponent()
 
   return (
     <div className="app-background flex min-h-dvh h-dvh overflow-hidden">

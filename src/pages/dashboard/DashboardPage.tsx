@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowRight, Users, ClipboardList, FileSpreadsheet, ClipboardPen } from 'lucide-react'
+import { Users, ClipboardList, FileSpreadsheet, ClipboardPen } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useAuth } from '@/context/AuthContext'
 import { FUTURE_MODULES } from '@/constants/navigation'
 import { hasModuleAccess, ROLE_LABELS } from '@/constants/permissions'
-import { NavIcon } from '@/components/ui/NavIcon'
 import { fetchDashboardStats, type DashboardStats } from '@/lib/dashboard/stats'
+import { useModuleCardComponent, useStatPanelComponent } from '@/themes/engine/useThemedComponents'
 
 const QUICK_LINKS = [
   { path: '/delnici', label: 'Dělníci', icon: 'HardHat' },
@@ -22,6 +21,8 @@ export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [statsError, setStatsError] = useState('')
   const [loading, setLoading] = useState(true)
+  const StatPanel = useStatPanelComponent()
+  const ModuleCard = useModuleCardComponent()
 
   const accessibleModules = FUTURE_MODULES.filter(
     (item) => profile && hasModuleAccess(profile.role, item.module)
@@ -44,19 +45,19 @@ export function DashboardPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
+        <StatPanel
           label="Aktivní dělníci"
           value={loading ? '…' : statsError ? '—' : String(stats?.activeWorkers ?? 0)}
           icon={Users}
           sublabel={stats?.activeWorkers === 0 && !loading && !statsError ? 'Žádní aktivní zaměstnanci' : undefined}
         />
-        <StatCard
+        <StatPanel
           label="Aktivní zakázky"
           value={loading ? '…' : statsError ? '—' : String(stats?.activeOrders ?? 0)}
           icon={ClipboardList}
           sublabel={stats?.activeOrders === 0 && !loading && !statsError ? 'Žádné aktivní zakázky' : undefined}
         />
-        <StatCard
+        <StatPanel
           label="Výkazy ke schválení"
           value={loading ? '…' : statsError ? '—' : String(stats?.pendingReports ?? 0)}
           icon={FileSpreadsheet}
@@ -68,7 +69,7 @@ export function DashboardPage() {
                 : undefined
           }
         />
-        <StatCard
+        <StatPanel
           label="Odeslané formuláře"
           value={loading ? '…' : statsError ? '—' : String(stats?.submittedForms ?? 0)}
           icon={ClipboardPen}
@@ -87,17 +88,7 @@ export function DashboardPage() {
             {QUICK_LINKS.filter((item) =>
               accessibleModules.some((m) => m.path === item.path)
             ).map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="neon-border flex items-center gap-3 rounded-xl p-3 transition-all duration-300 hover:bg-white/5"
-              >
-                <div className="rounded-lg p-2 nav-item-active">
-                  <NavIcon name={item.icon} className="h-4 w-4" neon />
-                </div>
-                <span className="flex-1 text-sm font-medium text-theme-primary">{item.label}</span>
-                <ArrowRight className="h-4 w-4 text-theme-muted" />
-              </Link>
+              <ModuleCard key={item.path} href={item.path} icon={item.icon} label={item.label} />
             ))}
           </div>
         </Card>
@@ -106,48 +97,11 @@ export function DashboardPage() {
           <CardHeader title="Moduly ERP" description="Všechny dostupné sekce systému" />
           <div className="grid gap-2 sm:grid-cols-2 dashboard-module-grid">
             {accessibleModules.map((item) => (
-              <Link
-                key={item.id}
-                to={item.path}
-                className="neon-border flex items-center gap-3 rounded-xl p-3 transition-all duration-300 hover:bg-white/5"
-              >
-                <div className="rounded-lg p-2 nav-item-active">
-                  <NavIcon name={item.icon} className="h-4 w-4" neon />
-                </div>
-                <span className="flex-1 text-sm font-medium text-theme-primary">{item.label}</span>
-                <ArrowRight className="h-4 w-4 text-theme-muted" />
-              </Link>
+              <ModuleCard key={item.id} href={item.path} icon={item.icon} label={item.label} />
             ))}
           </div>
         </Card>
       </div>
     </AppLayout>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  sublabel,
-}: {
-  label: string
-  value: string
-  icon: typeof Users
-  sublabel?: string
-}) {
-  return (
-    <Card>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-theme-secondary">{label}</p>
-          <p className="mt-1 text-2xl font-bold text-theme-primary">{value}</p>
-          {sublabel && <p className="mt-1 text-xs text-theme-muted">{sublabel}</p>}
-        </div>
-        <div className="rounded-xl p-3 nav-item-active">
-          <Icon className="h-6 w-6 icon-neon" />
-        </div>
-      </div>
-    </Card>
   )
 }
