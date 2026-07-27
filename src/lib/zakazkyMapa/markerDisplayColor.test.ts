@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildPlaceholderMarkerWithColor,
   resolveAutoMarkerDisplay,
@@ -54,6 +54,18 @@ const settings = {
 const noDiaryContext = { approvedDiaryDates: [], anyDiaryCount: 0 }
 
 describe('resolveAutoMarkerDisplay', () => {
+  // Funkce vyhodnocuje "dnešek" jen v kontextu pracovních dnů (Po–Pá).
+  // Test proto pevně nastaví systémový čas na známé pondělí, aby výsledek
+  // nezávisel na tom, ve který skutečný den v týdnu testy zrovna běží.
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-20T10:00:00Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('aktivní zakázka bez deníku je červená – stav active neznamená green', () => {
     const display = resolveAutoMarkerDisplay(sampleOrder, autoMarker, noDiaryContext, settings)
 
