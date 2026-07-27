@@ -1,30 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { AutoSaveIndicator } from '@/components/ui/AutoSaveIndicator'
-import { DayInfoSection } from '@/components/dailyCalendar/DayInfoSection'
-import { DayTasksSection } from '@/components/dailyCalendar/DayTasksSection'
-import { DayNotesSection } from '@/components/dailyCalendar/DayNotesSection'
-import { FutureIntegrationsSection } from '@/components/dailyCalendar/FutureIntegrationsSection'
-import { createEmptyDailyEntry, type CalendarDayStatus, type DailyCalendarEntry, type TaskPriority, type TaskStatus } from '@/lib/dailyCalendar/types'
-import {
-  addDailyTask,
-  deleteDailyTask,
-  fetchActiveOrders,
-  fetchMonthEntries,
-  upsertDailyEntry,
-  type DailyOrderOption,
-} from '@/lib/dailyCalendar/api'
+import { OrderDaySummaryCard } from '@/components/dailyCalendar/OrderDaySummaryCard'
+import { fetchDaySummaries, fetchMonthSummaryDates } from '@/lib/dailyCalendar/api'
+import type { OrderDaySummary } from '@/lib/dailyCalendar/types'
 
 /**
- * Denní provozní kalendář – napojení na Supabase.
+ * Denní provozní kalendář – automatický manažerský přehled firmy.
  *
- * Vyžaduje aplikovanou migraci `supabase/migrations/083_daily_calendar_module.sql`.
- * Dokud migrace není na cílovém Supabase projektu spuštěna, načítání dat
- * skončí srozumitelnou chybovou hláškou místo pádu stránky.
+ * Žádná hodnota v tomto modulu se nezadává ručně. Po kliknutí na datum se
+ * zobrazí všechny zakázky, které mají za daný den nějaká data (podle
+ * `order_id` + pracovní datum), každá ve vlastní kartě se stavem
+ * stavebního deníku, počtem fotografií, náklady, výplatami zaměstnanců
+ * a denním součtem. Data počítá a ukládá výhradně databázová strana
+ * (migrace 088 – triggery při zpětné opravě zdrojových dat a automatická
+ * uzávěrka ve 23:59 Europe/Prague přes pg_cron).
  */
 
 const TIME_ZONE = 'Europe/Prague'
@@ -172,58 +165,31 @@ export function DailyCalendarPage() {
   const [viewMonth, setViewMonth] = useState(now.month)
   const [selectedIso, setSelectedIso] = useState<string | null>(null)
 
-  // Denní záznamy načtené ze Supabase (klíč = datum YYYY-MM-DD), doplňované po měsících.
-  const [entries, setEntries] = useState<Record<string, DailyCalendarEntry>>({})
+  const [datesWithData, setDatesWithData] = useState<Set<string>>(new Set())
   const [monthLoading, setMonthLoading] = useState(false)
   const [monthError, setMonthError] = useState<string | null>(null)
 
-  const [orders, setOrders] = useState<DailyOrderOption[]>([])
-  const [ordersLoading, setOrdersLoading] = useState(true)
-  const [ordersError, setOrdersError] = useState<string | null>(null)
+  const [daySummaries, setDaySummaries] = useState<OrderDaySummary[]>([])
+  const [dayLoading, setDayLoading] = useState(false)
+  const [dayError, setDayError] = useState<string | null>(null)
 
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cells = useMemo(() => buildMonthGrid(viewYear, viewMonth), [viewYear, viewMonth])
 
-  // Načtení aktivních zakázek – jednou při otevření modulu.
-  useEffect(() => {
-    let cancelled = false
-    setOrdersLoading(true)
-    fetchActiveOrders()
-      .then((data) => {
-        if (!cancelled) setOrders(data)
-      })
-      .catch((err) => {
-        if (!cancelled) setOrdersError(err instanceof Error ? err.message : 'Nepodařilo se načíst zakázky.')
-      })
-      .finally(() => {
-        if (!cancelled) setOrdersLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Načtení denních záznamů pro zobrazený měsíc.
+  // Tečkové indikátory v mřížce – které dny v měsíci mají alespoň jednu zakázku s daty.
   useEffect(() => {
     let cancelled = false
     setMonthLoading(true)
     setMonthError(null)
-    fetchMonthEntries(viewYear, viewMonth)
-      .then((list) => {
-        if (cancelled) return
-        setEntries((prev) => {
-          const next = { ...prev }
-          for (const entry of list) next[entry.date] = entry
-          return next
-        })
+    fetchMonthSummaryDates(viewYear, viewMonth)
+      .then((dates) => {
+        if (!cancelled) setDatesWithData(dates)
       })
       .catch((err) => {
         if (!cancelled) {
           setMonthError(
             err instanceof Error
               ? err.message
-              : 'Nepodařilo se načíst data z databáze. Ujistěte se, že migrace 083_daily_calendar_module.sql byla v Supabase spuštěna.'
+              : 'Nepodařilo se načíst data z databáze. Ujistěte se, že migrace 088_daily_calendar_automatic_summary.sql byla v Supabase spuštěna.'
           )
         }
       })
@@ -235,73 +201,21 @@ export function DailyCalendarPage() {
     }
   }, [viewYear, viewMonth])
 
-  // Úklid rozpracovaného debounce při odchodu ze stránky.
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    }
-  }, [])
-
-  const cells = useMemo(() => buildMonthGrid(viewYear, viewMonth), [viewYear, viewMonth])
-
-  const selectedEntry = selectedIso ? entries[selectedIso] ?? createEmptyDailyEntry(selectedIso) : null
-
-  const persistEntry = useCallback(async (entry: DailyCalendarEntry) => {
-    if (!entry.orderId) return
-    setSaveStatus('saving')
-    setSaveError(null)
-    try {
-      const saved = await upsertDailyEntry({
-        date: entry.date,
-        orderId: entry.orderId,
-        status: entry.status,
-        notes: entry.notes,
-        workerCount: entry.workerCount,
+  // Automatický přehled zakázek pro vybraný den.
+  const loadDaySummaries = useCallback((iso: string) => {
+    setDayLoading(true)
+    setDayError(null)
+    fetchDaySummaries(iso)
+      .then(setDaySummaries)
+      .catch((err) => {
+        setDayError(err instanceof Error ? err.message : 'Nepodařilo se načíst přehled dne.')
       })
-      setEntries((prev) => ({
-        ...prev,
-        [entry.date]: { ...saved, tasks: entry.tasks },
-      }))
-      setSaveStatus('saved')
-    } catch (err) {
-      setSaveStatus('error')
-      setSaveError(err instanceof Error ? err.message : 'Uložení se nezdařilo.')
-    }
+      .finally(() => setDayLoading(false))
   }, [])
 
-  function updateSelectedEntry(patch: Partial<DailyCalendarEntry>) {
-    if (!selectedIso) return
-    setEntries((prev) => {
-      const current = prev[selectedIso] ?? createEmptyDailyEntry(selectedIso)
-      const next = { ...current, ...patch }
-
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-      saveTimeoutRef.current = setTimeout(() => {
-        void persistEntry(next)
-      }, 600)
-
-      return { ...prev, [selectedIso]: next }
-    })
-  }
-
-  async function handleAddTask(task: { title: string; priority: TaskPriority; status: TaskStatus }) {
-    if (!selectedIso || !selectedEntry?.id) return
-    const newTask = await addDailyTask(selectedEntry.id, task)
-    setEntries((prev) => {
-      const current = prev[selectedIso] ?? createEmptyDailyEntry(selectedIso)
-      return { ...prev, [selectedIso]: { ...current, tasks: [...current.tasks, newTask] } }
-    })
-  }
-
-  async function handleRemoveTask(taskId: string) {
-    if (!selectedIso) return
-    await deleteDailyTask(taskId)
-    setEntries((prev) => {
-      const current = prev[selectedIso]
-      if (!current) return prev
-      return { ...prev, [selectedIso]: { ...current, tasks: current.tasks.filter((t) => t.id !== taskId) } }
-    })
-  }
+  useEffect(() => {
+    if (selectedIso) loadDaySummaries(selectedIso)
+  }, [selectedIso, loadDaySummaries])
 
   const goPrevMonth = useCallback(() => {
     setViewMonth((prevMonth) => {
@@ -337,7 +251,7 @@ export function DailyCalendarPage() {
     <AppLayout title="Denní provozní kalendář">
       <PageHeader
         title="Denní provozní kalendář"
-        description="Přehled provozu po jednotlivých dnech."
+        description="Automatický manažerský přehled firmy po jednotlivých dnech."
       />
 
       {/* Horní panel: aktuální den, datum a živý čas (Europe/Prague) */}
@@ -358,12 +272,6 @@ export function DailyCalendarPage() {
         <div className="mb-6 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{monthError}</span>
-        </div>
-      )}
-      {ordersError && !monthError && (
-        <div className="mb-6 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{ordersError}</span>
         </div>
       )}
 
@@ -400,7 +308,7 @@ export function DailyCalendarPage() {
           {cells.map((cell) => {
             const isToday = cell.iso === todayIso
             const isSelected = cell.iso === selectedIso
-            const hasEntry = Boolean(entries[cell.iso])
+            const hasData = datesWithData.has(cell.iso)
 
             return (
               <button
@@ -421,7 +329,7 @@ export function DailyCalendarPage() {
                 `}
               >
                 {cell.day}
-                {hasEntry && (
+                {hasData && (
                   <span className="absolute bottom-1.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[var(--accent-primary)]" />
                 )}
               </button>
@@ -430,60 +338,41 @@ export function DailyCalendarPage() {
         </div>
       </Card>
 
-      {/* Detail vybraného dne */}
-      {selectedIso && selectedEntry && (
-        <div className="flex flex-col gap-6">
-          <Card>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-theme-primary">
-                Informace dne — {formatCzDate(selectedIso)}
-              </h3>
-              <div className="flex items-center gap-3">
-                <AutoSaveIndicator status={saveStatus} errorMessage={saveError} />
-                <button
-                  type="button"
-                  onClick={() => setSelectedIso(null)}
-                  className="rounded-lg p-1 text-theme-muted transition-colors hover:text-theme-primary"
-                  aria-label="Zavřít detail dne"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+      {/* Automatický přehled zakázek vybraného dne */}
+      {selectedIso && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-theme-primary">{formatCzDate(selectedIso)}</h3>
+            <button
+              type="button"
+              onClick={() => setSelectedIso(null)}
+              className="rounded-lg p-1 text-theme-muted transition-colors hover:text-theme-primary"
+              aria-label="Zavřít přehled dne"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {dayLoading && (
+            <Card className="py-10 text-center text-sm text-theme-muted">Načítám přehled dne…</Card>
+          )}
+
+          {dayError && !dayLoading && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{dayError}</span>
             </div>
+          )}
 
-            <DayInfoSection
-              dateLabel={formatCzDate(selectedIso)}
-              status={selectedEntry.status}
-              onStatusChange={(status: CalendarDayStatus) => updateSelectedEntry({ status })}
-              orderId={selectedEntry.orderId}
-              onOrderChange={(orderId) => updateSelectedEntry({ orderId })}
-              orders={orders}
-              ordersLoading={ordersLoading}
-            />
-          </Card>
+          {!dayLoading && !dayError && daySummaries.length === 0 && (
+            <Card className="py-10 text-center text-sm text-theme-muted">
+              Pro tento den zatím nejsou k dispozici žádná data ze zakázek.
+            </Card>
+          )}
 
-          <Card>
-            <h3 className="mb-4 text-lg font-semibold text-theme-primary">Úkoly dne</h3>
-            <DayTasksSection
-              tasks={selectedEntry.tasks}
-              entryId={selectedEntry.id}
-              onAddTask={handleAddTask}
-              onRemoveTask={handleRemoveTask}
-            />
-          </Card>
-
-          <Card>
-            <h3 className="mb-4 text-lg font-semibold text-theme-primary">Poznámky</h3>
-            <DayNotesSection value={selectedEntry.notes} onChange={(notes) => updateSelectedEntry({ notes })} />
-          </Card>
-
-          <Card>
-            <h3 className="mb-1 text-lg font-semibold text-theme-primary">Budoucí napojení</h3>
-            <p className="mb-4 text-sm text-theme-secondary">
-              Návrhové místo pro pozdější propojení s dalšími moduly (docházka, výkazy, deník, fotografie).
-            </p>
-            <FutureIntegrationsSection />
-          </Card>
+          {!dayLoading &&
+            !dayError &&
+            daySummaries.map((summary) => <OrderDaySummaryCard key={summary.orderId} summary={summary} />)}
         </div>
       )}
     </AppLayout>
