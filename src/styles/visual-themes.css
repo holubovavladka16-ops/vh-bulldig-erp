@@ -124,3 +124,629 @@
   --accent-glow: rgba(37, 99, 235, 0.28);
   --surface-input: rgba(255, 255, 255, 0.95);
 }
+
+/* Executive Gold Glass – Varianta 13 (luxusní bílo-zlato-černý motiv) */
+[data-visual-theme='executive-gold-glass'][data-theme='light'] {
+  --bg-base: #faf9f6;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.6);
+  --bg-glass-hover: rgba(255, 255, 255, 0.78);
+  --border-glass: rgba(201, 162, 39, 0.35);
+  --border-glass-active: rgba(201, 162, 39, 0.55);
+  --accent-primary: #c9a227;
+  --accent-secondary: #8a6d1f;
+  --accent-glow: rgba(201, 162, 39, 0.3);
+  --surface-input: rgba(255, 255, 255, 0.92);
+}
+
+[data-visual-theme='executive-gold-glass'][data-theme='dark'] {
+  --bg-base: #0c0c0d;
+  --bg-elevated: #161513;
+  --bg-glass: rgba(22, 21, 19, 0.68);
+  --bg-glass-hover: rgba(32, 30, 26, 0.82);
+  --border-glass: rgba(201, 162, 39, 0.22);
+  --border-glass-active: rgba(201, 162, 39, 0.4);
+  --accent-primary: #d4b53a;
+  --accent-secondary: #9c7d24;
+  --accent-glow: rgba(212, 181, 58, 0.32);
+  --surface-input: rgba(12, 12, 13, 0.8);
+}
+
+/* Executive Gold Glass – zvýrazněný skleněný/3D efekt karet a rámečků,
+   jen pro tuto variantu (nikde jinde tyto vlastnosti nemění chování). */
+[data-visual-theme='executive-gold-glass'] .neon-border,
+[data-visual-theme='executive-gold-glass'] .glass-panel {
+  backdrop-filter: blur(var(--glass-blur, 12px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 12px));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+[data-visual-theme='executive-gold-glass'][data-theme='dark'] .neon-border,
+[data-visual-theme='executive-gold-glass'][data-theme='dark'] .glass-panel {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+/* Executive Crystal Disc – Varianta 14 (moduly ve tvaru skleněných CD disků) */
+[data-visual-theme='executive-crystal-disc'][data-theme='light'] {
+  --bg-base: #fafaf8;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.62);
+  --bg-glass-hover: rgba(255, 255, 255, 0.8);
+  --border-glass: rgba(160, 160, 168, 0.3);
+  --border-glass-active: rgba(192, 160, 68, 0.5);
+  --accent-primary: #c0a044;
+  --accent-secondary: #8f8f94;
+  --accent-glow: rgba(192, 160, 68, 0.28);
+  --surface-input: rgba(255, 255, 255, 0.92);
+}
+
+[data-visual-theme='executive-crystal-disc'][data-theme='dark'] {
+  --bg-base: #101012;
+  --bg-elevated: #19191b;
+  --bg-glass: rgba(25, 25, 27, 0.66);
+  --bg-glass-hover: rgba(36, 36, 39, 0.8);
+  --border-glass: rgba(170, 170, 178, 0.2);
+  --border-glass-active: rgba(212, 181, 92, 0.4);
+  --accent-primary: #d4b55c;
+  --accent-secondary: #a3a3aa;
+  --accent-glow: rgba(212, 181, 92, 0.3);
+  --surface-input: rgba(16, 16, 18, 0.8);
+}
+
+/* Karty modulů, statistické panely, levé menu a horní panel mají od této
+   fáze VLASTNÍ REACT KOMPONENTY registrované v Theme Engine
+   (viz src/themes/components/*, src/themes/engine/registry.ts) – už to
+   tedy neřeší jen CSS. Níže zůstává jen to, co se týká sdílených prvků
+   napříč celou aplikací (tabulky, formuláře, dialogy, tlačítka, animace),
+   které Theme Engine (zatím) nepřepisuje vlastní komponentou, ale dostávají
+   od Varianty 14 vlastní, skutečně odlišný "crystal disc" vzhled přes
+   centrální CSS proměnné a cílené doplňkové styly.
+*/
+
+/* Tabulky – skleněná hlavička, chromové oddělovací linky, kruhové akční ikony */
+[data-visual-theme='executive-crystal-disc'] table thead {
+  backdrop-filter: blur(var(--glass-blur, 8px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 8px));
+}
+
+[data-visual-theme='executive-crystal-disc'] table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-secondary) 8%, transparent);
+}
+
+/* Formuláře – jemný chromový vnitřní stín a zlatý focus lem */
+[data-visual-theme='executive-crystal-disc'] input:focus,
+[data-visual-theme='executive-crystal-disc'] select:focus,
+[data-visual-theme='executive-crystal-disc'] textarea:focus {
+  box-shadow:
+    0 0 0 2px var(--accent-glow),
+    0 1px 0 rgba(255, 255, 255, 0.4) inset;
+}
+
+/* Dialogová okna – skleněný povrch s dvojitým chromovo-zlatým leskem */
+[data-visual-theme='executive-crystal-disc'] .modal-panel {
+  backdrop-filter: blur(var(--glass-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 14px));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 20px 45px rgba(0, 0, 0, 0.18);
+}
+
+/* Tlačítka – jemný "disk" odlesk při najetí, beze změny funkce */
+[data-visual-theme='executive-crystal-disc'] .btn-neon-primary,
+[data-visual-theme='executive-crystal-disc'] .btn-neon {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-visual-theme='executive-crystal-disc'] .btn-neon-primary::after,
+[data-visual-theme='executive-crystal-disc'] .btn-neon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.25) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 500ms ease;
+  pointer-events: none;
+}
+
+[data-visual-theme='executive-crystal-disc'] .btn-neon-primary:hover::after,
+[data-visual-theme='executive-crystal-disc'] .btn-neon:hover::after {
+  transform: translateX(100%);
+}
+
+/* Grafy – panel s jemným skleněným rámem (barevná paleta grafů beze změny) */
+[data-visual-theme='executive-crystal-disc'] .recharts-wrapper {
+  border-radius: 16px;
+}
+
+/* Jemné, elegantní animace (respektuje prefers-reduced-motion) */
+[data-visual-theme='executive-crystal-disc'] .glass-panel,
+[data-visual-theme='executive-crystal-disc'] .neon-border {
+  transition:
+    transform 250ms ease,
+    box-shadow 250ms ease,
+    border-color 250ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-visual-theme='executive-crystal-disc'] .btn-neon-primary::after,
+  [data-visual-theme='executive-crystal-disc'] .btn-neon::after {
+    transition: none;
+  }
+}
+
+/* Signature Elite – Varianta 15 (vlajková loď VH Bulldig ERP) */
+[data-visual-theme='signature-elite'][data-theme='light'] {
+  --bg-base: #f6f3ec;
+  --bg-elevated: #fffdf9;
+  --bg-glass: rgba(255, 253, 249, 0.66);
+  --bg-glass-hover: rgba(255, 253, 249, 0.84);
+  --border-glass: rgba(201, 179, 122, 0.4);
+  --border-glass-active: rgba(47, 184, 172, 0.5);
+  --accent-primary: #2fb8ac;
+  --accent-secondary: #c9b37a;
+  --accent-glow: rgba(47, 184, 172, 0.3);
+  --surface-input: rgba(255, 253, 249, 0.9);
+}
+
+[data-visual-theme='signature-elite'][data-theme='dark'] {
+  --bg-base: #22262b;
+  --bg-elevated: #2b3036;
+  --bg-glass: rgba(43, 48, 54, 0.68);
+  --bg-glass-hover: rgba(54, 60, 67, 0.82);
+  --border-glass: rgba(201, 179, 122, 0.28);
+  --border-glass-active: rgba(47, 184, 172, 0.45);
+  --accent-primary: #35c9bc;
+  --accent-secondary: #c9b37a;
+  --accent-glow: rgba(53, 201, 188, 0.32);
+  --surface-input: rgba(34, 38, 43, 0.82);
+}
+
+/* Jemná textura broušeného kovu/matného skla na pozadí – čistě CSS gradient,
+   žádný obrázek. */
+[data-visual-theme='signature-elite'] body {
+  background-image:
+    repeating-linear-gradient(
+      115deg,
+      rgba(201, 179, 122, 0.035) 0px,
+      rgba(201, 179, 122, 0.035) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+}
+
+/* Šestiúhelníkový ("levitující") odznak ikony modulu – stejné bezpečné
+   cílení jen na mřížku modulů Dashboardu jako u Varianty 14, aby se
+   nezměnil vzhled sidebaru, dialogů ani jiných míst s .nav-item-active. */
+[data-visual-theme='signature-elite'] .dashboard-module-grid .neon-border {
+  border-color: var(--border-glass);
+  transition:
+    transform 280ms ease,
+    box-shadow 280ms ease,
+    border-color var(--accent-transition, 250ms ease);
+}
+
+[data-visual-theme='signature-elite'] .dashboard-module-grid a:hover.neon-border,
+[data-visual-theme='signature-elite'] .dashboard-module-grid a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(34, 38, 43, 0.12);
+}
+
+[data-visual-theme='signature-elite'] .dashboard-module-grid .nav-item-active {
+  position: relative;
+  border-radius: 10px;
+  clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%);
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.85),
+    rgba(201, 179, 122, 0.35) 55%,
+    rgba(255, 255, 255, 0.6)
+  );
+  border: 1px solid rgba(201, 179, 122, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 6px 14px rgba(34, 38, 43, 0.14);
+  transition: transform 280ms ease, box-shadow 280ms ease;
+}
+
+[data-visual-theme='signature-elite'][data-theme='dark'] .dashboard-module-grid .nav-item-active {
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(201, 179, 122, 0.22) 55%,
+    rgba(255, 255, 255, 0.06)
+  );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+[data-visual-theme='signature-elite'] .dashboard-module-grid a:hover .nav-item-active {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 10px 20px rgba(34, 38, 43, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-visual-theme='signature-elite'] .dashboard-module-grid a:hover,
+  [data-visual-theme='signature-elite'] .dashboard-module-grid a:hover .nav-item-active {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   Varianty 1–12 (dle dříve schválené analýzy, nyní implementovány)
+   ============================================================ */
+
+/* Varianta 1 – Design 2: Reprezentativní Dashboard */
+[data-visual-theme='design-2'][data-theme='dark'] {
+  --bg-base: #0a0e14;
+  --bg-elevated: #10161e;
+  --bg-glass: rgba(16, 22, 30, 0.7);
+  --bg-glass-hover: rgba(24, 32, 42, 0.85);
+  --border-glass: rgba(201, 162, 39, 0.22);
+  --border-glass-active: rgba(20, 184, 166, 0.4);
+  --accent-primary: #14b8a6;
+  --accent-secondary: #c9a227;
+  --accent-glow: rgba(20, 184, 166, 0.32);
+  --surface-input: rgba(10, 14, 20, 0.78);
+}
+[data-visual-theme='design-2'][data-theme='light'] {
+  --bg-base: #eef3f4;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --bg-glass-hover: rgba(255, 255, 255, 0.94);
+  --border-glass: rgba(201, 162, 39, 0.22);
+  --border-glass-active: rgba(13, 148, 136, 0.35);
+  --accent-primary: #0d9488;
+  --accent-secondary: #a9821f;
+  --accent-glow: rgba(13, 148, 136, 0.25);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+
+/* Varianta 2 – Motiv 4: Průmyslový a technický (kosočtvercové karty modulů) */
+[data-visual-theme='industrial-diamond'][data-theme='dark'] {
+  --bg-base: #0f1720;
+  --bg-elevated: #151f2a;
+  --bg-glass: rgba(21, 31, 42, 0.72);
+  --bg-glass-hover: rgba(30, 42, 56, 0.85);
+  --border-glass: rgba(181, 101, 29, 0.28);
+  --border-glass-active: rgba(45, 212, 191, 0.4);
+  --accent-primary: #b5651d;
+  --accent-secondary: #2dd4bf;
+  --accent-glow: rgba(181, 101, 29, 0.32);
+  --surface-input: rgba(15, 23, 32, 0.8);
+}
+[data-visual-theme='industrial-diamond'][data-theme='light'] {
+  --bg-base: #eef2f5;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-hover: rgba(255, 255, 255, 0.95);
+  --border-glass: rgba(181, 101, 29, 0.22);
+  --border-glass-active: rgba(13, 148, 136, 0.32);
+  --accent-primary: #a4571a;
+  --accent-secondary: #0d9488;
+  --accent-glow: rgba(164, 87, 26, 0.24);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+/* Diamantový (kosočtvercový) tvar odznaku ikony – jen na mřížce modulů */
+[data-visual-theme='industrial-diamond'] .dashboard-module-grid .nav-item-active {
+  border-radius: 6px;
+  transform: rotate(45deg);
+  transition: transform 250ms ease, box-shadow 250ms ease;
+}
+[data-visual-theme='industrial-diamond'] .dashboard-module-grid .nav-item-active svg {
+  transform: rotate(-45deg);
+}
+[data-visual-theme='industrial-diamond'] .dashboard-module-grid a:hover .nav-item-active {
+  transform: rotate(45deg) scale(1.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-visual-theme='industrial-diamond'] .dashboard-module-grid a:hover .nav-item-active {
+    transform: rotate(45deg);
+  }
+}
+
+/* Varianta 3 – Executive Purple Premium */
+[data-visual-theme='executive-purple-bronze'][data-theme='dark'] {
+  --bg-base: #150a1e;
+  --bg-elevated: #1e1129;
+  --bg-glass: rgba(30, 17, 41, 0.72);
+  --bg-glass-hover: rgba(40, 23, 55, 0.85);
+  --border-glass: rgba(156, 107, 48, 0.26);
+  --border-glass-active: rgba(107, 63, 160, 0.4);
+  --accent-primary: #9c6b30;
+  --accent-secondary: #6b3fa0;
+  --accent-glow: rgba(156, 107, 48, 0.3);
+  --surface-input: rgba(21, 10, 30, 0.8);
+}
+[data-visual-theme='executive-purple-bronze'][data-theme='light'] {
+  --bg-base: #f3eef8;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-hover: rgba(255, 255, 255, 0.95);
+  --border-glass: rgba(156, 107, 48, 0.22);
+  --border-glass-active: rgba(107, 63, 160, 0.3);
+  --accent-primary: #8a5a24;
+  --accent-secondary: #6b3fa0;
+  --accent-glow: rgba(107, 63, 160, 0.22);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+
+/* Varianta 4 – Executive Gold Black (šestiúhelníkové statistické panely) */
+[data-visual-theme='executive-gold-black-hex'][data-theme='dark'] {
+  --bg-base: #0a0a0a;
+  --bg-elevated: #141414;
+  --bg-glass: rgba(20, 20, 20, 0.74);
+  --bg-glass-hover: rgba(32, 32, 32, 0.86);
+  --border-glass: rgba(201, 162, 39, 0.3);
+  --border-glass-active: rgba(201, 162, 39, 0.5);
+  --accent-primary: #c9a227;
+  --accent-secondary: #6b6b6b;
+  --accent-glow: rgba(201, 162, 39, 0.34);
+  --surface-input: rgba(10, 10, 10, 0.8);
+}
+[data-visual-theme='executive-gold-black-hex'][data-theme='light'] {
+  --bg-base: #f4f2ee;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.86);
+  --bg-glass-hover: rgba(255, 255, 255, 0.96);
+  --border-glass: rgba(184, 134, 11, 0.24);
+  --border-glass-active: rgba(184, 134, 11, 0.38);
+  --accent-primary: #a9821f;
+  --accent-secondary: #6b6b6b;
+  --accent-glow: rgba(169, 130, 31, 0.26);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+/* Šestiúhelníkový odznak – zde aplikován na odznak ikony statistik/modulů */
+[data-visual-theme='executive-gold-black-hex'] .dashboard-module-grid .nav-item-active {
+  border-radius: 6px;
+  clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%);
+}
+
+/* Varianta 5 – Enterprise Dashboard (jednotný černomodrý motiv, zlaté akcenty) */
+[data-visual-theme='enterprise-unified'][data-theme='dark'] {
+  --bg-base: #0a0e12;
+  --bg-elevated: #111820;
+  --bg-glass: rgba(17, 24, 32, 0.72);
+  --bg-glass-hover: rgba(26, 36, 47, 0.85);
+  --border-glass: rgba(201, 162, 39, 0.24);
+  --border-glass-active: rgba(47, 111, 176, 0.4);
+  --accent-primary: #c9a227;
+  --accent-secondary: #2f6fb0;
+  --accent-glow: rgba(201, 162, 39, 0.3);
+  --surface-input: rgba(10, 14, 18, 0.8);
+}
+[data-visual-theme='enterprise-unified'][data-theme='light'] {
+  --bg-base: #eef1f5;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-hover: rgba(255, 255, 255, 0.95);
+  --border-glass: rgba(169, 130, 31, 0.22);
+  --border-glass-active: rgba(47, 111, 176, 0.3);
+  --accent-primary: #a9821f;
+  --accent-secondary: #2f6fb0;
+  --accent-glow: rgba(47, 111, 176, 0.22);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+
+/* Varianta 6 – Neon Crystal Technology */
+[data-visual-theme='neon-crystal-tech'][data-theme='dark'] {
+  --bg-base: #0a0e1a;
+  --bg-elevated: #101627;
+  --bg-glass: rgba(16, 22, 39, 0.7);
+  --bg-glass-hover: rgba(24, 32, 54, 0.85);
+  --border-glass: rgba(45, 212, 255, 0.24);
+  --border-glass-active: rgba(168, 85, 247, 0.4);
+  --accent-primary: #2dd4ff;
+  --accent-secondary: #a855f7;
+  --accent-glow: rgba(45, 212, 255, 0.35);
+  --surface-input: rgba(10, 14, 26, 0.8);
+}
+[data-visual-theme='neon-crystal-tech'][data-theme='light'] {
+  --bg-base: #eef6fb;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-hover: rgba(255, 255, 255, 0.95);
+  --border-glass: rgba(6, 182, 212, 0.22);
+  --border-glass-active: rgba(147, 51, 234, 0.3);
+  --accent-primary: #0891b2;
+  --accent-secondary: #9333ea;
+  --accent-glow: rgba(8, 145, 178, 0.22);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+
+/* Varianta 7 – Modern Office Professional (světlý, modrá + zelená) */
+[data-visual-theme='modern-office-professional'][data-theme='light'] {
+  --bg-base: #ffffff;
+  --bg-elevated: #f7f8f9;
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --bg-glass-hover: rgba(247, 248, 249, 0.98);
+  --border-glass: rgba(25, 118, 210, 0.18);
+  --border-glass-active: rgba(46, 125, 50, 0.3);
+  --accent-primary: #1976d2;
+  --accent-secondary: #2e7d32;
+  --accent-glow: rgba(25, 118, 210, 0.2);
+  --surface-input: rgba(255, 255, 255, 0.98);
+}
+[data-visual-theme='modern-office-professional'][data-theme='dark'] {
+  --bg-base: #14181c;
+  --bg-elevated: #1b2126;
+  --bg-glass: rgba(27, 33, 38, 0.72);
+  --bg-glass-hover: rgba(36, 43, 49, 0.85);
+  --border-glass: rgba(25, 118, 210, 0.24);
+  --border-glass-active: rgba(46, 125, 50, 0.35);
+  --accent-primary: #4d9de0;
+  --accent-secondary: #4caf50;
+  --accent-glow: rgba(77, 157, 224, 0.3);
+  --surface-input: rgba(20, 24, 28, 0.8);
+}
+
+/* Varianta 8 – Modern Silver Office 3D (chrom, zelená + fialová) */
+[data-visual-theme='modern-silver-3d'][data-theme='light'] {
+  --bg-base: #ffffff;
+  --bg-elevated: #f8f8f9;
+  --bg-glass: rgba(255, 255, 255, 0.88);
+  --bg-glass-hover: rgba(248, 248, 249, 0.97);
+  --border-glass: rgba(150, 150, 158, 0.35);
+  --border-glass-active: rgba(143, 191, 143, 0.4);
+  --accent-primary: #6fae6f;
+  --accent-secondary: #b39ddb;
+  --accent-glow: rgba(111, 174, 111, 0.24);
+  --surface-input: rgba(255, 255, 255, 0.98);
+}
+[data-visual-theme='modern-silver-3d'][data-theme='dark'] {
+  --bg-base: #16181a;
+  --bg-elevated: #1e2124;
+  --bg-glass: rgba(30, 33, 36, 0.72);
+  --bg-glass-hover: rgba(40, 44, 48, 0.85);
+  --border-glass: rgba(170, 170, 178, 0.28);
+  --border-glass-active: rgba(179, 157, 219, 0.4);
+  --accent-primary: #8fbf8f;
+  --accent-secondary: #b39ddb;
+  --accent-glow: rgba(143, 191, 143, 0.3);
+  --surface-input: rgba(22, 24, 26, 0.8);
+}
+/* Dvojitá plastická konstrukce boxu – jen na mřížce modulů */
+[data-visual-theme='modern-silver-3d'] .dashboard-module-grid .nav-item-active {
+  border-radius: 10px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 3px 8px rgba(0, 0, 0, 0.12),
+    0 0 0 3px var(--bg-elevated),
+    0 0 0 4px rgba(150, 150, 158, 0.25);
+}
+
+/* Varianta 9 – Professional Office Green (bílá + hráškově zelená) */
+[data-visual-theme='professional-office-green'][data-theme='light'] {
+  --bg-base: #ffffff;
+  --bg-elevated: #f7f9f7;
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --bg-glass-hover: rgba(247, 249, 247, 0.98);
+  --border-glass: rgba(95, 160, 95, 0.24);
+  --border-glass-active: rgba(95, 160, 95, 0.4);
+  --accent-primary: #5fa05f;
+  --accent-secondary: #8a8a8a;
+  --accent-glow: rgba(95, 160, 95, 0.22);
+  --surface-input: rgba(255, 255, 255, 0.98);
+}
+[data-visual-theme='professional-office-green'][data-theme='dark'] {
+  --bg-base: #131613;
+  --bg-elevated: #1a1e1a;
+  --bg-glass: rgba(26, 30, 26, 0.72);
+  --bg-glass-hover: rgba(35, 40, 35, 0.85);
+  --border-glass: rgba(95, 160, 95, 0.28);
+  --border-glass-active: rgba(95, 160, 95, 0.42);
+  --accent-primary: #79b579;
+  --accent-secondary: #9a9a9a;
+  --accent-glow: rgba(121, 181, 121, 0.3);
+  --surface-input: rgba(19, 22, 19, 0.8);
+}
+
+/* Varianta 10 – Dark Elegance Premium (antracit, modrozelené akcenty) */
+[data-visual-theme='dark-elegance-premium'][data-theme='dark'] {
+  --bg-base: #1a1d21;
+  --bg-elevated: #23272b;
+  --bg-glass: rgba(35, 39, 43, 0.72);
+  --bg-glass-hover: rgba(46, 51, 56, 0.85);
+  --border-glass: rgba(154, 154, 154, 0.22);
+  --border-glass-active: rgba(63, 176, 168, 0.4);
+  --accent-primary: #3fb0a8;
+  --accent-secondary: #9a9a9a;
+  --accent-glow: rgba(63, 176, 168, 0.3);
+  --surface-input: rgba(26, 29, 33, 0.8);
+}
+[data-visual-theme='dark-elegance-premium'][data-theme='light'] {
+  --bg-base: #eef1f1;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-hover: rgba(255, 255, 255, 0.95);
+  --border-glass: rgba(63, 176, 168, 0.22);
+  --border-glass-active: rgba(63, 176, 168, 0.35);
+  --accent-primary: #2a8a82;
+  --accent-secondary: #7a7a7a;
+  --accent-glow: rgba(42, 138, 130, 0.22);
+  --surface-input: rgba(255, 255, 255, 0.95);
+}
+
+/* Varianta 11 – Crystal Office Folder (3D kancelářské složky, modro-zelené) */
+[data-visual-theme='crystal-office-folder'][data-theme='light'] {
+  --bg-base: #ffffff;
+  --bg-elevated: #f8f9f9;
+  --bg-glass: rgba(255, 255, 255, 0.88);
+  --bg-glass-hover: rgba(248, 249, 249, 0.97);
+  --border-glass: rgba(150, 150, 158, 0.32);
+  --border-glass-active: rgba(47, 143, 122, 0.4);
+  --accent-primary: #2f8f7a;
+  --accent-secondary: #3f7fd0;
+  --accent-glow: rgba(47, 143, 122, 0.24);
+  --surface-input: rgba(255, 255, 255, 0.98);
+}
+[data-visual-theme='crystal-office-folder'][data-theme='dark'] {
+  --bg-base: #15181a;
+  --bg-elevated: #1d2124;
+  --bg-glass: rgba(29, 33, 36, 0.72);
+  --bg-glass-hover: rgba(38, 43, 47, 0.85);
+  --border-glass: rgba(170, 170, 178, 0.26);
+  --border-glass-active: rgba(63, 176, 149, 0.4);
+  --accent-primary: #4bb39c;
+  --accent-secondary: #5f9fe0;
+  --accent-glow: rgba(75, 179, 156, 0.3);
+  --surface-input: rgba(21, 24, 26, 0.8);
+}
+/* Tvar kancelářské složky – horní "záložka" simulovaná pseudo-elementem,
+   jen na odznaku ikony v mřížce modulů. */
+[data-visual-theme='crystal-office-folder'] .dashboard-module-grid .nav-item-active {
+  position: relative;
+  border-radius: 4px 10px 10px 10px;
+  background: linear-gradient(135deg, rgba(47, 143, 122, 0.35), rgba(63, 127, 208, 0.35));
+}
+[data-visual-theme='crystal-office-folder'] .dashboard-module-grid .nav-item-active::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 8%;
+  width: 35%;
+  height: 6px;
+  border-radius: 4px 4px 0 0;
+  background: inherit;
+}
+
+/* Varianta 12 – Office Crystal Double Square (dvojité čtvercové boxy, modrá) */
+[data-visual-theme='office-crystal-double-square'][data-theme='light'] {
+  --bg-base: #ffffff;
+  --bg-elevated: #f8f9fb;
+  --bg-glass: rgba(255, 255, 255, 0.9);
+  --bg-glass-hover: rgba(248, 249, 251, 0.98);
+  --border-glass: rgba(150, 150, 158, 0.3);
+  --border-glass-active: rgba(47, 111, 208, 0.4);
+  --accent-primary: #2f6fd0;
+  --accent-secondary: #9a9a9a;
+  --accent-glow: rgba(47, 111, 208, 0.24);
+  --surface-input: rgba(255, 255, 255, 0.98);
+}
+[data-visual-theme='office-crystal-double-square'][data-theme='dark'] {
+  --bg-base: #14171a;
+  --bg-elevated: #1c2024;
+  --bg-glass: rgba(28, 32, 36, 0.72);
+  --bg-glass-hover: rgba(38, 43, 48, 0.85);
+  --border-glass: rgba(170, 170, 178, 0.26);
+  --border-glass-active: rgba(79, 141, 224, 0.4);
+  --accent-primary: #4f8de0;
+  --accent-secondary: #9a9a9a;
+  --accent-glow: rgba(79, 141, 224, 0.3);
+  --surface-input: rgba(20, 23, 26, 0.8);
+}
+/* Dvojitá čtvercová konstrukce – zadní vrstva simulovaná posunutým stínem */
+[data-visual-theme='office-crystal-double-square'] .dashboard-module-grid .nav-item-active {
+  border-radius: 8px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    3px 3px 0 0 var(--bg-elevated),
+    3px 3px 0 1px rgba(150, 150, 158, 0.3);
+}
